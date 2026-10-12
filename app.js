@@ -1415,7 +1415,7 @@
 
   var ROLES = {
     "": {
-      id: "", title: "Без роли", ico: "◇", dat: "Оперативнику",
+      id: "", title: "Без роли", ico: "◇", dat: "По роли",
       note: "Показываются все инструменты без приоритетов.",
       prio: [],                 // ключевые слова, поднимающие элемент наверх
       hide: []                  // ключевые слова для пометки «не по роли»
@@ -1452,10 +1452,10 @@
 
   function roleDef() { return ROLES[state.role] || ROLES[""]; }
 
-  /* Название блока в дательном падеже — «Оперативнику», «Следователю» и т. д.
+  /* Название блока в дательном падеже — «По роли», «Оперативнику», «Следователю» и т. д.
      Используется в заголовке панели на главной и в группе сайдбара, чтобы
      подпись менялась вместе с ролью. */
-  function roleDative() { return roleDef().dat || "Оперативнику"; }
+  function roleDative() { return roleDef().dat || "По роли"; }
 
   /* Вес элемента для текущей роли: чем больше, тем выше в списке */
   function roleWeight(text) {
@@ -2023,7 +2023,7 @@
   }
   function routeTitle(r) {
     var t = {
-      home: "Навигатор", new: "Новое", assistant: "Помощник", scenarios: "Памятки оперативнику",
+      home: "Навигатор", new: "Новое", assistant: "Помощник", scenarios: "Памятки",
       checklists: "Чек-листы", templates: "Шаблоны документов", calc: "Калькуляторы",
       deadlines: "Процессуальные сроки", freshness: "Проверка актуальности", repealed: "Утратившие силу",
       diff: "Сравнение редакций", compare: "Две статьи бок о бок", favorites: "Избранное",
@@ -2327,7 +2327,7 @@
         '<button class="btn btn-sm" data-kinds-all="close">' + ic("minus") + " Свернуть</button>" +
       "</div>" +
       docGroups().map(function (g, i) {
-        return '<details class="kind-block"' + (i === 0 ? " open" : "") + ">" +
+        return '<details class="kind-block">' +
           '<summary class="kind-title">' + esc(g.title) + '<span class="cnt">' + g.items.length + "</span></summary>" +
           '<div class="grid grid-3">' + g.items.map(codeCard).join("") + "</div></details>";
       }).join("") +
@@ -3232,7 +3232,7 @@
     input.addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) analyze(); });
   }
 
-  /* ------------------------------------------------------ памятки оперативнику */
+  /* ------------------------------------------------------ памятки */
 
   var SCEN_TABS = [
     { k: "scenarios", t: "Памятки", h: "#/scenarios", ico: "shield" },
@@ -3282,7 +3282,7 @@
       if (!map[g]) { map[g] = { g: g, items: [] }; groups.push(map[g]); }
       map[g].items.push(s);
     });
-    return "<h1>Памятки оперативнику</h1>" +
+    return "<h1>Памятки</h1>" +
       '<p class="lead">Готовые сценарии типовых ситуаций: последовательность действий, применимые статьи, оформляемые документы и контрольные сроки. Материал справочный — сверяйтесь с действующей редакцией законов.</p>' +
       tabStrip(SCEN_TABS, "scenarios") +
       groups.map(function (gr) {
@@ -3305,7 +3305,7 @@
     if (!s) return "<h1>Памятка не найдена</h1>" +
       '<p class="lead">Такого сценария нет. <span class="lnk" data-go="#/scenarios">Все памятки →</span></p>';
     var arts = (s.articles || []).map(function (aid) { return byId[aid]; }).filter(Boolean);
-    return '<div class="crumbs"><span class="lnk" data-go="#/scenarios">Памятки оперативнику</span></div>' +
+    return '<div class="crumbs"><span class="lnk" data-go="#/scenarios">Памятки</span></div>' +
       "<h1>" + esc(s.t) + "</h1>" +
       '<p class="lead">' + esc(s.when) + "</p>" +
       tabStrip(SCEN_TABS, "scenarios") +
@@ -3626,7 +3626,7 @@
      установить. Собирается только из данных сайта и идёт первым, чтобы ответ
      читался с вывода. Заголовок намеренно не <h2>: первый h2 остаётся за
      самим развёрнутым разбором. */
-  function conclusionBox(help, scored, res, conf, qStems, keyArts) {
+  function conclusionBox(help, scored, res, conf, qStems, keyArts, practice) {
     var picked = {};
     Object.keys(asAnswers).forEach(function (q) { picked[asAnswers[q]] = 1; });
     var hasPicked = Object.keys(picked).length > 0;
@@ -3635,6 +3635,10 @@
     /* Нормы для вывода — единый список всего ответа: он собирается в
        assistantResult, чтобы каждая статья была показана ровно один раз. */
     var arts = keyArts || [];
+    /* Когда готового разбора нет, в «Вывод по запросу» всё равно выводим
+       близкие нормы, чтобы ответ не выглядел пустым: иначе пользователь
+       видел только «уточните описание» и воспринимал это как «нет ответа». */
+    if (!arts.length && res && res.length) arts = res.slice(0, 6).map(function (x) { return x.a; });
 
     var prim = assistantPrimary(help, scored);
 
@@ -3692,9 +3696,13 @@
           ". Проверьте указанные нормы и порядок действий; при необходимости уточните описание — " +
           "разбор пересчитается.";
     } else {
-      lead = "По ключевым словам однозначно определить тип ситуации не удалось." +
-        (res.length ? " Ниже — нормы, наиболее близкие к тексту запроса." : "") +
-        " Чтобы дать обоснованный вывод, уточните описание: кто участвовал, что именно произошло, " +
+      var near = [];
+      if (res && res.length) near.push("нормы, близкие к описанию");
+      if (practice && practice.length) near.push("разъяснения Пленума Верховного Суда РФ");
+      lead = "Прямого разбора под этот запрос в базе нет." +
+        (near.length ? " По смыслу описания ближе всего " + near.join(" и ") +
+          " — они собраны в начале ответа, проверьте их применимость." : "") +
+        " Чтобы получить обоснованный вывод, уточните описание: кто участвовал, что именно произошло, " +
         "какие наступили последствия и какой орган принял решение.";
     }
     /* При слабом совпадении честно предупреждаем: иначе ответ читается как
@@ -3818,7 +3826,7 @@
     /* Основы для дословных цитат: цитируем текст нормы по тем словам, которые
        действительно сработали в разборе, а не по всему описанию. */
     var qStems = FT ? FT.stems((hitWords.length ? hitWords.join(" ") : low)) : [];
-    var html = conclusionBox(help, scored, res, f.confidence, qStems, keyArts);
+    var html = conclusionBox(help, scored, res, f.confidence, qStems, keyArts, practice);
 
     if (help.length) {
       html += '<div class="ground-box"><span class="ico">' + ic("shield") + "</span>" +
@@ -3876,22 +3884,9 @@
         }).join("");
     }
 
-    if (res.length && !help.length && !scored.length) {
-      html += '<h2>Нормы, наиболее близкие к запросу</h2>' +
-        '<div class="small muted" style="margin:-6px 0 12px">Отобраны по словам описания — проверьте применимость к вашей ситуации.</div>' +
-        res.map(function (x) {
-        var a = x.a, c = codeById(a.c) || { short: a.c, color: "#888" };
-        return '<div class="result" data-go="#/article/' + encodeURIComponent(a.id) + '">' +
-          '<div class="result-head"><span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + '</span>' +
-          '<span class="result-num">ст. ' + esc(a.dn) + '</span><span class="result-title">' + esc(a.t) + "</span>" +
-          '<button class="ibtn ibtn-col' + (inCol(a.id) ? " on" : "") + '" data-col-add="' + esc(a.id) + '" ' +
-            'title="' + (inCol(a.id) ? "Убрать из подборку" : "Добавить в подборку") + '">' + ic("clip") + '</button></div>' +
-          (a.s ? '<div class="result-snippet">' + esc(snippet(a.s, [], 170)) + "</div>" : "") +
-          '<div class="as-san-body" data-as-san="' + esc(a.id) + '" data-c="' + esc(a.c) + '" data-n="' + esc(a.n) + '">' +
-            '<span class="muted small">загрузка санкций…</span></div>' +
-          "</div>";
-      }).join("");
-    }
+    /* Близкие нормы теперь выводятся в блоке «Вывод по запросу» (conclusionBox),
+       чтобы ответ не был пустым при отсутствии готового разбора. Дублировать
+       их отдельным списком — значит показывать те же статьи дважды. */
 
     html += '<div class="disclaimer"><b>Важно.</b> Подбор норм выполняется по ключевым словам автоматически и носит ориентировочный характер. Решение по делу принимает уполномоченное должностное лицо.</div>';
     return html;
@@ -6108,7 +6103,7 @@
       var c = codeById(r.art.c) || { short: r.art.c, color: "#888" };
       var rel = r.date ? relDay(r.date) : "";
       return { m: (r.date || "").slice(0, 7), h:
-        '<div class="rep-item">' +
+        '<div class="rep-item" data-go="#/article/' + encodeURIComponent(r.id) + '">' +
         '<div class="rep-item-head">' +
           '<span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + "</span>" +
           '<span class="result-num">ст. ' + esc(r.art.dn) + "</span>" +
@@ -6117,7 +6112,7 @@
           '<span style="margin-left:auto;display:flex;gap:6px">' +
             '<button class="ibtn ibtn-col' + (inCol(r.id) ? " on" : "") + '" data-col-add="' + esc(r.id) + '" ' +
               'title="' + (inCol(r.id) ? "Убрать из подборки" : "Добавить в подборку") + '">' + ic("clip") + '</button>' +
-            '<button class="ibtn" data-go="#/article/' + encodeURIComponent(r.id) + '" title="Открыть статью">→</button>' +
+            '<span class="ibtn" data-go="#/article/' + encodeURIComponent(r.id) + '" title="Открыть статью">→</span>' +
           "</span>" +
         "</div>" +
         (r.act ? '<div class="rep-item-act">Основание: ' + esc(r.act) +
@@ -6808,7 +6803,7 @@
       quickCard("compass", "Разбор ситуации", "Опишите вопрос обычным языком — помощник покажет нормы и что делать", "#/assistant", "violet") +
       quickCard("calculator", "Калькуляторы", "Обычный счёт, процессуальные сроки, давность, пошлина, неустойка, сроки под стражей", "#/calc", "amber") +
       quickCard("activity", "Что нового", "Лента изменений по дням: новые статьи, редакции, утрата силы", "#/new", "rose") +
-      quickCard("shield", "Памятки оперативнику", "Порядок действий: досмотр, задержание, ОРМ, приём заявлений", "#/scenarios", "teal") +
+      quickCard("shield", "Памятки", "Порядок действий: досмотр, задержание, ОРМ, приём заявлений", "#/scenarios", "teal") +
       quickCard("checkbox", "Чек-листы и шаблоны", "Действия по следственным мероприятиям и готовые бланки по отраслям", "#/templates", "green") +
       "</div>";
 
@@ -6829,7 +6824,8 @@
         "<p>Опишите ситуацию обычным языком — помощник определит отрасль, вероятный состав, объект и предмет, покажет квалификацию, санкцию, что нужно установить и что сделать, и уточнит детали вопросами.</p>" +
         "<p>Разбор строится <b>только по текстам, размещённым на сайте</b>: каждая ссылка ведёт на статью действующей редакции, а под разбором указаны источники с датами редакций. Сослаться на норму, которой в базе нет, помощник не может.</p>" +
         "<p>Упоминания норм в разборах, памятках и примечаниях — <b>кликабельные ссылки</b>: «ст. 105 УК РФ» или «п. 6 постановления Пленума ВС РФ № 29» ведут прямо на нужный пункт действующей редакции.</p>" +
-        "<p>Разборы охватывают хищения и их формы, вред здоровью, наркотики, оружие, взятки, ДТП, задержание, обыск и выемку, личный досмотр, оперативно-розыскные мероприятия, угон, угрозы, приём заявлений (КУСП), миграцию, трудовые и имущественные споры.</p>") +
+        "<p>Разборы охватывают хищения и их формы, вред здоровью, наркотики, оружие, взятки, ДТП, задержание, обыск и выемку, личный досмотр, оперативно-розыскные мероприятия, угон, угрозы, приём заявлений (КУСП), миграцию, трудовые и имущественные споры.</p>" +
+        "<p>По смыслу запроса помощник также подбирает разъяснения Пленума Верховного Суда РФ — блок «Судебная практика» под разбором: постановления не создают норму, а разъясняют, как её применять.</p>") +
 
       sec("Источники, редакции и статусы", "book",
         "<p>В сайдбаре слева — все акты, сгруппированные по виду: Конституция, Кодексы, ФКЗ, ФЗ, постановления Правительства, Пленумы ВС РФ. Группу можно <b>свернуть и развернуть</b> кликом по заголовку — состояние запоминается.</p>" +
@@ -8372,7 +8368,7 @@
         "</span>" +
       "</div>" +
 
-      (chips ? '<div class="chips" style="margin-bottom:14px">' + chips + "</div>" : "") +
+      (chips ? '<div class="chips nf-chips" style="margin-bottom:14px">' + chips + "</div>" : "") +
 
       body +
 
@@ -8411,7 +8407,7 @@
     var navs = [
       { t: "Навигатор", h: "#/home", k: "главная начало" },
       { t: "Помощник", h: "#/assistant", k: "помощник разбор ситуации анализ консультант вопрос" },
-      { t: "Памятки оперативнику", h: "#/scenarios", k: "памятка сценарий оперативник орм что делать порядок действий досмотр доставление кусп" },
+      { t: "Памятки", h: "#/scenarios", k: "памятка сценарий оперативник орм что делать порядок действий досмотр доставление кусп" },
       { t: "Калькуляторы", h: "#/calc", k: "калькулятор рассчитать посчитать арифметика сложить умножить разделить обычный счёт 5+5 срок давность пошлина неустойка проценты 395 госпошлина 333.19 зачёт стража задержание" },
       { t: "Процессуальные сроки", h: "#/deadlines", k: "сроки калькулятор" },
       { t: "Проверка актуальности", h: "#/freshness", k: "актуальность обновление редакция сверить" },

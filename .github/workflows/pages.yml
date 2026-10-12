@@ -1,0 +1,68 @@
+# =========================================================================
+# Правовой консультант :: публикация на GitHub Pages
+# -------------------------------------------------------------------------
+# На каждый push в main — в том числе на коммит ночной сборки — собирает
+# каталог публикации dist/ и выкладывает его на GitHub Pages.
+#
+# Почему GitHub Pages, а не Vercel или Cloudflare Pages: из России без VPN
+# ни один из них не открывается (замер: *.vercel.app и pages.dev не
+# отвечают вовсе, github.io работает). Подробности — DEPLOY.md, раздел 3.
+#
+# Что сделать один раз вручную: Settings → Pages → Build and deployment →
+# Source: GitHub Actions. Без этого задача упадёт на шаге «Настройка Pages».
+#
+# Запуск вручную: вкладка Actions → «Публикация» → Run workflow.
+# =========================================================================
+name: Публикация
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Права: выкладка в Pages идёт через OIDC-токен, содержимое нужно только
+# на чтение — этот workflow ничего не коммитит.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Одновременно — только одна выкладка. Идущую до конца не отменяем:
+# прерванный деплой оставил бы сайт в промежуточном состоянии.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Получение репозитория
+        uses: actions/checkout@v4
+
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Собирается только то, что нужно посетителю: index.html, app.js,
+      # styles.css, favicon.svg и data/. Отдавать корень нельзя — tools/,
+      # .github/ и package.json стали бы доступны по прямым ссылкам.
+      - name: Сборка каталога публикации
+        run: node tools/build-dist.js
+
+      - name: Настройка Pages
+        uses: actions/configure-pages@v5
+
+      - name: Загрузка каталога
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Выкладка
+        id: deployment
+        uses: actions/deploy-pages@v4

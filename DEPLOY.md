@@ -65,7 +65,7 @@ git remote add origin https://github.com/<ваш-логин>/pravovoy-konsultant
 git push -u origin main
 ```
 
-Уйдёт **304 файла, ~102 МБ** — на небыстром канале это несколько минут.
+Уйдёт **300 файлов, ~101 МБ** — на небыстром канале это несколько минут.
 
 **Шаг 4. Разрешить ночной сборке писать в репозиторий.**
 Репозиторий → **Settings → Actions → General → Workflow permissions** →

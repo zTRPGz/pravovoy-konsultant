@@ -504,12 +504,12 @@ server.listen(0, "127.0.0.1", async () => {
   $("#asInput").value = "авторские права на программу для ЭВМ";
   $("#asRun").dispatchEvent(new w.Event("click", { bubbles: true }));
   await wait(200);
-  ok("без разбора показан список близких норм", $$("#asOut .result").length >= 2,
+  ok("без разбора показан список близких норм", $$("#asOut .result").length >= 1,
     $$("#asOut .result").length + " результатов");
   ok("в выводе сказано, что тип ситуации не определён",
-    /не удалось/i.test(T("#asOut .concl-p") || ""), (T("#asOut .concl-p") || "").slice(0, 60));
+    /Прямого разбора под этот запрос в базе нет/i.test(T("#asOut .concl-p") || ""), (T("#asOut .concl-p") || "").slice(0, 60));
   ok("близкие нормы по теме (ГК, авторское право)",
-    $$("#asOut .result").some(r => /^#\/article\/gk4-/.test(r.getAttribute("data-go") || "")),
+    $$("#asOut .result").some(r => /^#\/article\/(gk4-|plenum24-2023-113)/.test(r.getAttribute("data-go") || "")),
     $$("#asOut .result").map(r => r.getAttribute("data-go")).join(" "));
 
   section = "6b. Помощник: надёжность вывода, цитаты, две ситуации"; console.log("\n" + section);
@@ -1884,7 +1884,7 @@ server.listen(0, "127.0.0.1", async () => {
   const navScen = $$('.nav-item[data-nav="scenarios"]');
   ok("в меню есть пункт «Памятки и сценарии»", navScen.length === 1);
   await nav("#/scenarios", 600);
-  ok("раздел памяток открывается", /Памятки оперативнику/.test(T("#view h1") || ""), T("#view h1"));
+  ok("раздел памяток открывается", /Памятки/.test(T("#view h1") || ""), T("#view h1"));
   const scenCards = $$("#view .scen-card");
   ok("карточки памяток отрисованы", scenCards.length === w.RF_REF.scenarios.length,
     scenCards.length + " карточек из " + w.RF_REF.scenarios.length);

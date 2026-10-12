@@ -525,6 +525,7 @@ h3 { font-size: var(--fs-6); margin: 18px 0 8px; font-weight: 650; }
 }
 .chip .ic { width: 1em; height: 1em; color: var(--accent); margin-right: 5px; }
 .chip .dot { margin-right: 5px; }
+.chip .cnt { margin-left: 7px; }
 .chip.on {
   border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
   background: var(--accent-bg); color: var(--accent); font-weight: 600;
@@ -2153,8 +2154,8 @@ body::-webkit-scrollbar-track { background: transparent; }
    Все длительности короткие (150–300 мс) и с одной кривой: интерфейс должен
    ощущаться отзывчивым, а не «анимированным». Полностью отключается в
    prefers-reduced-motion (блок ниже). */
-@keyframes viewIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-#view.view-anim { animation: viewIn .2s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes viewIn { from { opacity: 0; transform: translateY(10px) scale(.992); } to { opacity: 1; transform: none; } }
+#view.view-anim { animation: viewIn .26s cubic-bezier(.22,.7,.25,1) both; will-change: transform, opacity; }
 
 /* поочерёдный вход карточек раздела: задержку ставит app.js (staggerIn),
    класс — только про саму анимацию */
@@ -2172,6 +2173,22 @@ body::-webkit-scrollbar-track { background: transparent; }
 /* отклик кнопок на нажатие */
 .btn:active { transform: translateY(1px); }
 .icon-btn:active { transform: translateY(0) scale(.96); }
+
+/* мини-окно Помощника: превью статьи поверх вкладки */
+.art-modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 18px; }
+.art-modal[hidden] { display: none; }
+.art-modal-back { position: absolute; inset: 0; background: rgba(0,0,0,.55); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); animation: fadeIn .18s ease both; }
+.art-modal-card { position: relative; width: min(720px, 100%); max-height: min(86vh, 920px); display: flex; flex-direction: column; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: 0 20px 60px rgba(0,0,0,.4); overflow: hidden; animation: viewIn .22s cubic-bezier(.2,.7,.3,1) both; }
+.art-modal-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.art-modal-t { display: flex; align-items: center; gap: 8px; font-weight: 620; color: var(--text); min-width: 0; }
+.art-modal-t .ic { color: var(--accent); flex: none; }
+.art-modal-t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.art-modal-x { margin-left: auto; flex: none; }
+.art-modal-body { padding: 14px 16px; overflow: auto; }
+.art-modal-text { white-space: pre-wrap; line-height: 1.6; }
+.art-modal-san { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 6px; }
+body.modal-open { overflow: hidden; }
+.btn.busy { opacity: .65; cursor: progress; }
 
 /* безопасные отступы под «чёлку» и home-indicator (iOS / Android) */
 .to-top { right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }

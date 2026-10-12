@@ -100,6 +100,7 @@
     print: '<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
     menu: '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>',
     close: '<path d="m6 6 12 12"/><path d="m18 6-12 12"/>',
+    camera: '<path d="M3 8a2 2 0 0 1 2-2h2l1.4-2h7.2L19 6h0a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.4"/>',
     up: '<path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>',
     backspace: '<path d="M9.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9.5L3 12z"/><path d="m12.5 9.5 5 5"/><path d="m17.5 9.5-5 5"/>',
     calculator: '<rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8.2" y="6" width="7.6" height="3" rx="1"/><path d="M8.6 12.4h.01"/><path d="M12 12.4h.01"/><path d="M15.4 12.4h.01"/><path d="M8.6 16h.01"/><path d="M12 16h.01"/><path d="M15.4 16h.01"/>'
@@ -1517,7 +1518,57 @@
        перерисовка view (и статичная кнопка в сайдбаре) не дублирует слушатели */
     if (roleDelegated) return;
     roleDelegated = true;
-    document.addEventListener("click", function (e) {
+    /* Мини-окно Помощника: превью статьи поверх вкладки, без перехода.
+     Текст берётся из полного текста (loadFull/findFull) — тех же данных,
+     что и в карточке статьи. */
+  function openArticleModal(artId) {
+    var a = byId[artId];
+    var box = $("#artModal");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "artModal"; box.className = "art-modal"; box.hidden = true;
+      document.body.appendChild(box);
+      box.addEventListener("click", function (ev) {
+        if (ev.target.closest("[data-art-close]")) closeArticleModal();
+      });
+    }
+    var c, n;
+    if (a) { c = a.c; n = a.n; }
+    else { var li = artId.lastIndexOf("-"); c = artId.substring(0, li); n = artId.substring(li + 1); }
+    var title = a ? (cite(a) + " — " + a.t) : artId;
+    box.innerHTML =
+      '<div class="art-modal-back" data-art-close></div>' +
+      '<div class="art-modal-card" role="dialog" aria-modal="true">' +
+        '<div class="art-modal-top">' +
+          '<div class="art-modal-t">' + ic("book") + "<span>" + esc(title) + "</span></div>" +
+          '<button class="ibtn art-modal-x" type="button" data-art-close title="Закрыть">' + ic("close") + "</button>" +
+        "</div>" +
+        '<div class="art-modal-body"><div class="muted small">загрузка текста статьи…</div></div>' +
+      "</div>";
+    box.hidden = false;
+    document.body.classList.add("modal-open");
+    var body = box.querySelector(".art-modal-body");
+    loadFull(c, function (err) {
+      if (!body) return;
+      if (err) { body.innerHTML = '<div class="muted">текст недоступен офлайн</div>'; return; }
+      var F2 = findFull(c, n);
+      if (!F2) { body.innerHTML = '<div class="muted">текст недоступен</div>'; return; }
+      var html = '<div class="muted small" style="margin-bottom:10px">Действующая редакция: ' + esc(F2[3] || "—") + "</div>";
+      html += '<div class="art-modal-text">' + esc(F2[4] || "") + "</div>";
+      var sb = sanctionBlocks(F2[4], { doc: c, num: n });
+      if (sb) html += '<div class="art-modal-san"><div class="muted small" style="margin:12px 0 4px">Санкция / основное содержание</div>' + sb + "</div>";
+      body.innerHTML = html;
+    });
+  }
+  function closeArticleModal() {
+    var b = $("#artModal");
+    if (b) b.hidden = true;
+    document.body.classList.remove("modal-open");
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { var m = $("#artModal"); if (m && !m.hidden) closeArticleModal(); }
+  });
+  document.addEventListener("click", function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
       var b = t.closest("[data-role]");
@@ -1985,15 +2036,16 @@
      десять разделов накапливалось десять строк, и в истории выглядело так,
      будто сайт открывали десять раз. Теперь переход заменяет текущую запись:
      адрес обновляется (ссылку на раздел по-прежнему можно скопировать и
-     сохранить), а в истории остаётся одна строка на визит. Кнопка «Назад»
-     уходит с сайта, а не листает вкладки, — это ровно то поведение, которого
-     ждёт человек, просидевший на одном сайте.
+     сохранить). Переходы между разделами теперь добавляются в историю браузера,
+     поэтому кнопка «Назад» возвращает на предыдущий раздел, а не уводит с
+     сайта (поведение добавлено по просьбе пользователя).
 
      Hash-маршрутизация сохранена сознательно: она работает и с file://, и на
      любом статическом хостинге без SPA-перенаправлений. */
   function go(hash) {
-    try { location.replace(hash); }
-    catch (e) { location.hash = hash; }
+    /* Переход добавляет запись в историю — кнопка «Назад» листает разделы */
+    try { location.hash = hash; }
+    catch (e) { try { location.replace(hash); } catch (e2) {} }
   }
 
   function parseHash() {
@@ -3181,7 +3233,9 @@
         '<textarea class="textarea" id="asInput" placeholder="Например: задержали с наркотиками; сосед затопил квартиру; уволили за прогул"></textarea></div>' +
         '<div class="actions-row" style="margin-top:0">' +
           '<button class="btn btn-primary" id="asRun">' + ic("compass") + " Разобрать</button>" +
+          '<button class="btn" id="asOcr" type="button" title="Распознать текст с фотографии документа (нужен интернет)">Фото в текст</button>' +
           '<button class="btn" id="asClear">Очистить</button>' +
+          '<input type="file" id="asOcrFile" accept="image/*" hidden>' +
         "</div>" +
         '<div class="chips" style="margin-top:12px">' +
           examples.map(function (x) {
@@ -3230,6 +3284,47 @@
       el.addEventListener("click", function () { input.value = el.getAttribute("data-fill"); analyze(); });
     });
     input.addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) analyze(); });
+    var ocrBtn = $("#asOcr"), ocrFile = $("#asOcrFile");
+    if (ocrBtn && ocrFile) {
+      ocrBtn.addEventListener("click", function () { ocrFile.click(); });
+      ocrFile.addEventListener("change", function () {
+        var f = ocrFile.files && ocrFile.files[0];
+        ocrFile.value = "";
+        if (f) runOcr(f);
+      });
+    }
+    function ensureTesseract(cb) {
+      if (window.Tesseract) { cb(); return; }
+      toast("Загружаю движок распознавания…");
+      var sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+      sc.onload = function () { cb(); };
+      sc.onerror = function () { toast("Не удалось загрузить движок распознавания (нужен интернет)"); };
+      document.head.appendChild(sc);
+    }
+    function runOcr(file) {
+      if (location.protocol === "file:") {
+        toast("Распознавание фото работает на опубликованном сайте (https), а не из файла");
+        return;
+      }
+      if (ocrBtn) { ocrBtn.disabled = true; ocrBtn.classList.add("busy"); }
+      toast("Распознаю текст с фото…");
+      ensureTesseract(function () {
+        if (!window.Tesseract) { if (ocrBtn) { ocrBtn.disabled = false; ocrBtn.classList.remove("busy"); } return; }
+        window.Tesseract.recognize(file, "rus", {
+          logger: function (m) { if (m && m.status === "recognizing text" && m.progress != null) toast("Распознаю текст с фото… " + Math.round(m.progress * 100) + "%"); }
+        }).then(function (res) {
+          var t = (res && res.data && res.data.text ? res.data.text : "").trim();
+          var inp = $("#asInput");
+          if (inp && t) { inp.value = inp.value ? inp.value + "\n" + t : t; inp.focus(); }
+          toast(t ? "Текст распознан — можно разобрать" : "Текст не распознан");
+        }).catch(function (err) {
+          toast("Не удалось распознать: " + (err && err.message ? err.message : err));
+        }).finally(function () {
+          if (ocrBtn) { ocrBtn.disabled = false; ocrBtn.classList.remove("busy"); }
+        });
+      });
+    }
   }
 
   /* ------------------------------------------------------ памятки */
@@ -8480,6 +8575,17 @@
       /* e.target может быть самим document (клик по пустому месту) */
       if (!e.target || typeof e.target.closest !== "function") return;
 
+    /* Помощник: клик по ссылке/блоку статьи внутри #asOut открывает мини-окно
+       с текстом, не уводя с вкладки (запрос и разбор сохраняются) */
+    if (e.target.closest) {
+      var asArt = e.target.closest('#asOut a[href^="#/article/"], #asOut [data-go^="#/article/"]');
+      if (asArt) {
+        e.preventDefault();
+        var href = asArt.getAttribute("href") || asArt.getAttribute("data-go") || "";
+        openArticleModal(decodeURIComponent(href.replace(/^#\/article\//, "")));
+        return;
+      }
+    }
       /* фильтры выдачи: источник, «только действующие», порядок сортировки.
          Перерисовываем только область результатов — адрес и прокрутка не
          меняются, иначе смена фильтра выбрасывала бы к началу страницы. */

@@ -670,6 +670,12 @@
       var sub = byCode[p.code];
       if (sub && sub.length) pool = sub;
     }
+    /* Ограничение выдачи одним видом источника: Помощник отдельно спрашивает
+       судебную практику, и подмешивать в этот запрос кодексы нельзя. */
+    if (opt.kind) pool = pool.filter(function (a) {
+      var c = CO[a.c];
+      return !!c && c.kind === opt.kind;
+    });
 
     var qStems = FT ? FT.stems(p.tokens.join(" ")) : [];
     var mustStems = FT ? FT.stems(p.must.join(" ")) : [];
@@ -3760,6 +3766,7 @@
     scored.forEach(function (x) { hitWords = hitWords.concat(x.hits); });
     var res = search(hitWords.length ? hitWords.join(" ") : text, { need: 1, cut: 0.5 }).slice(0, 5);
 
+
     /* Единый перечень норм ответа. Порядок — по близости к описанию (сначала
        нормы разборов, затем нормы правил, внутри блока — в том порядке, в
        каком они выписаны в данных сайта: по соглашению первая и есть самая
@@ -3782,6 +3789,31 @@
        описания (блок «Нормы, наиболее близкие к запросу») — второй такой же
        список в выводе был бы повтором. */
     var keyArts = (help.length || scored.length) ? keyIds.slice(0, 8) : [];
+
+    /* Судебная практика. Ни один разбор и ни одно правило на постановления
+       Пленума не ссылались, поэтому в ответы они не попадали вовсе — хотя на
+       сайте лежат 99 постановлений (3491 пункт), и это самый авторитетный
+       источник толкования после самого кодекса.
+       Запрос собираем не из слов описания, а из ПРАВОВЫХ формулировок: человек
+       пишет «украл телефон», а Пленум говорит «тайное хищение чужого
+       имущества». По бытовым словам практика не находилась вовсе — «украл» и
+       «магазин» в текстах постановлений просто не встречаются. Названия уже
+       подобранных норм и разборов переводят описание на язык права.
+       Порог cov >= 2 — не меньше двух точных совпадений основ слов: по одному
+       общему слову («суд», «дело») в практику попадало что угодно. */
+    var practiceQ = keyIds.slice(0, 5).map(function (a) { return a.t; }).join(" ");
+    help.forEach(function (x) { practiceQ += " " + x.h.t; });
+    scored.slice(0, 2).forEach(function (x) { practiceQ += " " + x.it.t; });
+    /* Справочные пометы в скобках — «(ст. 166 УК РФ)», «(в ред. ...)» — в текстах
+       постановлений не встречаются и своими редкими словами («ст», «166», «рф»)
+       обнуляли выдачу: запрос с ними находил 0 пунктов, без них — 5. Убираем. */
+    practiceQ = practiceQ.replace(/\([^)]*\)/g, " ");
+    if (practiceQ.replace(/[^а-яёa-z0-9]/gi, "").length < 4) {
+      practiceQ = hitWords.length ? hitWords.join(" ") : low;
+    }
+    var practice = search(practiceQ, { need: 1, cut: 0.5, kind: "plenum" })
+      .filter(function (x) { return x.cov >= 2; })
+      .slice(0, 3);
 
     /* Основы для дословных цитат: цитируем текст нормы по тем словам, которые
        действительно сработали в разборе, а не по всему описанию. */
@@ -3824,6 +3856,26 @@
        по словам описания тянул статьи соседних отраслей (Жилищный кодекс на
        слово «кооператив», закон об ипотеке на слово «квартира») — это и была
        «лишняя, не по теме» информация. */
+    if (practice.length) {
+      html += '<h2>Судебная практика</h2>' +
+        '<div class="small muted" style="margin:-6px 0 12px">Постановления Пленума Верховного Суда РФ не создают норму, а разъясняют, как её применять. Пункты отобраны по словам описания — проверьте применимость к вашей ситуации.</div>' +
+        practice.map(function (x) {
+          var a = x.a, c = codeById(a.c) || { short: a.c, color: "#888" };
+          return '<div class="result" data-go="#/article/' + encodeURIComponent(a.id) + '">' +
+            '<div class="result-head">' +
+              '<span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.abbr || c.short) + "</span>" +
+              '<span class="result-num">' + esc(unitShort(c, a.dn)) + "</span>" +
+              '<span class="result-title">' + esc(a.t) + "</span>" +
+              '<button class="ibtn ibtn-col' + (inCol(a.id) ? " on" : "") + '" data-col-add="' + esc(a.id) + '" ' +
+                'title="' + (inCol(a.id) ? "Убрать из подборку" : "Добавить в подборку") + '">' + ic("clip") + "</button>" +
+            "</div>" +
+            (a.s ? '<div class="result-snippet">' + esc(snippet(a.s, [], 170)) + "</div>" : "") +
+            '<div class="result-meta"><span>' + esc(c.branch || "") + "</span>" +
+              (c.redaction ? "<span>ред. от " + esc(fmtRed(c.redaction)) + "</span>" : "") + "</div>" +
+          "</div>";
+        }).join("");
+    }
+
     if (res.length && !help.length && !scored.length) {
       html += '<h2>Нормы, наиболее близкие к запросу</h2>' +
         '<div class="small muted" style="margin:-6px 0 12px">Отобраны по словам описания — проверьте применимость к вашей ситуации.</div>' +

@@ -1518,56 +1518,6 @@
        перерисовка view (и статичная кнопка в сайдбаре) не дублирует слушатели */
     if (roleDelegated) return;
     roleDelegated = true;
-    /* Мини-окно Помощника: превью статьи поверх вкладки, без перехода.
-     Текст берётся из полного текста (loadFull/findFull) — тех же данных,
-     что и в карточке статьи. */
-  function openArticleModal(artId) {
-    var a = byId[artId];
-    var box = $("#artModal");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "artModal"; box.className = "art-modal"; box.hidden = true;
-      document.body.appendChild(box);
-      box.addEventListener("click", function (ev) {
-        if (ev.target.closest("[data-art-close]")) closeArticleModal();
-      });
-    }
-    var c, n;
-    if (a) { c = a.c; n = a.n; }
-    else { var li = artId.lastIndexOf("-"); c = artId.substring(0, li); n = artId.substring(li + 1); }
-    var title = a ? (cite(a) + " — " + a.t) : artId;
-    box.innerHTML =
-      '<div class="art-modal-back" data-art-close></div>' +
-      '<div class="art-modal-card" role="dialog" aria-modal="true">' +
-        '<div class="art-modal-top">' +
-          '<div class="art-modal-t">' + ic("book") + "<span>" + esc(title) + "</span></div>" +
-          '<button class="ibtn art-modal-x" type="button" data-art-close title="Закрыть">' + ic("close") + "</button>" +
-        "</div>" +
-        '<div class="art-modal-body"><div class="muted small">загрузка текста статьи…</div></div>' +
-      "</div>";
-    box.hidden = false;
-    document.body.classList.add("modal-open");
-    var body = box.querySelector(".art-modal-body");
-    loadFull(c, function (err) {
-      if (!body) return;
-      if (err) { body.innerHTML = '<div class="muted">текст недоступен офлайн</div>'; return; }
-      var F2 = findFull(c, n);
-      if (!F2) { body.innerHTML = '<div class="muted">текст недоступен</div>'; return; }
-      var html = '<div class="muted small" style="margin-bottom:10px">Действующая редакция: ' + esc(F2[3] || "—") + "</div>";
-      html += '<div class="art-modal-text">' + esc(F2[4] || "") + "</div>";
-      var sb = sanctionBlocks(F2[4], { doc: c, num: n });
-      if (sb) html += '<div class="art-modal-san"><div class="muted small" style="margin:12px 0 4px">Санкция / основное содержание</div>' + sb + "</div>";
-      body.innerHTML = html;
-    });
-  }
-  function closeArticleModal() {
-    var b = $("#artModal");
-    if (b) b.hidden = true;
-    document.body.classList.remove("modal-open");
-  }
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") { var m = $("#artModal"); if (m && !m.hidden) closeArticleModal(); }
-  });
   document.addEventListener("click", function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
@@ -2031,20 +1981,33 @@
 
   /* Переход по разделам приложения.
 
-     Один сайт — одна запись в истории. Раньше каждый клик по вкладке делал
-     `location.hash = …` и добавлял в историю браузера новую запись: за
-     десять разделов накапливалось десять строк, и в истории выглядело так,
-     будто сайт открывали десять раз. Теперь переход заменяет текущую запись:
-     адрес обновляется (ссылку на раздел по-прежнему можно скопировать и
-     сохранить). Переходы между разделами теперь добавляются в историю браузера,
-     поэтому кнопка «Назад» возвращает на предыдущий раздел, а не уводит с
-     сайта (поведение добавлено по просьбе пользователя).
+     Один сайт — одна запись в истории. go() обновляет URL через
+     history.replaceState, поэтому переходы между вкладками НЕ копят историю
+     браузера: кнопка «Назад» уводит на предыдущую внешнюю страницу, а не
+     перебирает разделы. Ссылку на текущий раздел по-прежнему можно скопировать
+     из адресной строки.
+
+     Мини-окно Помощника устроено так же (см. openArticleModal): адрес
+     подменяется replaceState, поэтому просмотренные статьи тоже не
+     откладываются в истории.
 
      Hash-маршрутизация сохранена сознательно: она работает и с file://, и на
      любом статическом хостинге без SPA-перенаправлений. */
   function go(hash) {
-    /* Переход добавляет запись в историю — кнопка «Назад» листает разделы */
-    try { location.hash = hash; }
+    /* Закрываем мини-окно Помощника, если оно открыто, и забываем адрес
+       возврата — иначе окно «вернуло» бы адрес уже покинутого раздела. */
+    var m = $("#artModal");
+    if (m && !m.hidden) { m.hidden = true; document.body.classList.remove("modal-open"); }
+    modalReturnUrl = null;
+    try {
+      var url = location.pathname + location.search + (hash || "");
+      history.replaceState({ modal: false }, "", url);
+      /* hashchange при replaceState не срабатывает, поэтому раздел
+         перерисовываем вручную: render() сам разбирает новый адрес.
+         (parseHash() здесь был ошибкой — он только читает адрес и ничего
+         не рисует, из-за чего переходы меняли URL, но не экран.) */
+      render();
+    }
     catch (e) { try { location.replace(hash); } catch (e2) {} }
   }
 
@@ -3302,6 +3265,50 @@
       sc.onerror = function () { toast("Не удалось загрузить движок распознавания (нужен интернет)"); };
       document.head.appendChild(sc);
     }
+    /* Подготовка снимка к распознаванию. Tesseract рассчитан на тёмный текст
+       по светлому фону, а снимок экрана в ночной теме — наоборот: светлые буквы
+       на тёмном. На таких фото движок путает похожие буквы («следует» →
+       «спедует»). Поэтому переводим картинку в серый, при тёмном фоне
+       инвертируем, растягиваем контраст и увеличиваем мелкий снимок.
+       Если что-то не сработало (canvas недоступен, файл не картинка) — отдаём
+       исходный файл: распознавание идёт как раньше, без подготовки. */
+    function prepOcrImage(file, cb) {
+      var url = null;
+      try { url = URL.createObjectURL(file); } catch (e) { cb(file); return; }
+      var img = new Image();
+      img.onload = function () {
+        var failed = false;
+        try {
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          if (!w || !h) throw new Error("пустое изображение");
+          var scale = Math.min(3, Math.max(1, 1600 / w));
+          var cv = document.createElement("canvas");
+          cv.width = Math.round(w * scale); cv.height = Math.round(h * scale);
+          var ctx = cv.getContext("2d");
+          ctx.drawImage(img, 0, 0, cv.width, cv.height);
+          var d = ctx.getImageData(0, 0, cv.width, cv.height);
+          var p = d.data, n = p.length, sum = 0, i;
+          for (i = 0; i < n; i += 4) sum += p[i] * 0.299 + p[i + 1] * 0.587 + p[i + 2] * 0.114;
+          var invert = (sum / (n / 4)) < 128;
+          for (i = 0; i < n; i += 4) {
+            var g = p[i] * 0.299 + p[i + 1] * 0.587 + p[i + 2] * 0.114;
+            if (invert) g = 255 - g;
+            g = (g - 128) * 1.35 + 128;
+            p[i] = p[i + 1] = p[i + 2] = g < 0 ? 0 : (g > 255 ? 255 : g);
+            p[i + 3] = 255;
+          }
+          ctx.putImageData(d, 0, 0);
+          if (cv.toBlob) { cv.toBlob(function (b) { cb(b || file); }, "image/png"); }
+          else { failed = true; }
+        } catch (e) { failed = true; }
+        if (failed) cb(file);
+        try { URL.revokeObjectURL(url); } catch (e) {}
+      };
+      img.onerror = function () { try { URL.revokeObjectURL(url); } catch (e) {} cb(file); };
+      img.src = url;
+    }
+    /* тест-шов: подготовку снимка проверяет стенд .workbuddy-ai/diag6.js */
+    window.RF_OCR = { prep: prepOcrImage };
     function runOcr(file) {
       if (location.protocol === "file:") {
         toast("Распознавание фото работает на опубликованном сайте (https), а не из файла");
@@ -3311,17 +3318,19 @@
       toast("Распознаю текст с фото…");
       ensureTesseract(function () {
         if (!window.Tesseract) { if (ocrBtn) { ocrBtn.disabled = false; ocrBtn.classList.remove("busy"); } return; }
-        window.Tesseract.recognize(file, "rus", {
-          logger: function (m) { if (m && m.status === "recognizing text" && m.progress != null) toast("Распознаю текст с фото… " + Math.round(m.progress * 100) + "%"); }
-        }).then(function (res) {
-          var t = (res && res.data && res.data.text ? res.data.text : "").trim();
-          var inp = $("#asInput");
-          if (inp && t) { inp.value = inp.value ? inp.value + "\n" + t : t; inp.focus(); }
-          toast(t ? "Текст распознан — можно разобрать" : "Текст не распознан");
-        }).catch(function (err) {
-          toast("Не удалось распознать: " + (err && err.message ? err.message : err));
-        }).finally(function () {
-          if (ocrBtn) { ocrBtn.disabled = false; ocrBtn.classList.remove("busy"); }
+        prepOcrImage(file, function (prepared) {
+          window.Tesseract.recognize(prepared, "rus", {
+            logger: function (m) { if (m && m.status === "recognizing text" && m.progress != null) toast("Распознаю текст с фото… " + Math.round(m.progress * 100) + "%"); }
+          }).then(function (res) {
+            var t = (res && res.data && res.data.text ? res.data.text : "").trim();
+            var inp = $("#asInput");
+            if (inp && t) { inp.value = inp.value ? inp.value + "\n" + t : t; inp.focus(); }
+            toast(t ? "Текст распознан — можно разобрать" : "Текст не распознан");
+          }).catch(function (err) {
+            toast("Не удалось распознать: " + (err && err.message ? err.message : err));
+          }).finally(function () {
+            if (ocrBtn) { ocrBtn.disabled = false; ocrBtn.classList.remove("busy"); }
+          });
         });
       });
     }
@@ -3822,7 +3831,7 @@
          подставляет сюда текст санкции. */
       rows.push(["Нормы для проверки", '<div class="concl-norms">' + arts.map(function (a) {
         var c = codeById(a.c) || { short: a.c, color: "#888" };
-        return '<div class="as-art">' +
+        return '<div class="as-art" data-go="#/article/' + encodeURIComponent(a.id) + '">' +
           '<div class="as-art-head"><span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + '</span>' +
           '<a class="as-art-title" href="#/article/' + encodeURIComponent(a.id) + '">ст. ' + esc(a.dn) + " · " + esc(a.t) + "</a>" +
           '<button class="ibtn ibtn-col' + (inCol(a.id) ? " on" : "") + '" data-col-add="' + esc(a.id) + '" ' +
@@ -8570,6 +8579,77 @@
 
   /* ------------------------------------------------------------------ события */
 
+  /* Мини-окно Помощника: превью статьи поверх вкладки, без перехода.
+     Текст берётся из полного текста (loadFull/findFull) — тех же данных,
+     что и в карточке статьи.
+
+     Объявлено на верхнем уровне модуля: функцию зовут и go(), и
+     делегированный обработчик кликов (bindGlobal). Раньше блок лежал внутри
+     bindRoleSwitch и был виден только ей, поэтому клик по статье в ответе
+     Помощника падал с «ReferenceError: openArticleModal is not defined» и
+     мини-окно не открывалось. */
+  var modalReturnUrl = null;
+  function openArticleModal(artId) {
+    var a = byId[artId];
+    var box = $("#artModal");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "artModal"; box.className = "art-modal"; box.hidden = true;
+      document.body.appendChild(box);
+      box.addEventListener("click", function (ev) {
+        if (ev.target.closest("[data-art-close]")) closeArticleModal();
+      });
+    }
+    var c, n;
+    if (a) { c = a.c; n = a.n; }
+    else { var li = artId.lastIndexOf("-"); c = artId.substring(0, li); n = artId.substring(li + 1); }
+    var title = a ? (cite(a) + " — " + a.t) : artId;
+    box.innerHTML =
+      '<div class="art-modal-back" data-art-close></div>' +
+      '<div class="art-modal-card" role="dialog" aria-modal="true">' +
+        '<div class="art-modal-top">' +
+          '<div class="art-modal-t">' + ic("book") + "<span>" + esc(title) + "</span></div>" +
+          '<button class="ibtn art-modal-x" type="button" data-art-close title="Закрыть">' + ic("close") + "</button>" +
+        "</div>" +
+        '<div class="art-modal-body"><div class="muted small">загрузка текста статьи…</div></div>' +
+      "</div>";
+    box.hidden = false;
+    document.body.classList.add("modal-open");
+    /* Адрес подменяется через replaceState: новой записи в истории не
+       появляется, поэтому сайт остаётся «одной страницей», а «Назад» уводит
+       с сайта, а не листает просмотренные статьи. Прежний адрес запоминаем,
+       чтобы вернуть его при закрытии окна. */
+    try {
+      modalReturnUrl = location.pathname + location.search + location.hash;
+      history.replaceState({ modal: true, artId: artId }, "", "#/article/" + encodeURIComponent(artId));
+    } catch (e) {}
+    var body = box.querySelector(".art-modal-body");
+    loadFull(c, function (err) {
+      if (!body) return;
+      if (err) { body.innerHTML = '<div class="muted">текст недоступен офлайн</div>'; return; }
+      var F2 = findFull(c, n);
+      if (!F2) { body.innerHTML = '<div class="muted">текст недоступен</div>'; return; }
+      var html = '<div class="muted small" style="margin-bottom:10px">Действующая редакция: ' + esc(F2[3] || "—") + "</div>";
+      html += '<div class="art-modal-text">' + esc(F2[4] || "") + "</div>";
+      var sb = sanctionBlocks(F2[4], { doc: c, num: n });
+      if (sb) html += '<div class="art-modal-san"><div class="muted small" style="margin:12px 0 4px">Санкция / основное содержание</div>' + sb + "</div>";
+      body.innerHTML = html;
+    });
+  }
+  function closeArticleModal() {
+    var b = $("#artModal");
+    if (b) b.hidden = true;
+    document.body.classList.remove("modal-open");
+    /* возвращаем адрес раздела, из которого открыли окно */
+    if (modalReturnUrl != null) {
+      try { history.replaceState({ modal: false }, "", modalReturnUrl); } catch (e) {}
+      modalReturnUrl = null;
+    }
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { var m = $("#artModal"); if (m && !m.hidden) closeArticleModal(); }
+  });
+
   function bindGlobal() {
     document.addEventListener("click", function (e) {
       /* e.target может быть самим document (клик по пустому месту) */
@@ -8579,7 +8659,9 @@
        с текстом, не уводя с вкладки (запрос и разбор сохраняются) */
     if (e.target.closest) {
       var asArt = e.target.closest('#asOut a[href^="#/article/"], #asOut [data-go^="#/article/"]');
-      if (asArt) {
+      /* Кнопка «в подборку»/инпуты внутри карточки — не открываем модалку,
+         чтобы клик дошёл до обработчика [data-col-add] ниже. */
+      if (asArt && !e.target.closest("button, input, textarea, select")) {
         e.preventDefault();
         var href = asArt.getAttribute("href") || asArt.getAttribute("data-go") || "";
         openArticleModal(decodeURIComponent(href.replace(/^#\/article\//, "")));
@@ -8681,8 +8763,12 @@
 
       var goEl = e.target.closest("[data-go]");
       if (goEl) {
-        /* внутри результата есть кнопки — не переходим при клике по ним */
-        if (e.target.closest("button, a, textarea, input")) return;
+        /* внутри результата есть кнопки — не переходим при клике по ним.
+           Но сам элемент с data-go тоже бывает кнопкой («Открыть реестр»,
+           «Лента изменений» в аналитике): тогда клик по нему и есть
+           навигация, глушить её нельзя. */
+        var innerEl = e.target.closest("button, a, textarea, input");
+        if (innerEl && innerEl !== goEl) return;
         e.preventDefault(); go(goEl.getAttribute("data-go")); return;
       }
 

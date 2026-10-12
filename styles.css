@@ -1072,9 +1072,14 @@ table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; 
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-2));
   color: var(--text); padding: 11px 20px; border-radius: var(--r-pill);
   font-size: var(--fs-4); box-shadow: var(--shadow); z-index: 200;
-  transition: transform .26s cubic-bezier(.2,.9,.3,1.2); pointer-events: none;
+  /* opacity — не украшение, а гарантия исчезновения: при body.has-update
+     (плашка «вышла новая редакция базы») сдвига на 80px вниз не хватает —
+     нижний край тоста остаётся в кадре, и уведомление висит на экране. */
+  opacity: 0;
+  transition: transform .26s cubic-bezier(.2,.9,.3,1.2), opacity .2s ease;
+  pointer-events: none;
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
 /* уведомление о новой сборке базы: появляется, если на хостинге выложена
    свежая версия данных, а вкладка открыта со старой (см. checkBuild в app.js).

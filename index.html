@@ -11,7 +11,24 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
 <link rel="apple-touch-icon" href="favicon.svg">
 <meta name="description" content="Полные тексты кодексов и законов РФ: поиск по статьям, разбор ситуации, калькуляторы сроков и пошлин, чек-листы следственных действий и шаблоны документов. Работает офлайн.">
-<link rel="stylesheet" href="styles.css">
+<!-- Метка версии из адреса (?v=…). GitHub Pages не даёт задавать заголовки
+     кеширования: и разметка, и styles.css, и app.js уходят с max-age=600.
+     Из-за этого браузер до десяти минут показывал старую вёрстку и старый
+     скрипт — правки в них «не доезжали», хотя на сервере уже лежали новые.
+     Теперь метка версии идёт и к стилям, и к скрипту: при ?v=<версия> в
+     адресе страницы каждый файл запрашивается по своему адресу и приходит
+     из сети. Без метки (первый заход, file://) адреса остаются обычными. -->
+<script>
+(function () {
+  var m = /[?&]v=([^&#]*)/.exec(location.search || "");
+  var v = "";
+  if (m && m[1]) {
+    try { v = "?v=" + encodeURIComponent(decodeURIComponent(m[1])); } catch (e) { v = ""; }
+  }
+  window.RF_V = v;
+  document.write('<link rel="stylesheet" href="styles.css' + v + '">');
+})();
+</script>
 </head>
 <body>
 
@@ -224,11 +241,9 @@
      (первый заход, file://) адреса остаются обычными, как раньше. -->
 <script>
 (function () {
-  var m = /[?&]v=([^&#]*)/.exec(location.search || "");
-  var v = "";
-  if (m && m[1]) {
-    try { v = "?v=" + encodeURIComponent(decodeURIComponent(m[1])); } catch (e) { v = ""; }
-  }
+  /* метку версии посчитал скрипт в <head> — здесь она та же, чтобы разметка,
+     стили и код всегда приезжали одной сборкой */
+  var v = window.RF_V || "";
   /* порядок тот же, что был у тегов: файлы выполняются по очереди */
   var files = [
     "data/registry.js",     /* реестр источников */
@@ -251,8 +266,9 @@
 })();
 </script>
 <!-- полные тексты (data/full/*.js) и сегменты поиска подгружаются по требованию -->
-<!-- приложение -->
-<script src="app.js"></script>
+<!-- приложение: тоже с меткой версии — иначе после выкладки браузер ещё десять
+     минут выполнял бы старый app.js, и правки в коде «не доезжали» -->
+<script>document.write('<script src="app.js' + (window.RF_V || "") + '"><\/script>');</script>
 
 </body>
 </html>

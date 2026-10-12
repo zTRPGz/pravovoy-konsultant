@@ -139,6 +139,15 @@
     <div class="topbar">
       <button class="icon-btn burger" id="burgerBtn" type="button"
               aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false"><span class="ico" data-ico="menu"></span></button>
+      <!-- Перемещение по разделам внутри страницы. Это не браузерная история:
+           свой стек адресов в памяти, переход через replaceState, поэтому
+           записей в истории браузера не появляется. -->
+      <div class="nav-ctl">
+        <button class="icon-btn nav-btn nav-back" id="navBack" type="button"
+                aria-label="Назад по разделам" title="Назад" disabled><span class="ico" data-ico="arrow"></span></button>
+        <button class="icon-btn nav-btn" id="navFwd" type="button"
+                aria-label="Вперёд по разделам" title="Вперёд" disabled><span class="ico" data-ico="arrow"></span></button>
+      </div>
       <div class="search-wrap">
         <span class="search-icon ico" data-ico="search" aria-hidden="true"></span>
         <input id="searchInput" class="search-input" type="search" role="searchbox"

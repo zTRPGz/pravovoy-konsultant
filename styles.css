@@ -358,6 +358,21 @@ button { font: inherit; cursor: pointer; }
 .icon-btn .ic { width: 18px; height: 18px; }
 .icon-btn .ico { display: grid; place-items: center; }
 
+/* Перемещение по разделам внутри страницы. Стек адресов свой, в истории
+   браузера записей не прибавляется, поэтому кнопки стоят рядом с меню, а не
+   вместо браузерных «Назад»/«Вперёд». Стрелка — тот же значок ICONS, для
+   «Назад» он отражён по горизонтали: отдельных глифов не заводим, чтобы не
+   ловить тофу на чужой системе. */
+.nav-ctl { display: flex; gap: 4px; align-items: center; flex: 0 0 auto; }
+.nav-btn { width: 34px; height: 34px; }
+.nav-btn .ic { width: 16px; height: 16px; }
+.nav-back .ic { transform: scaleX(-1); }
+.nav-btn:disabled { opacity: .35; cursor: default; }
+.nav-btn:disabled:hover {
+  transform: none; background: color-mix(in srgb, var(--bg-3) 80%, transparent);
+  border-color: var(--border); color: var(--text-2);
+}
+
 /* кнопка «наверх» — появляется при прокрутке длинных страниц */
 .to-top {
   position: fixed; right: 22px; bottom: 22px; z-index: 30;
@@ -1241,6 +1256,22 @@ body.has-update .toast { bottom: 104px; }
   color: var(--accent); font-weight: 650; margin-bottom: 8px;
 }
 .concl-head .ic { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
+/* Короткий ответ первым экраном вывода. Раньше квалификация стояла третьей
+   строкой ниже абзаца о том, что будет дальше, и ответ читался как «много
+   информации, но непонятно, что решили». */
+.concl-answer {
+  margin: 0 0 10px; padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent-bg) 72%, var(--card));
+}
+.concl-answer .ca-lbl {
+  font-size: var(--fs-2); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--accent); font-weight: 650; margin-bottom: 3px;
+}
+.concl-answer .ca-q { font-size: var(--fs-7); font-weight: 650; line-height: 1.35; color: var(--text); }
+.concl-answer .ca-meta { margin-top: 4px; font-size: var(--fs-3); color: var(--text-2); line-height: 1.45; }
 .concl-p { margin: 0; font-size: var(--fs-4); line-height: 1.62; color: var(--text); }
 .concl-foot {
   margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border);
@@ -1295,6 +1326,43 @@ body.has-update .toast { bottom: 104px; }
 .concl-norms .as-art { margin: 0 0 6px; }
 .concl-norms .as-art:last-child { margin-bottom: 0; }
 .concl-norms .as-art-title { font-size: var(--fs-4); }
+
+/* Второй разбор — свёрнутым. В описании действительно бывает две ситуации
+   («остановили за рулём, потом досмотр машины»), но полной карточкой вторая
+   перебивала основной ответ и уводила читателя в другую тему. */
+.as-alt {
+  margin-top: 18px; border: 1px dashed var(--border);
+  border-radius: var(--r-lg); background: color-mix(in srgb, var(--bg-3) 42%, transparent);
+}
+.as-alt > summary {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  padding: 11px 14px; cursor: pointer; list-style: none;
+}
+.as-alt > summary::-webkit-details-marker { display: none; }
+.as-alt > summary::before {
+  content: "▸"; color: var(--accent); font-size: var(--fs-3); flex: 0 0 auto;
+}
+.as-alt[open] > summary::before { content: "▾"; }
+.as-alt-k {
+  font-size: var(--fs-2); text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); font-weight: 650;
+}
+.as-alt-t { font-weight: 600; color: var(--text); font-size: var(--fs-4); }
+.as-alt-n { font-size: var(--fs-3); color: var(--muted); }
+.as-alt > .help-card { margin: 0 12px 12px; }
+
+/* Полный перечень вариантов наказания — за кнопкой. У ст. 111 УК РФ четыре
+   варианта, и в выводе они занимали больше места, чем весь остальной ответ;
+   первый (базовый) виден сразу, остальные раскрываются. */
+.san-more { margin-top: 6px; }
+.san-more > summary {
+  cursor: pointer; list-style: none; padding: 3px 0;
+  font-size: var(--fs-3); font-weight: 600; color: var(--accent);
+}
+.san-more > summary::-webkit-details-marker { display: none; }
+.san-more > summary::before { content: "▸ "; }
+.san-more[open] > summary::before { content: "▾ "; }
+.san-more .law-sanction { margin-top: 6px; }
 
 /* редакторское примечание: «в ред.», «Дополнение пунктом», «Часть в редакции» */
 .law-meta-note {
@@ -1892,6 +1960,11 @@ body::-webkit-scrollbar-track { background: transparent; }
   .actions-row { gap: 7px; }
   .topbar-actions { gap: 6px; }
   .icon-btn { width: 34px; height: 34px; }
+  /* на узком экране две стрелки не помещаются рядом с поиском — оставляем
+     «Назад», он и нужен чаще; «Вперёд» остаётся на широком экране */
+  .nav-ctl { gap: 2px; }
+  .nav-btn { width: 30px; height: 30px; }
+  #navFwd { display: none; }
   /* на узком экране подпись роли не помещается — остаётся иконка,
      активная роль по-прежнему видна в полосе под верхней панелью */
   .role-btn-top .role-btn-lbl { display: none; }

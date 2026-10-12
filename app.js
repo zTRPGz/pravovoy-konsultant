@@ -8323,7 +8323,7 @@
       var n = f.test ? all.filter(f.test).length : all.length;
       if (f.id !== "all" && !n) return "";
       return '<button type="button" class="chip' + (f.id === filter.id ? " on" : "") + '" data-nf="' + esc(f.id) + '">' +
-        esc(f.lbl) + '<span class="cnt">' + n + "</span></button>";
+        esc(f.lbl) + " " + '<span class="cnt">' + n + "</span></button>";
     }).join("");
 
     var body;

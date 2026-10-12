@@ -1283,12 +1283,11 @@ body.has-update .toast { bottom: 104px; }
   .concl-row { grid-template-columns: 1fr; gap: 4px; }
   .concl-k { font-size: var(--fs-1); }
 }
-/* вводная строка развёрнутого разбора — задаёт ожидания, повышает читаемость */
-.help-summary {
-  margin: 2px 0 14px; font-size: var(--fs-3); color: var(--text-2);
-  line-height: 1.6; background: var(--bg-2); border-radius: var(--r-sm);
-  padding: 10px 13px; border-left: 3px solid var(--accent);
-}
+/* нормы в «Выводе по запросу»: каждая статья показана один раз и сразу с
+   санкцией из полного текста, поэтому строки идут плотной колонкой */
+.concl-norms .as-art { margin: 0 0 6px; }
+.concl-norms .as-art:last-child { margin-bottom: 0; }
+.concl-norms .as-art-title { font-size: var(--fs-4); }
 
 /* редакторское примечание: «в ред.», «Дополнение пунктом», «Часть в редакции» */
 .law-meta-note {

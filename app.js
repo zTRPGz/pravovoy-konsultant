@@ -2928,7 +2928,14 @@
     return html.join("");
   }
 
-  /* Только красные блоки санкций из текста статьи — для разбора ситуации */
+  /* Только красные блоки санкций из текста статьи — для разбора ситуации.
+     Санкция из текста нормы. УК РФ пишет «наказывается …», КоАП РФ —
+     «…, - влечет наложение административного штрафа …» либо отдельной строкой
+     «влечет …». Раньше распознавался только УК, поэтому под нормами КоАП в
+     разборе стояло «санкция не выделена отдельно», хотя санкция в тексте есть.
+
+     Границы слов заданы явно, через (?![а-яёА-ЯЁ]): \b в JavaScript работает
+     только по латинице и после кириллицы не срабатывает вовсе. */
   function sanctionBlocks(text, ctx) {
     var lines = String(text || "").split("\n");
     var out = [];
@@ -2946,8 +2953,16 @@
         out.push(node(l.replace(/^[-–—]\s*/, "")));
         return;
       }
+      /* КоАП: санкция вынесена отдельной строкой */
+      if (/^[-–—]?\s*(?:влеч[её]т|влекут)(?![а-яёА-ЯЁ])/i.test(l)) {
+        out.push(node(l.replace(/^[-–—]\s*/, "")));
+        return;
+      }
       var sp = /,\s*[-–—]\s*(наказыва[ею]тс[яю])\s*([\s\S]*)/i.exec(l);
-      if (sp) out.push(node(sp[1] + " " + sp[2]));
+      if (sp) { out.push(node(sp[1] + " " + sp[2])); return; }
+      /* КоАП: санкция в конце части — «…, - влечет наложение …» */
+      var kp = /,\s*[-–—]\s*(влеч[её]т|влекут)(?![а-яёА-ЯЁ])\s*([\s\S]*)/i.exec(l);
+      if (kp) out.push(node(kp[1] + " " + kp[2]));
     });
     return out.join("");
   }
@@ -3421,10 +3436,7 @@
     var html = '<div class="card help-card">' +
       '<div class="help-head"><span class="badge help-area">' + esc(h.area) + "</span>" +
       '<span class="help-hits">совпадений: ' + x.n + "</span></div>" +
-      "<h2>" + esc(h.t) + "</h2>" +
-      '<p class="help-summary">Разбор охватывает юридическую характеристику состава, варианты квалификации, ' +
-      'доказательства, которые предстоит получить, и порядок действий. Ссылки на нормы — по действующей редакции, ' +
-      'размещённой на сайте; нажмите на упоминание статьи, чтобы открыть её полный текст.</p>';
+      "<h2>" + esc(h.t) + "</h2>";
 
     if (h.char && h.char.length) {
       html += '<div class="section-label">Юридическая характеристика</div><div class="help-char">' +
@@ -3469,12 +3481,10 @@
     var arts = (h.articles || []).map(function (id) { return byId[id]; }).filter(Boolean);
     var artIds = arts.map(function (a) { return a.id; });
     if (arts.length) {
-      html += '<div class="section-label">Статьи и нормы</div><div class="chips">' + arts.map(function (a) {
-        var c = codeById(a.c) || { short: a.c };
-        return '<div class="chip" data-go="#/article/' + encodeURIComponent(a.id) + '"><b>' + esc(cite(a)) + "</b> · " + esc(a.t) + "</div>";
-      }).join("") + "</div>";
-      /* источники, по которым построен разбор, с датой действующей редакции —
-         чтобы было видно, что ссылки взяты из данных сайта, а не по памяти */
+      /* Полный перечень норм ответа — один раз, в блоке «Нормы для проверки»
+         вывода. Здесь оставляем только источники с датой редакции: список
+         статей дублировал и вывод, и общий перечень норм. Сами нормы в тексте
+         разбора остаются кликабельными — их связывает linkify. */
       var srcSeen = {}, srcList = [];
       arts.forEach(function (a) {
         if (srcSeen[a.c]) return; srcSeen[a.c] = 1;
@@ -3610,12 +3620,15 @@
      установить. Собирается только из данных сайта и идёт первым, чтобы ответ
      читался с вывода. Заголовок намеренно не <h2>: первый h2 остаётся за
      самим развёрнутым разбором. */
-  function conclusionBox(help, scored, res, conf, qStems) {
+  function conclusionBox(help, scored, res, conf, qStems, keyArts) {
     var picked = {};
     Object.keys(asAnswers).forEach(function (q) { picked[asAnswers[q]] = 1; });
     var hasPicked = Object.keys(picked).length > 0;
 
-    var area = "", qualText = "", arts = [], prove = [], acts = [], primKind = "";
+    var area = "", qualText = "", prove = [], acts = [], primKind = "";
+    /* Нормы для вывода — единый список всего ответа: он собирается в
+       assistantResult, чтобы каждая статья была показана ровно один раз. */
+    var arts = keyArts || [];
 
     var prim = assistantPrimary(help, scored);
 
@@ -3632,14 +3645,12 @@
       });
       if (!chosen && quals.length) chosen = quals[0];
       if (chosen) qualText = chosen.t;
-      arts = (h.articles || []).map(function (id) { return byId[id]; }).filter(Boolean).slice(0, 5);
       prove = (h.prove || []).slice(0, 3);
     } else if (prim) {
       var it = prim.x.it;
       primKind = "intent";
       area = it.area || "";
       qualText = it.t;
-      arts = (it.articles || []).map(function (id) { return byId[id]; }).filter(Boolean).slice(0, 5);
       acts = (it.actions || []).slice(0, 3);
     }
 
@@ -3695,8 +3706,21 @@
         '<span class="conf-why">' + esc(conf.reason) + "</span>"]);
     }
     if (arts.length) {
-      rows.push(["Нормы для проверки", '<div class="chips">' + arts.map(function (a) {
-        return '<div class="chip" data-go="#/article/' + encodeURIComponent(a.id) + '"><b>' + esc(cite(a)) + "</b> · " + esc(a.t) + "</div>";
+      /* Каждая норма — один раз и сразу с санкцией из полного текста статьи.
+         Раньше нормы шли тремя списками (чипы в выводе, список в карточке
+         разбора, отдельный блок санкций), и одна статья повторялась до
+         четырёх раз. Разметку .as-art уже понимает enrichAssistant — он и
+         подставляет сюда текст санкции. */
+      rows.push(["Нормы для проверки", '<div class="concl-norms">' + arts.map(function (a) {
+        var c = codeById(a.c) || { short: a.c, color: "#888" };
+        return '<div class="as-art">' +
+          '<div class="as-art-head"><span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + '</span>' +
+          '<a class="as-art-title" href="#/article/' + encodeURIComponent(a.id) + '">ст. ' + esc(a.dn) + " · " + esc(a.t) + "</a>" +
+          '<button class="ibtn ibtn-col' + (inCol(a.id) ? " on" : "") + '" data-col-add="' + esc(a.id) + '" ' +
+            'title="' + (inCol(a.id) ? "Убрать из подборку" : "Добавить в подборку") + '">' + ic("clip") + '</button></div>' +
+          '<div class="as-san-body" data-as-san="' + esc(a.id) + '" data-c="' + esc(a.c) + '" data-n="' + esc(a.n) + '">' +
+            '<span class="muted small">загрузка санкции…</span></div>' +
+          "</div>";
       }).join("") + "</div>"]);
       /* Дословные цитаты подгружает enrichAssistant из полного текста статьи:
          вывод должен опираться на текст нормы, а не на пересказ «по памяти». */
@@ -3736,16 +3760,38 @@
     scored.forEach(function (x) { hitWords = hitWords.concat(x.hits); });
     var res = search(hitWords.length ? hitWords.join(" ") : text, { need: 1, cut: 0.5 }).slice(0, 5);
 
+    /* Единый перечень норм ответа. Порядок — по близости к описанию (сначала
+       нормы разборов, затем нормы правил, внутри блока — в том порядке, в
+       каком они выписаны в данных сайта: по соглашению первая и есть самая
+       характерная для ситуации). Прежняя сортировка «сначала УК и КоАП»
+       поднимала в начало общие составы — на запрос о проверке документов
+       первой шла ст. 318 УК РФ о насилии над представителем власти, — и
+       вытесняла из списка профильные нормы. Отсюда и брались «неправильные
+       статьи»: чем больше общих норм попадало в начало, тем меньше оставалось
+       места для тех, которые действительно относятся к делу. */
+    var seenKey = {}, keyIds = [];
+    function addKey(id) {
+      var a = byId[id];
+      if (!a || seenKey[id]) return;
+      seenKey[id] = 1;
+      keyIds.push(a);
+    }
+    help.forEach(function (x) { (x.h.articles || []).forEach(addKey); });
+    scored.slice(0, 2).forEach(function (x) { (x.it.articles || []).forEach(addKey); });
+    /* Когда ничего не распознано, перечень норм строит поиск по словам
+       описания (блок «Нормы, наиболее близкие к запросу») — второй такой же
+       список в выводе был бы повтором. */
+    var keyArts = (help.length || scored.length) ? keyIds.slice(0, 8) : [];
+
     /* Основы для дословных цитат: цитируем текст нормы по тем словам, которые
        действительно сработали в разборе, а не по всему описанию. */
     var qStems = FT ? FT.stems((hitWords.length ? hitWords.join(" ") : low)) : [];
-    var html = conclusionBox(help, scored, res, f.confidence, qStems);
+    var html = conclusionBox(help, scored, res, f.confidence, qStems, keyArts);
 
     if (help.length) {
       html += '<div class="ground-box"><span class="ico">' + ic("shield") + "</span>" +
-        "<div>Разбор построен <b>только по текстам, размещённым на сайте</b> — действующие редакции кодексов, федеральных законов и постановлений. " +
-        "Все ссылки открываются на статью с указанием источника и даты редакции. " +
-        "Проверяйте реквизиты и дату редакции перед применением.</div></div>";
+        "<div>Разбор построен <b>только по текстам, размещённым на сайте</b>: " +
+        "каждая ссылка открывает статью с источником и датой редакции.</div></div>";
       html += help.map(helpCard).join("");
     }
 
@@ -3761,12 +3807,8 @@
           '<h2 style="margin-top:0">' + esc(it.t) + "</h2>" +
           '<div class="small muted" style="margin:-4px 0 10px">Совпало: ' +
             x.hits.map(function (k) { return esc(k); }).join(", ") + "</div>" +
-          '<div class="section-label">Статьи для проверки</div>' +
-          '<div class="chips">' + it.articles.map(function (aid) {
-            var a = byId[aid];
-            if (!a) return "";
-            return '<div class="chip" data-go="#/article/' + encodeURIComponent(a.id) + '"><b>' + esc(cite(a)) + "</b> · " + esc(a.t) + "</div>";
-          }).join("") + "</div>" +
+          /* статьи правила перечислены в общем перечне норм вывода — здесь
+             только порядок действий и контрольные сроки, без повтора списка */
           (it.actions && it.actions.length ? '<div class="section-label">Что нужно сделать</div><ol class="steps">' + it.actions.map(function (s) { return "<li>" + linkify(s) + "</li>"; }).join("") + "</ol>" : "") +
           (it.terms && it.terms.length ? '<div class="section-label">Контрольные сроки</div><div class="chips">' + it.terms.map(function (s) { return '<span class="badge">' + esc(s) + "</span>"; }).join("") + "</div>" : "") +
           '<div class="actions-row">' +
@@ -3776,25 +3818,6 @@
           "</div>";
       });
     }
-
-    /* уникальные статьи для показа санкций: приоритет составам УК/КоАП.
-       Сначала — нормы правовых разборов (это ядро ответа), затем блоки правил
-       и результаты поиска по тексту запроса. */
-    var seen = {}, keyIds = [];
-    function addKey(id) {
-      var a = byId[id];
-      if (!a || seen[id]) return;
-      seen[id] = 1;
-      var pri = (a.c === "uk" || a.c === "koap") ? 0 : 1;
-      keyIds.push({ a: a, pri: pri });
-    }
-    help.forEach(function (x) { (x.h.articles || []).forEach(addKey); });
-    scored.slice(0, 2).forEach(function (x) { (x.it.articles || []).forEach(addKey); });
-    /* статьи из «шумного» поиска по описанию берём в санкции только тогда,
-       когда разбор не распознан и этот список — единственный содержательный */
-    if (!help.length && !scored.length) res.forEach(function (x) { addKey(x.a.id); });
-    keyIds.sort(function (p, q) { return p.pri - q.pri; });
-    var keyArts = keyIds.slice(0, 8).map(function (x) { return x.a; });
 
     /* Список «близких норм» показываем ТОЛЬКО когда разбор не распознан: если
        разбор найден, он сам перечисляет нужные нормы, а дополнительный список
@@ -3818,21 +3841,7 @@
       }).join("");
     }
 
-    if (keyArts.length) {
-      html += '<h2>Санкции по подобранным составам</h2>' +
-        '<div class="small muted" style="margin:-6px 0 12px">Красным — санкции из действующей редакции. Загружаются из полных текстов статей.</div>' +
-        keyArts.map(function (a) {
-          var c = codeById(a.c) || { short: a.c, color: "#888" };
-          return '<div class="as-art">' +
-            '<div class="as-art-head"><span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + '</span>' +
-            '<a class="as-art-title" href="#/article/' + encodeURIComponent(a.id) + '">ст. ' + esc(a.dn) + " · " + esc(a.t) + "</a></div>" +
-            '<div class="as-san-body" data-as-san="' + esc(a.id) + '" data-c="' + esc(a.c) + '" data-n="' + esc(a.n) + '">' +
-              '<span class="muted small">загрузка санкций…</span></div>' +
-            "</div>";
-        }).join("");
-    }
-
-    html += '<div class="disclaimer"><b>Важно.</b> Подбор норм выполняется по ключевым словам автоматически и носит ориентировочный характер. Итоговая квалификация и объём процессуальных действий определяются по материалам дела. Решение принимает уполномоченное должностное лицо.</div>';
+    html += '<div class="disclaimer"><b>Важно.</b> Подбор норм выполняется по ключевым словам автоматически и носит ориентировочный характер. Решение по делу принимает уполномоченное должностное лицо.</div>';
     return html;
   }
 
@@ -3863,7 +3872,11 @@
         var F = findFull(c, n);
         if (!F) { el.innerHTML = '<span class="muted small">текст недоступен</span>'; return; }
         var sb = sanctionBlocks(F[4], { doc: c, num: n });
-        el.innerHTML = sb || '<span class="muted small">санкция не выделена отдельно</span>';
+        /* Нормы без отдельно сформулированной санкции (ГК РФ, процессуальные
+           статьи КоАП и УПК) — обычное дело: у половины списка стояла одна и та
+           же строка «санкция не выделена отдельно», и перечень тонул в повторе.
+           Пустой плейсхолдер убираем, как это уже делает блок цитат выше. */
+        if (sb) el.innerHTML = sb; else el.remove();
       });
     });
   }

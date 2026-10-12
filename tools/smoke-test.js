@@ -376,11 +376,15 @@ server.listen(0, "127.0.0.1", async () => {
      именно он тянул «не по теме» статьи (ЖК на слово «кооператив» и т. п.). */
   ok("при найденном разборе нет лишнего списка норм", $$("#asOut .result").length === 0,
     $$("#asOut .result").length + " лишних результатов");
-  const chips = $$("#asOut .chip[data-go^='#/article/']").map(c => c.getAttribute("data-go"));
-  ok("ссылки ведут на существующие статьи", chips.every(h => {
-    const id = decodeURIComponent(h.replace("#/article/", ""));
-    return w.RF_IDX.some(r => r[0] + "-" + r[1] === id) || (w.RF_EXTRA.articles || []).some(a => a.c + "-" + a.n === id);
-  }), chips.length + " ссылок");
+  /* Нормы ответа показываются либо строкой с санкцией в «Выводе по запросу»,
+     либо чипом (список близких норм, когда ничего не распознано). Оба вида
+     собираем одним списком — иначе проверки не видят половину ссылок. */
+  const normIds = () => $$("#asOut .chip[data-go^='#/article/'], #asOut .as-art a[href^='#/article/']")
+    .map(el => decodeURIComponent((el.getAttribute("data-go") || el.getAttribute("href")).replace("#/article/", "")));
+  const chips = normIds();
+  ok("ссылки ведут на существующие статьи", chips.every(id =>
+    w.RF_IDX.some(r => r[0] + "-" + r[1] === id) || (w.RF_EXTRA.articles || []).some(a => a.c + "-" + a.n === id)
+  ), chips.length + " ссылок");
   ok("есть блок санкций по составам", $$("#asOut .as-art").length >= 1, $$("#asOut .as-art").length + " карточек");
   await wait(1500);
   const sanLoaded = $$("#asOut .as-san-body .law-sanction").length;
@@ -389,6 +393,11 @@ server.listen(0, "127.0.0.1", async () => {
     sanLoaded > 0 && $$("#asOut .as-san-body .law-sanction").every(s =>
       (fs.readFileSync(path.join(ROOT, "styles.css"), "utf8")).indexOf(".law-sanction") !== -1),
     sanLoaded + " санкций");
+  /* Нормы без отдельно сформулированной санкции (ГК РФ, процессуальные статьи
+     КоАП и УПК) не оставляют за собой пустую строку-заглушку: иначе одна и та
+     же фраза повторялась под половиной перечня норм. */
+  ok("пустые заглушки санкций убраны из ответа",
+    !/не выделена отдельно/.test(T("#asOut") || ""));
 
   /* Глубокий разбор: классическая задача про хищение бивней мамонта. */
   $("#asInput").value = "Глазов, Савельев и Пигалов по взаимной договорённости проникли в гараж кооператива и похитили 150 кг бивня мамонта. Владелец утверждает, что купил бивни у геологов. Определите объект преступления. Имеет ли значение, что бивни мамонта не могут находиться в частной собственности?";
@@ -415,9 +424,12 @@ server.listen(0, "127.0.0.1", async () => {
     $$("#asOut [data-go]").length + " ссылок проверено");
   ok("указаны источники с датой редакции", $$("#asOut .help-src .chip").length >= 1,
     $$("#asOut .help-src .chip").length + " источников");
-  ok("все ссылки разбора открываются на существующие статьи",
-    $$("#asOut .help-card .chip[data-go^='#/article/']").length >= 4,
-    $$("#asOut .help-card .chip[data-go^='#/article/']").length + " ссылок");
+  /* Карточка разбора больше не повторяет перечень статей — он один, в выводе.
+     Проверяем, что нормы доступны и что внутри текста разбора ссылки на
+     статьи остались (их подставляет linkify). */
+  ok("нормы разбора перечислены в выводе и открываются",
+    normIds().length >= 4 && $$("#asOut .help-card a[href^='#/article/']").length >= 1,
+    normIds().length + " норм, " + $$("#asOut .help-card a[href^='#/article/']").length + " ссылок в разборе");
 
   /* Ответ на уточняющий вопрос пересчитывает квалификацию. */
   const optGroup = $$("#asOut .help-opt").find(o => /группа лиц/i.test(o.textContent || ""));
@@ -439,17 +451,37 @@ server.listen(0, "127.0.0.1", async () => {
   ok("блок идёт первым (наиболее релевантный)",
     ((T("#asOut h2") || "").indexOf("Проверка документов") !== -1), T("#asOut h2"));
   ok("показаны совпавшие ключевые слова", /Совпало:/.test(T("#asOut") || ""));
-  ok("в блоке есть статья ФЗ «О полиции» о правах",
-    $$('#asOut .chip[data-go="#/article/fz3pol-13"]').length > 0);
-  ok("в блоке есть статьи КоАП о доставлении и задержании",
-    $$('#asOut .chip[data-go="#/article/koap-27.2"]').length > 0 &&
-    $$('#asOut .chip[data-go="#/article/koap-27.3"]').length > 0 &&
-    $$('#asOut .chip[data-go="#/article/koap-27.5"]').length > 0);
-  ok("все ссылки нового блока ведут на существующие статьи",
-    $$("#asOut .chip[data-go]").every(el => {
-      const id = decodeURIComponent(el.getAttribute("data-go").replace("#/article/", ""));
-      return w.RF_IDX.some(r => r[0] + "-" + r[1] === id);
-    }), $$("#asOut .chip[data-go]").length + " ссылок");
+  /* Нормы ответа: раньше у блока правил был свой список статей, который
+     повторял и вывод, и общий перечень. Теперь перечень один — в выводе. */
+  const policeNorms = normIds();
+  ok("в ответе есть статья ФЗ «О полиции» о правах",
+    policeNorms.indexOf("fz3pol-13") !== -1, policeNorms.join(", "));
+  ok("в ответе есть статьи КоАП о доставлении и задержании",
+    ["koap-27.2", "koap-27.3"].every(id => policeNorms.indexOf(id) !== -1),
+    policeNorms.join(", "));
+  /* Перечень норм ограничен по объёму: раньше карточка правила вываливала все
+     свои 18 статей подряд, включая общие составы и нормы соседних отраслей. */
+  ok("перечень норм ответа ограничен по объёму",
+    policeNorms.length > 0 && policeNorms.length <= 8, policeNorms.length + " норм");
+  ok("все нормы ответа ведут на существующие статьи",
+    policeNorms.every(id => w.RF_IDX.some(r => r[0] + "-" + r[1] === id)),
+    policeNorms.length + " норм");
+
+  /* Одна норма — один показ. Раньше статья шла трижды: чипом в выводе,
+     списком в карточке и отдельным блоком санкций (до 4 показов на норму). */
+  const uniqNorms = policeNorms.filter((v, i) => policeNorms.indexOf(v) === i);
+  ok("нормы не дублируются по блокам",
+    policeNorms.length - uniqNorms.length <= 2,
+    policeNorms.length + " показов на " + uniqNorms.length + " норм");
+
+  /* «Правильные статьи»: общие составы не должны вытеснять профильные. При
+     сортировке «сначала УК и КоАП» на запрос о проверке документов первой
+     шла ст. 318 УК РФ — насилие над представителем власти, — а профильные
+     нормы ФЗ «О полиции» и КоАП выпадали из списка. */
+  ok("общие составы не вытеснили профильные нормы проверки документов",
+    policeNorms.indexOf("uk-318") === -1 && policeNorms.indexOf("uk-319") === -1 &&
+    !policeNorms.some(id => /^gk2-/.test(id) || /^fz2202prok-/.test(id)),
+    policeNorms.join(", "));
   /* Общее слово не должно вытягивать блок: «в метро играла музыка» — не ситуация. */
   $("#asInput").value = "в метро играла музыка и было шумно";
   $("#asRun").dispatchEvent(new w.Event("click", { bubbles: true }));

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Правовой консультант">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Правовой консультант — кодексы, сроки, памятки, шаблоны</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
+<link rel="apple-touch-icon" href="favicon.svg">
+<meta name="description" content="Полные тексты кодексов и законов РФ: поиск по статьям, разбор ситуации, калькуляторы сроков и пошлин, чек-листы следственных действий и шаблоны документов. Работает офлайн.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#view">Перейти к содержимому</a>
+
+<div class="app" id="appRoot">
+
+  <div class="sidebar-backdrop" id="sideBackdrop"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><span class="ico" data-ico="scales"></span></div>
+      <div>
+        <div class="brand-name">Правовой консультант</div>
+        <div class="brand-sub">кодексы · сроки · документы</div>
+      </div>
+      <button class="side-close" id="sideClose" type="button" aria-label="Закрыть меню"><span class="ico" data-ico="close"></span></button>
+    </div>
+
+    <nav class="nav" id="mainNav" aria-label="Основная навигация">
+      <div class="nav-group">
+        <div class="nav-title">Рабочая область</div>
+        <div class="nav-item" data-nav="home" data-href="#/home">
+          <span class="ico" data-ico="home"></span><span class="lbl">Навигатор</span>
+        </div>
+        <div class="nav-item" data-nav="assistant" data-href="#/assistant">
+          <span class="ico" data-ico="compass"></span><span class="lbl">Помощник</span>
+        </div>
+        <div class="nav-item" data-nav="search" data-href="#/search/">
+          <span class="ico" data-ico="search"></span><span class="lbl">Поиск статей</span>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">Памятки и шаблоны</div>
+        <div class="nav-item" data-nav="scenarios" data-href="#/scenarios">
+          <span class="ico" data-ico="shield"></span><span class="lbl">Памятки и сценарии</span>
+        </div>
+        <div class="nav-item" data-nav="checklists" data-href="#/checklists">
+          <span class="ico" data-ico="checkbox"></span><span class="lbl">Чек-листы</span>
+        </div>
+        <div class="nav-item" data-nav="templates" data-href="#/templates">
+          <span class="ico" data-ico="file"></span><span class="lbl">Шаблоны документов</span>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">Сроки и контроль</div>
+        <div class="nav-item" data-nav="calc" data-href="#/calc">
+          <span class="ico" data-ico="scales"></span><span class="lbl">Калькуляторы</span>
+        </div>
+        <div class="nav-item" data-nav="deadlines" data-href="#/deadlines">
+          <span class="ico" data-ico="clock"></span><span class="lbl">Процессуальные сроки</span>
+        </div>
+        <div class="nav-item" data-nav="new" data-href="#/new">
+          <span class="ico" data-ico="activity"></span><span class="lbl">Новое</span><span class="cnt" id="newCount"></span>
+        </div>
+        <div class="nav-item" data-nav="freshness" data-href="#/freshness">
+          <span class="ico" data-ico="shield"></span><span class="lbl">Проверка актуальности</span>
+        </div>
+        <div class="nav-item" data-nav="repealed" data-href="#/repealed">
+          <span class="ico" data-ico="ban"></span><span class="lbl">Утратившие силу<span class="cnt" id="repCount">0</span></span>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">Сравнение и анализ</div>
+        <div class="nav-item" data-nav="diff" data-href="#/diff">
+          <span class="ico" data-ico="swap"></span><span class="lbl">Сравнение</span>
+        </div>
+        <div class="nav-item" data-nav="stats" data-href="#/stats">
+          <span class="ico" data-ico="chart"></span><span class="lbl">Аналитика</span>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">Мои материалы</div>
+        <div class="nav-item" data-nav="favorites" data-href="#/favorites">
+          <span class="ico" data-ico="star"></span><span class="lbl">Избранное</span>
+        </div>
+        <div class="nav-item" data-nav="collection" data-href="#/collection">
+          <span class="ico" data-ico="clip"></span><span class="lbl">Подборка норм<span class="cnt" id="colCount">0</span></span>
+        </div>
+        <div class="nav-item" data-nav="cases" data-href="#/cases">
+          <span class="ico" data-ico="folder"></span><span class="lbl">Дела<span class="cnt" id="caseCount">0</span></span>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">Нормативные источники</div>
+        <div id="codeNav"></div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-item" data-nav="help" data-href="#/help">
+          <span class="ico" data-ico="help"></span><span class="lbl">Как пользоваться</span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div><span id="totalCount">0</span> статей · <span id="versionTag">v4.0</span></div>
+      <div style="margin-top:6px" id="freshChip"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <button class="icon-btn burger" id="burgerBtn" type="button"
+              aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false"><span class="ico" data-ico="menu"></span></button>
+      <div class="search-wrap">
+        <span class="search-icon ico" data-ico="search" aria-hidden="true"></span>
+        <input id="searchInput" class="search-input" type="search" role="searchbox"
+               aria-label="Поиск по статьям законов"
+               placeholder="Номер, название или слова из текста статьи — например: ст 91 УПК, обыск, взятка"
+               autocomplete="off" spellcheck="false">
+      </div>
+      <div class="topbar-actions">
+        <!-- Роль: переключатель живёт в верхней панели, а не в левом меню —
+             он нужен на любой вкладке и не должен теряться среди источников. -->
+        <div class="role-ctl" id="roleCtl">
+          <button class="icon-btn role-btn-top" id="roleBtn" type="button"
+                  aria-label="Роль: под кого работает подсказка" aria-haspopup="dialog"
+                  aria-expanded="false" aria-controls="roleMenu">
+            <span class="ico" data-ico="user"></span>
+            <span class="role-btn-lbl" id="roleBtnLbl" hidden></span>
+          </button>
+          <div class="read-menu role-menu" id="roleMenu" role="dialog" aria-label="Под кого работает подсказка" hidden>
+            <div class="role-menu-h">Под кого работает подсказка</div>
+            <div id="roleSwitch" class="role-menu-list"></div>
+            <p class="role-menu-note">Роль поднимает нужные инструменты наверх и помечает результат в поиске.
+              Данные и порядок норм при этом не меняются.</p>
+          </div>
+        </div>
+        <div class="read-ctl" id="readCtl">
+          <button class="icon-btn" id="readBtn" type="button"
+                  aria-label="Настройки чтения" aria-expanded="false" aria-controls="readMenu">Aa</button>
+          <div class="read-menu" id="readMenu" role="dialog" aria-label="Настройки чтения текста" hidden>
+            <div class="read-row"><span>Размер текста</span>
+              <div class="read-btns">
+                <button type="button" data-read="fs-" aria-label="Уменьшить шрифт">A−</button>
+                <button type="button" data-read="fs+" aria-label="Увеличить шрифт">A+</button>
+              </div>
+            </div>
+            <div class="read-row"><span>Ширина колонки</span>
+              <div class="read-btns">
+                <button type="button" data-read="w+" aria-label="Узкая колонка">›‹</button>
+                <button type="button" data-read="w-" aria-label="Широкая колонка">‹›</button>
+              </div>
+            </div>
+            <div class="read-row"><span>Межстрочный интервал</span>
+              <div class="read-btns">
+                <button type="button" data-read="lh+" aria-label="Увеличить интервал">↕+</button>
+                <button type="button" data-read="lh-" aria-label="Уменьшить интервал">↕−</button>
+              </div>
+            </div>
+            <button class="btn btn-sm read-reset" type="button" id="readReset">Сбросить</button>
+          </div>
+        </div>
+        <button class="icon-btn" id="themeBtn" type="button" title="Сменить тему" aria-label="Переключить светлую и тёмную тему"></button>
+      </div>
+    </div>
+
+    <!-- Активная роль видна на любой вкладке. Раньше переключатель в сайдбаре
+         вне «Навигатора» никак не отображался — бар подтверждает выбор. -->
+    <div class="role-bar" id="roleBar" hidden></div>
+
+    <div class="content" id="view" tabindex="-1"></div>
+  </main>
+
+  <button class="to-top" id="toTop" type="button" aria-label="Наверх" title="Наверх" hidden><span class="ico" data-ico="up"></span></button>
+
+</div>
+
+<div class="palette-backdrop" id="palette" role="dialog" aria-modal="true" aria-label="Командная строка">
+  <div class="palette">
+    <input id="palInput" placeholder="Поиск статей, разделов и источников…" autocomplete="off" spellcheck="false"
+           aria-label="Строка поиска в командной строке" role="combobox" aria-expanded="true" aria-controls="palList">
+    <div class="palette-list" id="palList" role="listbox" aria-label="Результаты"></div>
+  </div>
+</div>
+
+<!-- Вступительный экран: показывается при каждом открытии — он коротко
+     объясняет, что это за справочник. Кнопки нет: закрывается нажатием
+     в любом месте (или клавишей Escape). -->
+<div class="intro" id="intro" hidden role="dialog" aria-modal="true" aria-label="Добро пожаловать в Правовой консультант">
+  <div class="intro-card" id="introCard">
+    <div class="intro-mark" aria-hidden="true"><span class="ico" data-ico="scales"></span></div>
+    <h1 class="intro-title">Правовой консультант</h1>
+    <p class="intro-desc">Кодексы, законы и разбор ситуации в одном месте: полные тексты статей, калькуляторы сроков и пошлин, памятки следственных действий и шаблоны документов. Работает офлайн — без подписки и без отправки данных на сервер.</p>
+    <ul class="intro-feats">
+      <li><span class="ico" data-ico="search"></span>Мгновенный поиск по статьям и полному тексту</li>
+      <li><span class="ico" data-ico="compass"></span>Разбор ситуации с указанием нужных норм</li>
+      <li><span class="ico" data-ico="scales"></span>Калькуляторы сроков, пошлин и пределов</li>
+      <li><span class="ico" data-ico="shield"></span>Памятки и шаблоны документов</li>
+    </ul>
+    <p class="intro-hint">Нажмите в любом месте, чтобы продолжить</p>
+  </div>
+</div>
+
+<!-- данные: реестр источников, поисковый индекс, аннотации, справочный слой -->
+<script src="data/registry.js"></script>
+<script src="data/index.js"></script>
+<script src="data/annotations.js"></script>
+<script src="data/40-reference.js"></script>
+<script src="data/freshness.js"></script>
+<!-- статусы норм: утрата силы, приостановление, признание недействующей -->
+<script src="data/status.js"></script>
+<!-- лента изменений для вкладки «Новое»: что поменялось с прошлой проверки -->
+<script src="data/changelog.js"></script>
+<!-- общий модуль разбора текстов — используется при автообновлении документов -->
+<script src="data/parse.js"></script>
+<!-- общий модуль перекрёстных ссылок между статьями -->
+<script src="data/xref.js"></script>
+<!-- общий модуль текстовой обработки — используется полнотекстовым поиском -->
+<script src="data/text.js"></script>
+<!-- параметры полнотекстового индекса; его сегменты подгружаются по требованию -->
+<script src="data/ft/meta.js"></script>
+<!-- полные тексты (data/full/*.js) подгружаются по требованию -->
+<!-- приложение -->
+<script src="app.js"></script>
+
+</body>
+</html>

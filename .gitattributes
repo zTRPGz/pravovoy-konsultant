@@ -1,0 +1,13 @@
+# Перевод строк — везде LF.
+#
+# На Windows git по умолчанию ставит core.autocrlf=true и приводит текстовые
+# файлы к CRLF при checkout. Собранные данные пишет Node с LF, поэтому после
+# первой же проверки git видит «изменения» в каждом файле из data/ — и ночная
+# сборка на Linux коммитила бы их каждую ночь. Явное eol=lf убирает эту
+# неоднозначность на любой машине.
+*.js   text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf

@@ -1,0 +1,23 @@
+{
+  "name": "pravovoy-konsultant",
+  "version": "4.0.0",
+  "private": true,
+  "description": "Правовой консультант — офлайн-справочник по кодексам и законам РФ: поиск по статьям, разбор ситуации, калькуляторы сроков и пошлин, шаблоны документов",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "fetch": "node tools/fetch-sources.js && node tools/fetch-extra.js && node tools/fetch-plenums.js",
+    "build": "node tools/fetch-sources.js && node tools/fetch-extra.js && node tools/fetch-plenums.js && node tools/build-data.js && node tools/build-changelog.js",
+    "build:data": "node tools/build-data.js && node tools/build-changelog.js",
+    "changelog": "node tools/build-changelog.js",
+    "dist": "node tools/build-dist.js",
+    "audit": "node tools/audit.js",
+    "verify": "node tools/audit.js && node tools/verify-data.js && node tools/smoke-test.js",
+    "serve": "node tools/serve.js"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.2"
+  }
+}

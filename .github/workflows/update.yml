@@ -1,0 +1,154 @@
+# =========================================================================
+# Правовой консультант :: ночное обновление базы
+# -------------------------------------------------------------------------
+# Раз в сутки: скачивает официальные тексты с actual.pravo.gov.ru и sudact.ru,
+# пересобирает данные, сравнивает с предыдущим снимком (tools/build-changelog.js)
+# и пишет ленту изменений для вкладки «Новое». Если хоть что-то изменилось и
+# все проверки зелёные — коммитит и пушит; хостинг (Vercel, Pages) деплоит сам.
+#
+# Почему GitHub Actions, а не cron на хостинге: на бесплатных планах Vercel
+# cron запускается раз в сутки и только на платных тарифах доступен чаще,
+# а здесь нужен полноценный прогон (загрузка + сборка + три проверки).
+# Actions бесплатен и безлимитен для публичных репозиториев.
+#
+# Запуск вручную: вкладка Actions → «Обновление базы» → Run workflow.
+# =========================================================================
+name: Обновление базы
+
+on:
+  schedule:
+    # 20:30 UTC = 23:30 МСК, после вечерней публикации на pravo.gov.ru
+    - cron: "30 20 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Сделать коммит, даже если изменений нет (пересобрать выдачу)"
+        type: boolean
+        default: false
+
+# Один прогон за раз: два одновременных обновления перезаписали бы снимок
+# друг друга, и лента потеряла бы часть изменений.
+concurrency:
+  group: update-base
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Получение репозитория
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Зависимости для проверок
+        run: npm ci
+
+      # Сырые выгрузки (vendor/) в git не хранятся: каждый прогон скачивает
+      # их заново, иначе fetch-sources.js пропускает существующие файлы и
+      # изменения никогда не попали бы в базу.
+      - name: Загрузка кодексов и федеральных законов
+        run: node tools/fetch-sources.js
+
+      - name: Загрузка Конституции, ФКЗ и метаданных
+        run: node tools/fetch-extra.js
+
+      - name: Загрузка постановлений Пленума ВС РФ
+        run: node tools/fetch-plenums.js
+
+      - name: Сборка данных
+        run: node tools/build-data.js
+
+      - name: Лента изменений (вкладка «Новое»)
+        run: |
+          node tools/build-changelog.js | tee changelog.log
+
+      # Проверки — на изменённых данных. Если хоть одна красная, задача
+      # падает и коммита не происходит: в основную ветку попадает только то,
+      # что прошло аудит, сверку и прогон интерфейса.
+      - name: Аудит данных
+        run: node tools/audit.js | tee audit.log
+
+      - name: Сверка данных
+        run: node tools/verify-data.js | tee verify.log
+
+      - name: Прогон интерфейса
+        run: node tools/smoke-test.js | tee smoke.log
+
+      # Отметка времени сборки (built_at) меняется каждый прогон, даже если в
+      # законах ничего не изменилось. Нейтрализуем её и сравниваем СОДЕРЖИМОЕ
+      # файлов со вчерашним: строки диффа для этого не годятся — в freshness.js
+      # built_at и все манифесты лежат в одной строке, и выбросить строку значило
+      # бы потерять настоящие изменения. Пропускать строку нельзя ещё и потому,
+      # что новый документ появляется отдельным файлом data/full/<id>.js,
+      # которого в git diff --name-only нет.
+      - name: Что изменилось
+        id: diff
+        run: |
+          norm() { tr -d '\r' | sed 's/"built_at":"[^"]*"/"built_at":"X"/g'; }
+          # data/version.json — отпечаток сборки: метка времени в нём меняется
+          # каждый прогон, а содержимое целиком следует за остальными файлами.
+          # В сравнении он не участвует, иначе коммит появлялся бы каждую ночь
+          # даже без единого изменения в законах.
+          files=$( { git diff --name-only -- data; git ls-files --others --exclude-standard -- data; } \
+                   | grep -v '^data/version\.json$' || true )
+          real=""
+          for f in $files; do
+            h_old=$(git show "HEAD:$f" 2>/dev/null | norm | sha1sum | cut -c1-40)
+            h_new=$(norm < "$f" | sha1sum | cut -c1-40)
+            [ "$h_old" = "$h_new" ] || real="$real $f"
+          done
+          if [ -n "$(echo "$real" | tr -d ' ')" ]; then
+            echo "changed=yes" >> "$GITHUB_OUTPUT"
+            echo "Настоящие изменения в:$real"
+          else
+            echo "changed=no" >> "$GITHUB_OUTPUT"
+            echo "Изменений в законах нет — коммит не нужен"
+          fi
+          echo "files=$real" >> "$GITHUB_OUTPUT"
+
+      - name: Коммит и push
+        if: steps.diff.outputs.changed == 'yes' || inputs.force == true
+        run: |
+          git config user.name "Правовой консультант (бот)"
+          git config user.email "pravovoy-konsultant-bot@users.noreply.github.com"
+          git add -- data tools/state/snapshot.json
+          # пустой коммит не создаём: нечего фиксировать
+          if git diff --cached --quiet; then
+            echo "Нечего коммитить"
+            exit 0
+          fi
+          {
+            echo "Автообновление базы: $(date -u +'%d.%m.%Y')"
+            echo
+            git diff --cached --numstat -- data | awk '{printf "  %s (%s строк)\n", $3, ($1+$2)}' | head -20
+            echo
+            echo "Лента изменений:"
+            sed -n '1,30p' changelog.log
+          } > commit.txt
+          git commit -F commit.txt
+          git push
+
+      - name: Логи прогона
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-logs
+          path: |
+            audit.log
+            verify.log
+            smoke.log
+            changelog.log
+          retention-days: 14
+          if-no-files-found: ignore

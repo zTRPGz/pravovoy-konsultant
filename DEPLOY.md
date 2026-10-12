@@ -28,6 +28,7 @@ git config --global user.email "ваша@почта"
 >
 > ```powershell
 > $env:Path += ";C:\Program Files\WorkBuddyAI\resources\vendor\PortableGit\cmd"
+> cd C:\Users\<вы>\Downloads\rf-laws     # папка проекта — иначе git скажет «not a git repository»
 > ```
 >
 > Настройка действует до закрытия окна: откроете новое — повторите строку.

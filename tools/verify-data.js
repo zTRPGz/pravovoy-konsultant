@@ -1470,6 +1470,94 @@ check("уведомление оформлено в стилях и не нае�
   /body\.has-update \.toast/.test(cssSrc) &&
   /body\.classList\.add\("has-update"\)/.test(appSrc));
 
+/* --- отпечаток кода сборки ------------------------------------------------
+   Правка в app.js, styles.css или index.html содержимое data/ не меняет:
+   отпечаток базы (digest) и метка её сборки остаются прежними. Без отдельного
+   отпечатка кода открытая вкладка не узнала бы, что на хостинге уже другой
+   скрипт, — и читатель до десяти минут работал бы со старым, а выглядело бы
+   это как «правки не доехали». */
+const stampSrc = fs.readFileSync(path.join(ROOT, "tools", "lib", "code-stamp.js"), "utf8");
+check("отпечаток кода считается по оболочке сайта",
+  /CODE_FILES = \["index\.html", "app\.js", "styles\.css"\]/.test(stampSrc) &&
+  /createHash\("sha1"\)/.test(stampSrc) && /function codeStamp\(dir\)/.test(stampSrc),
+  "разметка, стили и скрипт — всё, что читатель получает как «приложение»");
+check("своё же значение исключено из подсчёта отпечатка",
+  /STAMP_RE = \/\(BUILD_CODE/.test(stampSrc) && /replace\(STAMP_RE, "\$1\$2"\)/.test(stampSrc),
+  "иначе подстановка отпечатка меняла бы сам отпечаток и уведомление висело бы всегда");
+check("перевод строк не влияет на отпечаток",
+  /replace\(\/\\r\\n\/g, "\\n"\)/.test(stampSrc),
+  "иначе Windows и Linux дали бы разные отпечатки одной сборки");
+check("version.json несёт отпечаток кода рядом с отпечатком базы",
+  !!version && /^[0-9a-f]{16}$/.test(version.code || "") &&
+  /version\.code = codeStamp\(ROOT\)/.test(buildSrc),
+  version ? "код " + version.code + " · база " + version.digest : "файла нет");
+check("приложение знает отпечаток своего кода",
+  /var BUILD_CODE = "";/.test(appSrc) && /function loadedCode\(\)/.test(appSrc) &&
+  /\^\[0-9a-f\]\{16\}\$\/\.test\(BUILD_CODE\)/.test(appSrc),
+  "в исходнике константа пустая — отпечаток подставляет сборка публикации");
+check("приложение сравнивает отпечаток кода с серверным",
+  /var codeStale = /.test(appSrc) && /j\.code !== loadedCode\(\)/.test(appSrc) &&
+  /var stale = dataStale \|\| codeStale;/.test(appSrc),
+  "данные при этом могут быть той же сборки — их проверка тут не сработает");
+check("уведомление различает правку кода и новую редакцию базы",
+  /Вышло обновление приложения/.test(appSrc) && /ubTitle/.test(appSrc) &&
+  /showBuildBar\(j, codeStale && !dataStale\)/.test(appSrc));
+check("перезагрузка меняет адрес и при правке кода",
+  /function buildTag\(/.test(appSrc) && /buildTag\(buildInfo\.latest\)/.test(appSrc),
+  "одного digest мало: правка кода адрес не меняла бы, и кеш отдал бы старый скрипт");
+check("отпечаток кода не выдумывается там, где его нет",
+  /return \/\^\[0-9a-f\]\{16\}\$\/\.test\(BUILD_CODE\) \? BUILD_CODE : "";/.test(appSrc),
+  "локальный запуск и file:// не должны показывать уведомление");
+
+/* Функциональная проверка отпечатка: собираем крошечный макет каталога
+   публикации в временном каталоге и прогоняем подстановку. Проверять это по
+   тексту бессмысленно — важно, что отпечаток не зависит от собственного
+   значения, а правка кода его меняет. */
+{
+  const stampMod = require("./lib/code-stamp.js");
+  const os = require("os");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "rf-stamp-"));
+  const tmpCrlf = fs.mkdtempSync(path.join(os.tmpdir(), "rf-stamp-crlf-"));
+  try {
+    fs.writeFileSync(path.join(tmp, "index.html"), "<html></html>\n", "utf8");
+    fs.writeFileSync(path.join(tmp, "styles.css"), "body{}\n", "utf8");
+    fs.writeFileSync(path.join(tmp, "app.js"), 'var BUILD_CODE = ""; /* rf-code */\n', "utf8");
+    fs.mkdirSync(path.join(tmp, "data"));
+    fs.writeFileSync(path.join(tmp, "data", "version.json"), '{"at":"X","digest":"d"}\n', "utf8");
+
+    const before = stampMod.codeStamp(tmp);
+    const applied = stampMod.applyCodeStamp(tmp);
+    const after = stampMod.codeStamp(tmp);
+    const appTmp = fs.readFileSync(path.join(tmp, "app.js"), "utf8");
+    const verTmp = JSON.parse(fs.readFileSync(path.join(tmp, "data", "version.json"), "utf8"));
+
+    check("подстановка отпечатка не меняет сам отпечаток",
+      applied === before && after === before, before);
+    check("отпечаток попал и в app.js, и в version.json",
+      appTmp.indexOf('BUILD_CODE = "' + applied + '"') >= 0 && verTmp.code === applied,
+      "app.js: " + /BUILD_CODE = "[0-9a-f]{16}"/.test(appTmp) + " · version.json: " + verTmp.code);
+    check("подстановка не тронула метку и отпечаток базы",
+      verTmp.at === "X" && verTmp.digest === "d",
+      "at=" + verTmp.at + " digest=" + verTmp.digest);
+
+    fs.writeFileSync(path.join(tmp, "app.js"), appTmp + "var x = 1;\n", "utf8");
+    const edited = stampMod.codeStamp(tmp);
+    check("правка кода меняет отпечаток", edited !== before, before + " → " + edited);
+
+    fs.writeFileSync(path.join(tmp, "data", "version.json"), '{"at":"Y","digest":"e"}\n', "utf8");
+    check("пересборка базы отпечаток кода не меняет", stampMod.codeStamp(tmp) === edited,
+      "data/ в отпечаток кода не входит");
+
+    fs.cpSync(tmp, tmpCrlf, { recursive: true });
+    fs.writeFileSync(path.join(tmpCrlf, "styles.css"), "body{}\r\n", "utf8");
+    check("Windows и Linux дают один отпечаток", stampMod.codeStamp(tmpCrlf) === edited,
+      "перевод строк приводится к LF");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(tmpCrlf, { recursive: true, force: true });
+  }
+}
+
 const vercelCfg = JSON.parse(fs.readFileSync(path.join(ROOT, "vercel.json"), "utf8"));
 const cacheFor = function (src) {
   const h = (vercelCfg.headers || []).filter(function (r) { return r.source === src; })[0];
@@ -1582,6 +1670,13 @@ const distSrc = fs.readFileSync(path.join(ROOT, "tools", "build-dist.js"), "utf8
 check("правила кеширования для Cloudflare выводятся из vercel.json",
   /readFileSync\(path\.join\(ROOT, "vercel\.json"\)/.test(distSrc),
   "один источник правил — иначе кеш на Vercel и на Cloudflare разошёлся бы");
+
+check("каталог публикации получает отпечаток кода",
+  /require\("\.\/lib\/code-stamp\.js"\)/.test(distSrc) && /applyCodeStamp\(OUT\)/.test(distSrc),
+  "без этого правка кода не поднимала бы уведомление об обновлении");
+check("отпечаток проставляется после копирования файлов",
+  distSrc.indexOf("applyCodeStamp(OUT)") > distSrc.indexOf("fs.cpSync(src, path.join(OUT, d)"),
+  "отпечаток читает уже собранный каталог — иначе он бы посчитался по старому app.js");
 
 check("в _headers переведены пути Vercel и нет его синтаксиса",
   /^\/\*\n/m.test(distHdr) && /^\/data\/full\/\*\n/m.test(distHdr) &&

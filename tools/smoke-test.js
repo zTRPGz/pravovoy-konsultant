@@ -2056,6 +2056,9 @@ server.listen(0, "127.0.0.1", async () => {
     const CACHE_AT = LOADED_AT === "2026-01-01T00:00:00.000Z"
       ? "2026-01-02T00:00:00.000Z" : "2026-01-01T00:00:00.000Z";
     let serverAt = LOADED_AT;
+    /* отпечаток кода, который «лежит на хостинге»: правка кода данных не
+       меняет, поэтому проверяется отдельно от digest */
+    let serverCode = "";
     /* LS.set пишет через JSON.stringify — значение в localStorage в кавычках */
     const setSeen = v => w.localStorage.setItem("rflaws.buildDigest", JSON.stringify(v));
 
@@ -2066,7 +2069,7 @@ server.listen(0, "127.0.0.1", async () => {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({
-          digest: NEW_DIGEST, at: serverAt,
+          digest: NEW_DIGEST, at: serverAt, code: serverCode,
           articles: 19307, sources: 227, files: 271
         })
       });
@@ -2127,6 +2130,51 @@ server.listen(0, "127.0.0.1", async () => {
       !!bar && bar.hidden === false, bar ? "hidden=" + bar.hidden : "нет элемента");
     ok("шарды остались версии загруженных данных",
       B.query() === "?v=" + NEW_DIGEST, B.query());
+    B.state().hidden = true;       /* дальше секции уведомление не мешает */
+
+    /* 5) правка кода при неизменных данных. Отпечаток базы (digest) и метка её
+       сборки те же, что у загруженной страницы: раньше уведомление в этом
+       случае не появлялось вовсе — и читатель до десяти минут работал со
+       старым скриптом, а выглядело это как «правки не доехали». Отпечаток
+       кода сборщик кладёт и в app.js, и в version.json (tools/lib/code-stamp.js). */
+    B.hide();
+    await wait(400);
+    ok("перед проверкой правки кода уведомление скрыто", !!bar && bar.hidden === true,
+      bar ? "hidden=" + bar.hidden : "нет элемента");
+
+    setSeen(NEW_DIGEST);
+    B.state().hidden = false;
+    serverAt = LOADED_AT;                 /* база та же, что на экране */
+    serverCode = "fedcba9876543210";      /* а код на хостинге — новый */
+    B.setCode("0123456789abcdef");        /* отпечаток загруженной сборки */
+    B.check(false);
+    await wait(150);
+    ok("правка кода поднимает уведомление, хотя данные те же",
+      !!bar && bar.hidden === false, bar ? "hidden=" + bar.hidden : "нет элемента");
+    ok("уведомление говорит про обновление приложения",
+      /обновление приложения/i.test(T("#ubTitle") || ""), T("#ubTitle"));
+    ok("в подписи не обещана новая редакция базы",
+      /не менялись/.test(T("#ubNote") || ""), T("#ubNote"));
+    ok("приложение видит собственный отпечаток кода",
+      B.code() === "0123456789abcdef", B.code());
+    ok("метка перезагрузки меняется и от правки кода",
+      B.tag({ code: "fedcba9876543210", digest: NEW_DIGEST }) === "fedcba9876543210-" + NEW_DIGEST,
+      B.tag({ code: "fedcba9876543210", digest: NEW_DIGEST }));
+
+    /* 6) отпечатка кода нет: сборка до появления проверки, локальный запуск,
+       file://. Сравнивать нечего — уведомление не выдумываем. */
+    B.hide();
+    await wait(400);
+    B.setCode("");
+    serverCode = "";
+    B.state().hidden = false;
+    B.check(false);
+    await wait(150);
+    ok("без отпечатка кода уведомление не выдумывается", !!bar && bar.hidden === true,
+      bar ? "hidden=" + bar.hidden : "нет элемента");
+
+    B.hide();
+    await wait(400);
     B.state().hidden = true;       /* дальше секции уведомление не мешает */
 
     w.fetch = realFetch;

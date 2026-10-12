@@ -7160,6 +7160,15 @@
      Свежая загрузка страницы всегда отдаёт текущую сборку, поэтому
      уведомление адресовано тем, кто читает приложение в момент выкладки:
      для них перезагрузка — единственный способ получить новые тексты. */
+  /* Отпечаток кода этой сборки. В исходнике константа пустая: настоящее
+     значение подставляет сборка публикации (tools/lib/code-stamp.js) — одно
+     и то же в app.js и в data/version.json. По нему открытая вкладка
+     понимает, что на хостинге лежит уже другой код: правка в app.js,
+     styles.css или index.html данные не меняет, поэтому по отпечатку базы
+     (digest) её не увидеть, и правки «не доезжали» бы до читателя, пока он
+     сам не нажмёт Ctrl+F5. */
+  var BUILD_CODE = ""; /* rf-code */
+
   var BUILD_KEY = "buildDigest";       // отпечаток, с которым открыта вкладка
   var BUILD_URL = "data/version.json";
   var BUILD_EVERY = 45 * 60 * 1000;    // период фоновой перепроверки
@@ -7167,6 +7176,7 @@
 
   var buildInfo = {
     digest: "",       // отпечаток загруженной сборки
+    code: "",         // отпечаток кода загруженной сборки
     at: "",           // время сборки
     checkedAt: 0,     // когда последний раз удачно спросили сервер
     running: false,
@@ -7179,6 +7189,24 @@
   /* На file:// проверять нечего: отпечаток всё равно недоступен */
   function buildCanCheck() {
     return typeof fetch === "function" && /^https?:$/.test(location.protocol);
+  }
+
+  /* Отпечаток кода, который выполняется прямо сейчас. Пустая строка — это
+     «отпечатка нет»: исходник без подстановки сборщика, локальный запуск
+     или сборка до появления проверки. Сравнивать тогда нечего, и проверка
+     молча пропускается: выдуманное уведомление хуже пропущенного. */
+  function loadedCode() {
+    return /^[0-9a-f]{16}$/.test(BUILD_CODE) ? BUILD_CODE : "";
+  }
+
+  /* Метка версии для перезагрузки и для адреса страницы. Меняется и при
+     новой редакции базы, и при правке кода: одного digest мало — правка в
+     app.js данных не меняет, адрес остался бы прежним, и браузер отдал бы
+     из кеша тот же старый скрипт. */
+  function buildTag(j) {
+    var c = (j && j.code) || "";
+    var d = (j && j.digest) || "";
+    return c ? c + "-" + d : d;
   }
 
   /* Метка версии для ленивых шардов (см. loadFtShard/loadFull/loadFtDict):
@@ -7204,7 +7232,7 @@
     el.innerHTML =
       '<span class="ub-ico">' + ic("refresh") + "</span>" +
       '<div class="ub-body">' +
-        "<b>Вышла новая редакция базы</b>" +
+        '<b id="ubTitle">Вышла новая редакция базы</b>' +
         '<span class="ub-note" id="ubNote"></span>' +
       "</div>" +
       '<button class="btn btn-primary ub-go" id="ubGo" type="button">Обновить</button>' +
@@ -7220,13 +7248,24 @@
     return el;
   }
 
-  function showBuildBar(j) {
+  /* codeOnly — на хостинге сменился код приложения, а тексты законов те же.
+     Об этом и говорим: «новая редакция базы» было бы неправдой, а дата
+     сборки данных — старой и потому сбивающей с толку. */
+  function showBuildBar(j, codeOnly) {
     if (buildInfo.hidden) return;
     var el = buildBarEl();
+    var title = el.querySelector("#ubTitle");
     var note = el.querySelector("#ubNote");
+    if (title) {
+      title.textContent = codeOnly
+        ? "Вышло обновление приложения"
+        : "Вышла новая редакция базы";
+    }
     if (note) {
-      note.textContent = "Статей: " + (j.articles || "—") +
-        (j.at ? " · собрано " + fmtDateTime(new Date(j.at)) : "");
+      note.textContent = codeOnly
+        ? "Обновлён код приложения · тексты законов не менялись"
+        : "Статей: " + (j.articles || "—") +
+          (j.at ? " · собрано " + fmtDateTime(new Date(j.at)) : "");
     }
     el.hidden = false;
     /* класс на body поднимает тост выше, чтобы тот не наехал на уведомление */
@@ -7243,9 +7282,11 @@
   }
 
   /* Перезагрузка мимо кеша: в адресе появляется метка версии, поэтому и
-     документ, и данные приходят из сети, а не из кеша браузера. */
+     документ, и данные приходят из сети, а не из кеша браузера. Метка —
+     отпечаток кода плюс отпечаток базы (см. buildTag): правка в app.js
+     адрес тоже меняет, иначе браузер отдал бы тот же старый скрипт. */
   function buildReload() {
-    var d = (buildInfo.latest && buildInfo.latest.digest) || buildInfo.digest || Date.now();
+    var d = buildTag(buildInfo.latest) || buildInfo.digest || Date.now();
     location.replace(location.pathname + "?v=" + encodeURIComponent(d) + location.hash);
   }
 
@@ -7254,7 +7295,12 @@
      сохранённым отпечатком означает лишь «с прошлого визита база
      обновилась»: молча запоминаем. Если метка не совпала, файлы данных
      пришли из кеша браузера — тогда уведомление показываем и на первом
-     опросе, иначе читатель остался бы со старым текстом навсегда. */
+     опросе, иначе читатель остался бы со старым текстом навсегда.
+
+     Отпечаток кода проверяется независимо от метки времени: правка в
+     app.js, styles.css или index.html не меняет ни данные, ни время их
+     сборки, и без этой проверки читатель до десяти минут работал бы со
+     старым скриптом — а выглядит это как «правки не доехали». */
   /* Метка времени сборки, с которой загружены данные на экране. Лежит в
      data/freshness.js и совпадает с полем at в data/version.json: обе
      записи делает сборщик из одного значения. Нужна, чтобы поймать
@@ -7282,10 +7328,17 @@
            Молчаливое «запомнили отпечаток» оставило бы читателя со
            старым текстом: кнопка «Обновить» — единственный способ
            получить новые тексты, значит уведомление показываем. */
-        var stale = !!(j.at && loadedBuiltAt() && j.at !== loadedBuiltAt());
+        /* Расхождение по метке времени — файлы данных отдал кеш браузера.
+           Расхождение по отпечатку кода — на хостинге уже другая сборка
+           приложения: правка в app.js, styles.css или index.html данных не
+           меняет, и по digest её не увидеть, поэтому проверяем отдельно. */
+        var dataStale = !!(j.at && loadedBuiltAt() && j.at !== loadedBuiltAt());
+        var codeStale = !!(j.code && loadedCode() && j.code !== loadedCode());
+        var stale = dataStale || codeStale;
         if (!stale && (!seen || seen === j.digest || boot)) {
           if (seen !== j.digest) LS.set(BUILD_KEY, j.digest);
           buildInfo.digest = j.digest;
+          buildInfo.code = j.code || "";
           buildInfo.at = j.at || "";
           buildInfo.latest = null;
           hideBuildBar();
@@ -7297,7 +7350,7 @@
            сборки, иначе свежий шард разошёлся бы со старым индексом статей. */
         buildInfo.digest = seen;
         buildInfo.latest = j;
-        showBuildBar(j);
+        showBuildBar(j, codeStale && !dataStale);
       })
       .catch(function () { buildInfo.running = false; });
   }
@@ -8387,6 +8440,9 @@
         "</div>" +
         '<div class="small muted" style="margin-top:6px">Версия базы в этой вкладке: ' +
           esc(buildStampText()) +
+          /* отпечаток кода показываем только когда он есть: по нему видно,
+             что на экране действительно новая сборка приложения */
+          (loadedCode() ? " · сборка кода " + esc(loadedCode()) : "") +
           " · при выходе новой сборки приложение предложит обновиться</div>" +
         '<div style="margin-top:12px">' + statusHtml + "</div>" +
       "</div>" +
@@ -9392,6 +9448,12 @@
     reload: buildReload,
     query: buildQuery,
     stamp: buildStampText,
+    tag: buildTag,
+    code: loadedCode,
+    /* Тест-шов: подставить отпечаток кода «как будто сборка его проставила».
+       В исходнике константа пустая, иначе локальный запуск сравнивал бы
+       себя с самим собой и уведомление врало бы. */
+    setCode: function (v) { BUILD_CODE = String(v || ""); },
     state: function () { return buildInfo; },
     key: BUILD_KEY,
     url: BUILD_URL

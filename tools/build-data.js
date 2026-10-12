@@ -29,6 +29,7 @@ const path = require("path");
 const crypto = require("crypto");
 const parse = require("./lib/parse.js");
 const text = require("./lib/text.js");
+const codeStamp = require("./lib/code-stamp.js").codeStamp;
 
 const ROOT = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT, "vendor", "ruslaw");
@@ -716,11 +717,18 @@ function build() {
      прогоне, и все открытые вкладки перезагружались бы впустую.
 
      Файл крошечный и лежит отдельно от бандла, поэтому его можно
-     перепроверять хоть каждую минуту — без перезагрузки данных. */
+     перепроверять хоть каждую минуту — без перезагрузки данных.
+
+     Рядом лежит отпечаток кода (поле code): правка в app.js, styles.css или
+     index.html содержимое data/ не меняет, и по digest её не увидеть. Само
+     значение подставляет сборка публикации (tools/build-dist.js), здесь оно
+     записывается для полноты файла. */
   const version = buildVersionStamp(ta, registry.length);
+  version.code = codeStamp(ROOT);
   fs.writeFileSync(path.join(OUT_DATA, "version.json"),
     JSON.stringify(version) + "\n", "utf8");
-  console.log("Версия сборки: " + version.digest + " · статей " + version.articles +
+  console.log("Версия сборки: " + version.digest + " · код " + version.code +
+    " · статей " + version.articles +
     " · файлов в отпечатке " + version.files);
 
   const sizeIdx = fs.statSync(path.join(OUT_DATA, "index.js")).size;

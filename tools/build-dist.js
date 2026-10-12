@@ -22,6 +22,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const applyCodeStamp = require("./lib/code-stamp.js").applyCodeStamp;
 
 const ROOT = path.resolve(__dirname, "..");
 const OUT = path.join(ROOT, "dist");
@@ -104,6 +105,14 @@ function main() {
      безвреден. */
   fs.writeFileSync(path.join(OUT, ".nojekyll"), "", "utf8");
 
+  /* ---------- отпечаток кода ------------------------------------------------
+     Последним шагом, когда dist/ уже собран: отпечаток читает готовые файлы
+     и подставляет себя и в app.js, и в data/version.json. Без него правка в
+     app.js не меняла бы ни отпечаток базы, ни метку её сборки — и открытая
+     вкладка не узнала бы, что код на хостинге уже другой. Подробности —
+     tools/lib/code-stamp.js. */
+  const code = applyCodeStamp(OUT);
+
   /* ---------- отчёт ---------- */
   const sizes = [];
   (function walk(dir) {
@@ -123,6 +132,7 @@ function main() {
     return f.rel + " (" + (f.size / 1048576).toFixed(1) + " МБ)";
   }).join(", "));
   console.log("  правила кеширования: dist/_headers");
+  console.log("  отпечаток кода сборки: " + code);
 
   const tooBig = sizes.filter(function (f) { return f.size > LIMIT_FILE_BYTES; });
   if (tooBig.length) {

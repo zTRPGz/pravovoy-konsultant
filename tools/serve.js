@@ -8,6 +8,13 @@
    Запуск:  node tools/serve.js [порт] [каталог]   (по умолчанию 8080, корень)
             node tools/serve.js 8123 dist         — посмотреть ровно то,
                                                     что уедет на хостинг
+
+   Переменная окружения SERVE_CACHE=pages повторяет поведение GitHub Pages:
+   всё отдаётся с max-age=600 и без возможности задать свои заголовки. Нужна,
+   чтобы проверять автообновление в тех же условиях, что у читателя, —
+   на Pages файлы данных могут прийти из кеша браузера:
+
+            SERVE_CACHE=pages node tools/serve.js 8123 dist
    ========================================================================= */
 "use strict";
 
@@ -17,6 +24,9 @@ const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..", process.argv[3] || ".");
 const PORT = Number(process.argv[2]) || 8080;
+/* GitHub Pages не даёт задавать заголовки кеширования: любой файл живёт
+   10 минут. Включается переменной окружения — см. заголовок файла. */
+const PAGES_CACHE = process.env.SERVE_CACHE === "pages";
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -43,8 +53,10 @@ const server = http.createServer(function (req, res) {
     res.writeHead(200, {
       "Content-Type": TYPES[ext] || "application/octet-stream",
       /* те же правила, что в vercel.json: тяжёлые тексты кешируются недолго
-         и обновляются в фоне, а данные верхнего уровня перепроверяются всегда */
-      "Cache-Control": long ? "public, max-age=600, stale-while-revalidate=86400" : "no-cache",
+         и обновляются в фоне, а данные верхнего уровня перепроверяются всегда.
+         В режиме pages — как на GitHub Pages: единые 10 минут на всё. */
+      "Cache-Control": PAGES_CACHE ? "public, max-age=600"
+        : (long ? "public, max-age=600, stale-while-revalidate=86400" : "no-cache"),
       "X-Content-Type-Options": "nosniff"
     });
     res.end(buf);

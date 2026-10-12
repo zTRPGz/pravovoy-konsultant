@@ -1232,6 +1232,15 @@ console.log("\n10. Лента изменений и вкладка «Новое�
 
 const htmlSrc = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
+/* Файлы данных подключаются не тегами, а скриптом-загрузчиком: он подставляет
+   метку версии, если она есть в адресе страницы (иначе на GitHub Pages кнопка
+   «Обновить» возвращала бы те же файлы из кеша браузера). Поэтому список
+   подключённых данных берём из загрузчика, а не из разметки. */
+const htmlDataFiles = (function () {
+  const m = /var files = \[([\s\S]*?)\];/.exec(htmlSrc);
+  return m ? (m[1].match(/"[^"]+"/g) || []).map(function (s) { return s.slice(1, -1); }) : [];
+})();
+
 /* Ленту пишет tools/build-changelog.js, показывает — app.js (вкладка «Новое»).
    Расхождение в именах полей между сборщиком и видом не видно ни в одном
    тесте: запись просто не отрисуется. Поэтому состав полей сверяем прямо. */
@@ -1280,7 +1289,7 @@ if (fs.existsSync(CL_FILE)) {
 
 /* --- вид приложения --- */
 check("вкладка «Новое» подключена в index.html",
-  /<script src="data\/changelog\.js">/.test(htmlSrc) &&
+  htmlDataFiles.indexOf("data/changelog.js") >= 0 &&
   /data-nav="new"/.test(htmlSrc) && /id="newCount"/.test(htmlSrc));
 check("роут #/new ведёт в свой вид",
   /r\.name === "new"\)\s*\{\s*v\.innerHTML = viewNew\(r\.arg\);\s*bindNew\(\);/.test(appSrc));
@@ -1571,7 +1580,11 @@ check("тяжёлые тексты кешируются недолго, обол
    молча не доедет до хостинга, хотя локально всё будет работать. */
 const distRefs = (htmlSrc.match(/(?:src|href)="([^"]+)"/g) || [])
   .map(function (s) { return s.replace(/^(?:src|href)="/, "").replace(/"$/, ""); })
-  .filter(function (r) { return !/^(?:https?:|#|data:|mailto:|\/\/)/.test(r); });
+  .filter(function (r) { return !/^(?:https?:|#|data:|mailto:|\/\/)/.test(r); })
+  /* адреса файлов данных собирает загрузчик: в разметке от них остался только
+     шаблон "' + files[i] + v + '". Сам список добавляем ниже. */
+  .filter(function (r) { return r.indexOf("'") === -1 && r.indexOf("+") === -1; })
+  .concat(htmlDataFiles);
 const distMissing = distRefs.filter(function (r) {
   return distMod.FILES.indexOf(r) === -1 &&
     !distMod.DIRS.some(function (d) { return r.indexOf(d + "/") === 0; });
@@ -1596,6 +1609,31 @@ check("dist/ не хранится в репозитории",
 check("локальный сервер умеет показать каталог публикации",
   /process\.argv\[3\]/.test(fs.readFileSync(path.join(ROOT, "tools", "serve.js"), "utf8")),
   "node tools/serve.js 8123 dist — ровно то, что уедет на хостинг");
+check("локальный сервер умеет притвориться GitHub Pages",
+  /SERVE_CACHE/.test(fs.readFileSync(path.join(ROOT, "tools", "serve.js"), "utf8")),
+  "SERVE_CACHE=pages — те же 10 минут кеша, что у читателя");
+
+/* --- обновление базы у читателя --------------------------------------------
+   GitHub Pages не даёт задавать свои заголовки кеширования: всё отдаётся с
+   max-age=600. Отсюда ловушка — файлы данных могут прийти из кеша браузера, и
+   тогда кнопка «Обновить» перезагружала бы страницу без новых статей.
+   Проверяем оба механизма, которые это закрывают; поведение — в
+   .workbuddy-ai/verify-update.js (настоящий браузер, настоящий кеш). */
+check("файлы данных подключаются загрузчиком, а не тегами",
+  /var files = \[[\s\S]*?\];/.test(htmlSrc) && /location\.search/.test(htmlSrc) &&
+  /document\.write/.test(htmlSrc),
+  "иначе на GitHub Pages кеш браузера вернул бы те же старые тексты");
+check("метка версии подставляется только когда она есть в адресе",
+  /\[\?&\]v=/.test(htmlSrc) && /encodeURIComponent\(decodeURIComponent/.test(htmlSrc),
+  "первый заход и file:// должны работать как раньше");
+check("все данные верхнего уровня перечислены в загрузчике",
+  htmlDataFiles.length === 11 && htmlDataFiles.indexOf("data/registry.js") >= 0 &&
+  htmlDataFiles.indexOf("data/freshness.js") >= 0 && htmlDataFiles.indexOf("data/ft/meta.js") >= 0,
+  htmlDataFiles.length + " файлов");
+check("метка сборки загруженных данных сравнивается с серверной",
+  /function loadedBuiltAt\(\)/.test(appSrc) && /RF_FRESH/.test(appSrc) &&
+  /var stale = /.test(appSrc),
+  "без этого данные из кеша остались бы на экране навсегда");
 
 /* --- вступительный экран --------------------------------------------------- */
 /* Требование: показывается при каждом открытии и закрывается нажатием в любом

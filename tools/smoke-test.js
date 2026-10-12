@@ -1915,15 +1915,26 @@ server.listen(0, "127.0.0.1", async () => {
     const NEW_DIGEST = "0123456789abcdef";
     const realFetch = w.fetch;
     const asked = [];
+    /* Метку времени сборщик пишет из одного значения и в version.json (поле
+       at), и в файлы данных (built_at). Значит, у настоящей сборки они
+       совпадают — берём ту, с которой страница реально загружена. */
+    const LOADED_AT = (w.RF_FRESH && w.RF_FRESH.built_at) || "";
+    /* Метка, заведомо не равная загруженной: так выглядит сборка, файлы
+       которой браузер отдал из кеша. */
+    const CACHE_AT = LOADED_AT === "2026-01-01T00:00:00.000Z"
+      ? "2026-01-02T00:00:00.000Z" : "2026-01-01T00:00:00.000Z";
+    let serverAt = LOADED_AT;
     /* LS.set пишет через JSON.stringify — значение в localStorage в кавычках */
     const setSeen = v => w.localStorage.setItem("rflaws.buildDigest", JSON.stringify(v));
+
+    ok("метка сборки загруженных данных доступна приложению", !!LOADED_AT, LOADED_AT);
 
     w.fetch = (url, opt) => {
       asked.push({ url: url, opt: opt || {} });
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({
-          digest: NEW_DIGEST, at: "2026-10-12T01:00:00.000Z",
+          digest: NEW_DIGEST, at: serverAt,
           articles: 19307, sources: 227, files: 271
         })
       });
@@ -1960,6 +1971,7 @@ server.listen(0, "127.0.0.1", async () => {
        расхождение означает лишь «с прошлого визита база обновилась» */
     setSeen("olddigest0000000");
     B.state().hidden = false;      /* снимаем «Скрыть», чтобы проверить именно ветку загрузки */
+    serverAt = LOADED_AT;          /* сервер отдаёт ту же сборку, что на экране */
     B.check(true);
     await wait(150);
     ok("при загрузке страницы уведомление не показывается", !!bar && bar.hidden === true,
@@ -1968,6 +1980,22 @@ server.listen(0, "127.0.0.1", async () => {
       w.localStorage.getItem("rflaws.buildDigest") === JSON.stringify(NEW_DIGEST),
       w.localStorage.getItem("rflaws.buildDigest"));
     ok("метка версии для шардов стала новой", B.query() === "?v=" + NEW_DIGEST, B.query());
+
+    /* 4) файлы данных пришли из кеша браузера. На GitHub Pages свои заголовки
+       кеширования задать нельзя (всё живёт 10 минут), поэтому метка сборки на
+       экране отстаёт от серверной. Уведомление обязано появиться даже при
+       первом опросе: иначе читатель остался бы со старым текстом навсегда —
+       отпечатки-то совпадают, и повода обновиться приложение не видит. */
+    setSeen(NEW_DIGEST);
+    B.state().hidden = false;
+    serverAt = CACHE_AT;
+    B.check(true);
+    await wait(150);
+    ok("данные из кеша: уведомление появилось при первом опросе",
+      !!bar && bar.hidden === false, bar ? "hidden=" + bar.hidden : "нет элемента");
+    ok("шарды остались версии загруженных данных",
+      B.query() === "?v=" + NEW_DIGEST, B.query());
+    B.state().hidden = true;       /* дальше секции уведомление не мешает */
 
     w.fetch = realFetch;
   }

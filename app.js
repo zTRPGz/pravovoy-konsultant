@@ -463,7 +463,20 @@
     return ph.split(" ").filter(function (w) { return w.length >= 3 && !STOP[w]; });
   }
 
+  /* parseQuery пересчитывается многократно для одного и того же запроса за
+     один рендер (viewSearch + roleBlock + afterSearch + помощник), а запросы
+     в помощнике повторяются. Кешируем разбор — это чистая функция, результат
+     нигде не мутируется (вызывающие только читают поля). */
+  var _pqCache = new Map();
   function parseQuery(q) {
+    var c = _pqCache.get(q);
+    if (c) return c;
+    c = parseQueryRaw(q);
+    if (_pqCache.size > 256) _pqCache.clear();
+    _pqCache.set(q, c);
+    return c;
+  }
+  function parseQueryRaw(q) {
     var src = queryNorm(q);
     var phrases = [];
     /* фразы вынимаются первыми: внутри кавычек «+» и «-» — обычные символы */
@@ -662,7 +675,7 @@
      opt.cut — доля от лучшего результата, ниже которой «хвост» отбрасывается.
      opt.cut = 1 отключает отсечку. opt.skipRepealed — не показывать нормы,
      утратившие силу. */
-  function search(q, opt) {
+  function searchRaw(q, opt) {
     opt = opt || {};
     var p = parseQuery(q);
     if (!p.tokens.length && !p.numbers.length) return [];
@@ -782,6 +795,26 @@
     if (!out.length) return [];
     var cut = out[0].s * (opt.cut == null ? 0.4 : opt.cut);
     return out.filter(function (x) { return x.num || x.s >= cut; });
+  }
+
+  /* Кеш поверх searchRaw: один рендер страницы поиска делает три вызова
+     search() с одним запросом (viewSearch, roleBlock, afterSearch), плюс
+     помощник вызывает search() несколько раз. Результат — чистые данные
+     (вызывающие только читают массив и элементы, не мутируют), поэтому
+     повторный полный проход по корпусу не нужен. Ключ — запрос + опции,
+     которые реально влияют на выдачу. */
+  var _searchCache = new Map();
+  function search(q, opt) {
+    opt = opt || {};
+    var key = JSON.stringify([q, opt.skipRepealed ? 1 : 0,
+      opt.cut == null ? 0.4 : opt.cut, opt.need == null ? "" : opt.need,
+      opt.kind || "", opt.scope || ""]);
+    var hit = _searchCache.get(key);
+    if (hit) return hit;
+    var res = searchRaw(q, opt);
+    if (_searchCache.size > 48) _searchCache.clear();
+    _searchCache.set(key, res);
+    return res;
   }
 
   var DOC_ORDER = {};

@@ -1416,6 +1416,11 @@ check("ряд задач справки идёт отдельной широко
   ".help-start задаёт собственные колонки, а не наследует .tiles");
 check("в справке остался дисклеймер об официальном тексте",
   /1259/.test(helpFn || ""));
+/* Права объявлены и на самом сайте, а не только в репозитории: читатель
+   должен видеть условия там, где читает, а не искать их на GitHub. */
+check("дисклеймер на сайте ссылается на условия использования",
+  /blob\/main\/LICENSE/.test(appSrc) && /справочный слой/.test(appSrc),
+  "иначе про права сказано вполсилы");
 
 /* --- автообновление базы -------------------------------------------------
    Сборщик пишет рядом с данными отпечаток их содержимого, а приложение по
@@ -1766,11 +1771,35 @@ check("поисковым роботам сказано, что индексир
   /User-agent:\s*\*/.test(robotsSrc) && /Allow:\s*\//.test(robotsSrc) && distMod.FILES.indexOf("robots.txt") >= 0,
   "без файла робот всё равно заходит, но по умолчанию — без правил");
 
+/* --- условия использования и входная страница репозитория ------------------
+   Репозиторий публичный: файлы может скачать любой, поэтому условия должны
+   быть объявлены словами, а не подразумеваться. Проверяем, что уведомление
+   называет и то, что охраняется, и изъятие для текстов актов (п. 6 ст. 1259):
+   без него уведомление выглядело бы как притязание на сами законы. */
+const licPath = path.join(ROOT, "LICENSE");
+const licSrc = fs.existsSync(licPath) ? fs.readFileSync(licPath, "utf8") : "";
+check("условия использования объявлены файлом",
+  /Все права защищены/.test(licSrc) && /1259/.test(licSrc) && /1301/.test(licSrc),
+  licSrc ? "LICENSE: права, изъятие для актов, ответственность" : "файла LICENSE нет");
+check("условия не притязают на тексты нормативных актов",
+  /пункт 6 статьи 1259|п\. 6 ст\. 1259/.test(licSrc) && /не (являются|охраняются)/.test(licSrc),
+  "тексты актов не охраняются — это надо сказать прямо");
+
+const readmePath = path.join(ROOT, "README.md");
+const readmeSrc = fs.existsSync(readmePath) ? fs.readFileSync(readmePath, "utf8") : "";
+check("у репозитория есть входная страница",
+  /zTRPGz\.github\.io\/pravovoy-konsultant/.test(readmeSrc) && /LICENSE/.test(readmeSrc) &&
+  /npm run verify/.test(readmeSrc),
+  readmeSrc ? "README.md: адрес, условия, команды проверки" : "файла README.md нет");
+
 check("сборщик предупреждает о пределах бесплатного Cloudflare Pages",
   /25 \* 1024 \* 1024/.test(distSrc) && /20000/.test(distSrc),
   "25 МБ на файл и 20 000 файлов — за ними сборка не пройдёт");
 
 const pkgJson = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+check("объявленная лицензия не противоречит package.json",
+  pkgJson.license === "UNLICENSED",
+  "package.json: " + pkgJson.license + " — иначе README и LICENSE обещают не то, что записано в пакете");
 check("каталог публикации собирается командой npm run dist",
   !!pkgJson.scripts && /build-dist\.js/.test(pkgJson.scripts.dist || ""));
 check("dist/ не хранится в репозитории",

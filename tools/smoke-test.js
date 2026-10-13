@@ -2481,6 +2481,82 @@ server.listen(0, "127.0.0.1", async () => {
     try { w2.close(); } catch (e) { /* окно уже закрыто */ }
   }
 
+  section = "26. Реестр источников, «Что изменилось» и свайпы"; console.log("\n" + section);
+
+  /* «Шаблоны» и «Иски» — один пункт меню: подсветка стоит на обеих страницах,
+     а выбор между наборами — вкладками на самой странице. */
+  await nav("#/templates", 300);
+  ok("пункт меню «Шаблоны и иски» один", $$('.nav-item[data-nav="docs"]').length === 1,
+    $$('.nav-item[data-nav="docs"]').length + " пунктов");
+  ok("на шаблонах пункт подсвечен", $$('.nav-item[data-nav="docs"].active').length === 1);
+  ok("вкладки «Шаблоны» и «Иски» на странице", $$("#view .tabs .tab").length === 2,
+    $$("#view .tabs .tab").length + " вкладок");
+  await nav("#/suits", 300);
+  ok("на исках тот же пункт подсвечен", $$('.nav-item[data-nav="docs"].active').length === 1);
+
+  /* Реестр источников: группы по виду акта свёрнуты по умолчанию */
+  await nav("#/sources", 300);
+  ok("реестр источников открывается", /Источники/.test(T("h1") || ""), T("h1"));
+  const srcBlocks = $$("#srcList .kind-block");
+  ok("группы источников свёрнуты по умолчанию",
+    srcBlocks.length > 0 && srcBlocks.every(b => !b.open),
+    srcBlocks.filter(b => b.open).length + " раскрытых из " + srcBlocks.length);
+
+  /* Блок «Часто используемые статьи» убран с главной */
+  await nav("#/home", 300);
+  ok("блок «Часто используемые статьи» убран",
+    !/Часто используемые статьи/.test($("#view").textContent || ""));
+
+  /* «Что изменилось в статье»: вход с карточки статьи и своя страница */
+  await nav("#/article/uk-105", 700);
+  ok("на странице статьи есть вход «Что изменилось»",
+    $$('#view a[href^="#/changed/"]').length === 1,
+    $$('#view a[href^="#/changed/"]').length + " ссылок");
+  await nav("#/changed/uk-105", 900);
+  ok("страница «Что изменилось» открывается", /Что изменилось/.test(T("h1") || ""), T("h1"));
+  ok("заголовок называет статью", /ст\. 105/.test(T("h1") || ""), T("h1"));
+  const chgOut = $("#chgOut");
+  ok("блок сравнения заполнен",
+    !!chgOut && !/Готовим текст/.test(chgOut.textContent || ""),
+    chgOut ? (chgOut.textContent || "").trim().slice(0, 60) : "нет блока");
+  /* Итог блока — либо разбор расхождений, либо понятное объяснение, почему
+     сравнивать не с чем: «загрузка» и пустота одинаково недопустимы. */
+  ok("показан разбор или честное объяснение",
+    !!chgOut && ($$("#chgOut .diff-art").length > 0 || $$("#chgOut .info-box").length > 0),
+    chgOut ? (chgOut.textContent || "").trim().slice(0, 60) : "нет блока");
+
+  /* Свайпы: вправо — назад, влево — вперёд (те же navStep, что у кнопок) */
+  const touchEv = (type, x, y) => {
+    const ev = new w.Event(type, { bubbles: true, cancelable: true });
+    const pt = { clientX: x, clientY: y };
+    ev.touches = type === "touchend" ? [] : [pt];
+    ev.changedTouches = [pt];
+    return ev;
+  };
+  await nav("#/home", 300);
+  await nav("#/help", 300);
+  const hashSwipeA = w.location.hash;
+  d.dispatchEvent(touchEv("touchstart", 260, 420));
+  d.dispatchEvent(touchEv("touchend", 360, 428));
+  await wait(400);
+  ok("свайп вправо возвращает назад", w.location.hash !== hashSwipeA,
+    hashSwipeA + " → " + w.location.hash);
+  const hashSwipeB = w.location.hash;
+  d.dispatchEvent(touchEv("touchstart", 360, 420));
+  d.dispatchEvent(touchEv("touchend", 250, 426));
+  await wait(400);
+  ok("свайп влево возвращает вперёд", w.location.hash !== hashSwipeB,
+    hashSwipeB + " → " + w.location.hash);
+  /* Мелкий сдвиг и вертикальный жест переходом не считаются */
+  const hashSwipeC = w.location.hash;
+  d.dispatchEvent(touchEv("touchstart", 300, 420));
+  d.dispatchEvent(touchEv("touchend", 330, 424));
+  d.dispatchEvent(touchEv("touchstart", 300, 420));
+  d.dispatchEvent(touchEv("touchend", 380, 520));
+  await wait(300);
+  ok("мелкий и вертикальный жест раздел не меняют", w.location.hash === hashSwipeC,
+    hashSwipeC + " → " + w.location.hash);
+
   console.log("\n" + "=".repeat(60));
   console.log("Ошибок в консоли: " + errors.length);
   errors.slice(0, 8).forEach(e => console.log("   " + e));

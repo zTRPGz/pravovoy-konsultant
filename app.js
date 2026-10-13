@@ -2167,6 +2167,7 @@
     if (name === "graph") return { name: "graph", arg: parts[1] || null };
     if (name === "diff") return { name: "diff", arg: parts[1], q: dec(parts.slice(2).join("/") || "") };
     if (name === "compare") return { name: "compare", a: dec(parts[1] || ""), b: dec(parts[2] || "") };
+    if (name === "changed") return { name: "changed", arg: dec(parts[1] || "") };
     if (name === "code") return { name: "code", arg: parts[1] };
     if (name === "checklist") return { name: "checklist", arg: parts[1] };
     if (name === "template") return { name: "template", arg: parts[1] };
@@ -2223,6 +2224,10 @@
     if (r.name === "term") {
       var tm = termById(r.arg);
       return tm ? tm.t : "Термин";
+    }
+    if (r.name === "changed") {
+      var ca = byId[r.arg];
+      return ca ? "Что изменилось: ст. " + ca.dn + " " + ca.t : "Что изменилось в статье";
     }
     if (r.name === "code") {
       var c = codeById(r.arg);
@@ -2339,6 +2344,7 @@
     else if (r.name === "graph") { v.innerHTML = viewGraph(r.arg); bindGraph(); }
     else if (r.name === "diff") { v.innerHTML = viewDiff(r.arg, r.q); bindDiff(r.arg); }
     else if (r.name === "compare") { v.innerHTML = viewCompare(r.a, r.b); bindCompare(); }
+    else if (r.name === "changed") { v.innerHTML = viewChanged(r.arg); bindChanged(r.arg); }
     else if (r.name === "help") v.innerHTML = viewHelp();
     else if (r.name === "home" || !r.name) v.innerHTML = viewHome();
     else {
@@ -2418,7 +2424,7 @@
       var on = (k === n) || (k === "code" && n === "code") || (k === "checklists" && n === "checklist") ||
         (k === "terms" && (n === "terms" || n === "term")) ||
         (k === "sources" && (n === "sources" || n === "code")) ||
-        (k === "templates" && n === "template") || (k === "suits" && n === "suit") ||
+        (k === "docs" && (n === "templates" || n === "template" || n === "suits" || n === "suit")) ||
         (k === "cases" && n === "case") ||
         (k === "scenarios" && (n === "scenarios" || n === "scenario")) ||
         (k === "diff" && (n === "diff" || n === "compare")) ||
@@ -2525,14 +2531,6 @@
   }
 
   function viewHome() {
-    var popular = ["upk-91", "upk-92", "upk-182", "upk-108", "upk-109", "upk-144", "uk-158", "uk-159",
-                   "uk-228", "uk-290", "uk-105", "uk-264.1", "koap-12.8", "gk1-151", "tk-81"];
-    var popList = roleSort(popular.map(function (id) { return byId[id]; }).filter(Boolean), function (a) { return a.t + " " + cite(a); });
-    var popCards = popList.map(function (a) {
-      var off = state.role && roleOff(a.t + " " + cite(a)) ? " role-off" : "";
-      return '<div class="chip' + off + '" data-go="#/article/' + encodeURIComponent(a.id) + '">' + esc(cite(a)) + " · " + esc(a.t) + "</div>";
-    }).join("");
-
     var hist = state.hist.length
       ? '<h2>Недавние запросы</h2><div class="chips">' + state.hist.slice(0, 12).map(function (q) {
           return '<div class="chip" data-go="#/search/' + encodeURIComponent(q) + '">' + esc(q) + "</div>";
@@ -2606,8 +2604,6 @@
           '<summary class="kind-title">' + esc(g.title) + '<span class="cnt">' + g.items.length + "</span></summary>" +
           '<div class="grid grid-3">' + g.items.map(codeCard).join("") + "</div></details>";
       }).join("") +
-
-      '<h2>Часто используемые статьи</h2><div class="chips">' + popCards + "</div>" +
 
       hist +
 
@@ -3235,6 +3231,11 @@
       '<button class="btn' + (inCol(id) ? " active" : "") + '" data-col-add="' + esc(id) + '">' + (inCol(id) ? ic("clip") + " В подборке" : ic("clip") + " В подборку") + "</button>" +
       '<button class="btn' + (fav ? " active" : "") + '" data-fav="' + esc(id) + '">' + (fav ? ic("star") + " В избранном" : ic("star") + " В избранное") + "</button>" +
       '<a class="btn" href="#/compare/' + encodeURIComponent(id) + '">Сравнить с другой статьёй</a>' +
+      (function () {
+        var n = articleChangeEvents(id).length;
+        return '<a class="btn' + (n ? " btn-primary" : "") + '" href="#/changed/' + encodeURIComponent(id) + '">' +
+          (n ? "Что изменилось (" + n + ")" : "Что изменилось") + "</a>";
+      })() +
       casePicker(id) +
       '<a class="btn" href="' + officialUrl(a) + '" target="_blank" rel="noopener">Официальный источник ↗</a>' +
       '<a class="btn" href="' + webUrl(a) + '" target="_blank" rel="noopener">Поиск в сети ↗</a>' +
@@ -3752,7 +3753,7 @@
 
   function sourcesBody(groups) {
     return groups.map(function (g) {
-      return '<details class="kind-block"' + (g.kind === "code" ? " open" : "") + ">" +
+      return '<details class="kind-block">' +
         '<summary class="kind-title">' + esc(g.title) + '<span class="cnt">' + g.items.length + "</span></summary>" +
         '<div class="grid grid-3">' + g.items.map(sourceCard).join("") + "</div></details>";
     }).join("");
@@ -8749,8 +8750,9 @@
       quickCard("compass", "Разбор ситуации", "Опишите вопрос обычным языком — помощник покажет нормы и что делать", "#/assistant", "violet") +
       quickCard("calculator", "Калькуляторы", "Обычный счёт, процессуальные сроки, давность, пошлина, неустойка, сроки под стражей", "#/calc", "amber") +
       quickCard("activity", "Что нового", "Лента изменений по дням: новые статьи, редакции, утрата силы", "#/new", "rose") +
+      quickCard("swap", "Что изменилось", "Сравнить статью с прежней редакцией и увидеть правки построчно", "#/diff", "violet") +
       quickCard("shield", "Памятки", "Порядок действий: досмотр, задержание, ОРМ, приём заявлений", "#/scenarios", "teal") +
-      quickCard("checkbox", "Чек-листы и шаблоны", "Действия по следственным мероприятиям и готовые бланки по отраслям", "#/templates", "green") +
+      quickCard("file", "Шаблоны и иски", "Бланки документов по отраслям и готовые исковые заявления", "#/templates", "green") +
       "</div>";
 
     return "<h1>Как пользоваться</h1>" +
@@ -8772,18 +8774,32 @@
         "<p>Разбор строится <b>только по текстам, размещённым на сайте</b>: каждая ссылка ведёт на статью действующей редакции, а под разбором указаны источники с датами редакций. Сослаться на норму, которой в базе нет, помощник не может.</p>" +
         "<p>Упоминания норм в разборах, памятках и примечаниях — <b>кликабельные ссылки</b>: «ст. 105 УК РФ» или «п. 6 постановления Пленума ВС РФ № 29» ведут прямо на нужный пункт действующей редакции.</p>" +
         "<p>Разборы охватывают хищения и их формы, вред здоровью, наркотики, оружие, взятки, ДТП, задержание, обыск и выемку, личный досмотр, оперативно-розыскные мероприятия, угон, угрозы, приём заявлений (КУСП), миграцию, трудовые и имущественные споры.</p>" +
-        "<p>По смыслу запроса помощник также подбирает разъяснения Пленума Верховного Суда РФ — блок «Судебная практика» под разбором: постановления не создают норму, а разъясняют, как её применять.</p>") +
+        "<p>По смыслу запроса помощник также подбирает судебную практику — блок «Судебная практика» под разбором: постановления Пленума ВС РФ и обзоры судебной практики, утверждённые Президиумом ВС РФ. Они не создают норму, а разъясняют, как её применять.</p>" +
+        "<p>Разбор открывается <b>коротким ответом</b> — квалификация, санкция и первые шаги, — чтобы не читать весь разбор, когда нужен только вывод. Ниже идут подробности: что установить, что оформить и в какой срок.</p>") +
 
       sec("Источники, редакции и статусы", "book",
-        "<p>В сайдбаре слева — все акты, сгруппированные по виду: Конституция, Кодексы, ФКЗ, ФЗ, постановления Правительства, Пленумы ВС РФ. Группу можно <b>свернуть и развернуть</b> кликом по заголовку — состояние запоминается.</p>" +
-        "<p>99 постановлений Пленума ВС РФ — отдельный вид источников: разъяснения по квалификации, назначению наказания и процессуальным вопросам.</p>" +
+        "<p>В сайдбаре слева — все акты, сгруппированные по виду: Конституция, Кодексы, ФКЗ, ФЗ, постановления Правительства, постановления Пленума ВС РФ и обзоры судебной практики. Группу можно <b>свернуть и развернуть</b> кликом по заголовку — состояние запоминается.</p>" +
+        "<p>Отдельная вкладка <b>«Источники»</b> показывает весь реестр одним списком: фильтр по названию, коду или номеру, группы по виду акта. У каждой карточки две кнопки — <b>«Открыть»</b> (читать статьи по главам) и <b>«Спросить Помощника»</b>: вопрос решается в режиме «ответ только по этому источнику», то есть помощник опирается исключительно на нормы выбранного акта.</p>" +
+        "<p>Судебная практика — два вида актов, они не смешиваются: <b>постановления Пленума ВС РФ</b> (разъяснения) и <b>обзоры судебной практики</b>, утверждённые Президиумом ВС РФ. Обзор открывается как обычный источник — со списком пунктов, оглавлением по разделам и датой утверждения.</p>" +
         "<p>Приложение сверяет даты редакций «день в день» и показывает результат значком в панели. Нормы, утратившие силу, помечены зачёркиванием и серой плашкой; полный реестр — в разделе <b>«Утратившие силу»</b>, где список можно отсеять по периоду («за месяц», «за неделю») и по году с месяцем.</p>" +
-        "<p><b>«Новое»</b> — лента изменений по дням: новые статьи, новые редакции, утрата силы. <b>«Сравнение»</b> — редакции источника построчно и две статьи бок о бок. <b>«Аналитика»</b> — сводные цифры, лента по годам и граф ссылок между актами.</p>") +
+        "<p><b>«Новое»</b> — лента изменений по дням: новые статьи, новые редакции, утрата силы. <b>«Аналитика»</b> — сводные цифры, лента по годам и граф ссылок между актами.</p>") +
+
+      sec("Сравнение редакций и изменения статьи", "swap",
+        "<p><b>«Сравнение» → «Редакции источника»</b> показывает построчно, что изменилось в документе. Приложение сохраняет прежнюю редакцию перед каждым обновлением, поэтому видно добавленные, исключённые и переписанные статьи; есть фильтр по виду изменения и переход к статье. Сравнить можно и с онлайн-версией источника, не дожидаясь сохранённой копии.</p>" +
+        "<p><b>«Две статьи»</b> — сопоставить любые две нормы бок о бок: удобно развести близкие составы (кража и грабёж) или сверить одну статью из разных источников.</p>" +
+        "<p>На странице статьи кнопка <b>«Что изменилось»</b> открывает историю именно этой статьи: даты из ленты изменений и построчное сравнение «было → стало» с сохранённой или онлайн-редакцией источника. Если прежнего текста ещё нет, приложение предложит <b>запомнить текущую редакцию</b> — тогда следующее изменение будет с чем сравнить.</p>" +
+        "<p>Отсюда же видно, какие именно пункты правили: например, по ст. 105 УК РФ страница покажет и дату правки в ленте, и построчный разбор текста, если прежняя редакция сохранена.</p>") +
 
       sec("Свои данные: подборка, дела, экспорт", "clip",
-        "<p>Кнопка «В подборку» есть на странице статьи и в поиске. <b>«Подборка норм»</b> хранит рабочий набор по делу с заметками и выгрузкой, <b>«Дела»</b> — папки по делам с журналом.</p>" +
+        "<p>Кнопка «В подборку» есть на странице статьи и в поиске. <b>«Подборка норм»</b> хранит рабочий набор по делу с заметками и выгрузкой, <b>«Дела»</b> — папки по делам с журналом, нормами, заметками и вложениями.</p>" +
+        "<p><b>«Шаблоны и иски»</b> — один раздел с двумя вкладками: бланки документов по отраслям права и готовые исковые заявления. Поля подставляются из ваших данных, готовый документ скачивается как .docx.</p>" +
         "<p>На странице статьи — «Скопировать ссылку», «с реквизитами», «Ссылка по ГОСТ» и «Скачать .docx».</p>" +
         "<p>Кнопка <b>Aa</b> — размер текста, межстрочный интервал и ширина колонки; <b>☾ / ☀</b> — тёмная и светлая тема. Подборка, избранное, дела, заметки и настройки хранятся только в вашем браузере.</p>") +
+
+      sec("Телефон и планшет", "phone",
+        "<p>На узком экране боковое меню открывается кнопкой слева вверху — или <b>свайпом от левого края вправо</b>; закрыть меню можно свайпом влево.</p>" +
+        "<p>Между разделами можно ходить <b>свайпами</b>: проведите пальцем <b>вправо</b> — назад, <b>влево</b> — вперёд, как кнопки «Назад»/«Вперёд» в панели.</p>" +
+        "<p>Свайп не сработает, если жест начат на горизонтально прокручиваемом элементе (таблица сравнения, строка вкладок) или на выделенном тексте — чтобы случайно не уехать со страницы, когда вы просто читаете. Мелкий сдвиг тоже не считается: нужно провести палец заметно по горизонтали.</p>") +
 
       sec("Роль: под кого работает подсказка", "user",
         "<p>Кнопка <b>роли</b> — в верхней панели справа (значок человека рядом с настройками чтения). Выберите оперативника, следователя, адвоката или госорган — приложение поднимет наверх то, что чаще нужно вашей работе.</p>" +
@@ -8791,8 +8807,8 @@
         "<p>Главная, чек-листы и шаблоны перестраиваются по приоритету роли, а в поиске результат помечается «по вашей роли» и отдельным блоком под выдачей. Основной порядок выдачи при этом не меняется: юридически верный ответ остаётся на своём месте.</p>") +
 
       sec("Состав базы", "scales",
-        "<p>Конституция РФ, 24 кодекса, федеральные законы (включая ФЗ о полиции, об ОРД, о ФСБ, о Росгвардии, о прокуратуре, о Следственном комитете, об оружии, о наркотических средствах, о противодействии коррупции, о государственной тайне), 14 федеральных конституционных законов, постановления Правительства РФ (ПДД, правила регистрационного и миграционного учёта, правила оборота оружия, положение о воинском учёте и военно-врачебной экспертизе) и 99 постановлений Пленума Верховного Суда РФ. Всего — более 19 300 статей и пунктов в действующих редакциях.</p>" +
-        "<p>Тексты получены с официального портала правовой информации <b>actual.pravo.gov.ru</b>; дата редакции указана у каждого источника и каждой статьи.</p>") +
+        "<p>Конституция РФ, 24 кодекса, 105 федеральных законов (включая ФЗ о полиции, об ОРД, о ФСБ, о Росгвардии, о прокуратуре, о Следственном комитете, об оружии, о наркотических средствах, о противодействии коррупции, о государственной тайне), 14 федеральных конституционных законов, 6 постановлений Правительства РФ (ПДД, правила регистрационного и миграционного учёта, правила оборота оружия, положение о воинском учёте и военно-врачебной экспертизе), 99 постановлений Пленума Верховного Суда РФ и 81 обзор судебной практики, утверждённый Президиумом ВС РФ. Всего — 330 актов и более 22 600 статей и пунктов в действующих редакциях.</p>" +
+        "<p>Тексты получены с официального портала правовой информации <b>actual.pravo.gov.ru</b> и с <b>sudact.ru</b> (судебная практика); дата редакции указана у каждого источника и каждой статьи.</p>") +
 
       "</div>" +
 
@@ -9891,6 +9907,243 @@
     bindDiff(id);
   }
 
+  /* ------------------------------------------ что изменилось в одной статье
+
+     Вопрос «105-ю статью УК РФ изменили — что именно поменяли?» решается
+     двумя независимыми источниками, и оба показываются на одной странице:
+
+       1. Лента изменений (data/changelog.js) — факт изменения: «12.10.2026
+          статья изменена». Номеров статей лента не раскрывает текстом, но
+          даёт дату и вид события; лента хранится полгода.
+       2. Сравнение текстов — построчный разбор «было → стало». Прежний текст
+          берётся из сохранённой редакции источника (VERSIONS; её создаёт
+          обновление из набора) либо из онлайн-редакции, если в наборе есть
+          более свежая версия (updates). Если ни того, ни другого нет —
+          честно говорим об этом и предлагаем запомнить текущую редакцию,
+          чтобы следующее изменение было с чем сравнить. */
+
+  /* События ленты, затрагивающие конкретную статью. Номера статей в ленте
+     пишутся без ведущего источника («105»), а id норм со статусом — целиком
+     («uk-105»), поэтому списки add/chg/del сверяются с номером, а rep/res — с id. */
+  function articleChangeEvents(id) {
+    var a = byId[id];
+    if (!a) return [];
+    var num = String(a.n), src = a.c, out = [];
+    (CHANGELOG.entries || []).forEach(function (e) {
+      if (e.s !== src) return;
+      var hits = [];
+      if (e.add && e.add.indexOf(num) !== -1) hits.push({ t: "добавлена", cls: "st-ok" });
+      if (e.chg && e.chg.indexOf(num) !== -1) hits.push({ t: "изменена", cls: "st-warn" });
+      if (e.del && e.del.indexOf(num) !== -1) hits.push({ t: "исключена", cls: "st-warn" });
+      if (e.rep && e.rep.indexOf(id) !== -1) hits.push({ t: "утратила силу", cls: "st-muted" });
+      if (e.res && e.res.indexOf(id) !== -1) hits.push({ t: "снова действует", cls: "st-ok" });
+      if (!hits.length) return;
+      out.push({ d: e.d, red: e.red || "", hits: hits });
+    });
+    return out;
+  }
+
+  function findRow(rows, num) {
+    for (var i = 0; i < (rows || []).length; i++) {
+      if (String(rows[i][0]) === num) return rows[i];
+    }
+    return null;
+  }
+
+  /* Построчное сравнение одной статьи двух редакций.
+     Возвращает готовую разметку в тех же классах .diff-*, что и сравнение
+     редакций целиком, — читается одинаково. */
+  function oneArtDiff(id, rows1, rows2, label1, label2) {
+    var a = byId[id];
+    if (!a) return "";
+    var num = String(a.n);
+    var r1 = findRow(rows1, num), r2 = findRow(rows2, num);
+
+    var head = '<div class="diff-sides">' +
+      '<span class="diff-side">' + esc(label1) + "</span>" +
+      '<span class="diff-arrow">→</span>' +
+      '<span class="diff-side">' + esc(label2) + "</span></div>";
+
+    var lines = function (text, cls, mark) {
+      return diffLines(text).map(function (l) {
+        return '<div class="diff-line ' + cls + '">' + mark + esc(l) + "</div>";
+      }).join("");
+    };
+
+    if (!r1 && !r2) return head + '<div class="info-box">Статья не найдена ни в одной из редакций.</div>';
+    if (!r1) {
+      return head + '<div class="diff-art diff-added">' +
+        '<div class="diff-head"><span class="st st-ok">в прежней редакции статьи не было</span></div>' +
+        '<div class="diff-title">' + esc(r2[1] || "") + "</div>" +
+        '<div class="diff-body">' + lines(r2[4], "diff-ins", "+ ") + "</div></div>";
+    }
+    if (!r2) {
+      return head + '<div class="diff-art diff-removed">' +
+        '<div class="diff-head"><span class="st st-warn">в новой редакции статьи нет</span></div>' +
+        '<div class="diff-title">' + esc(r1[1] || "") + "</div>" +
+        '<div class="diff-body">' + lines(r1[4], "diff-del", "− ") + "</div></div>";
+    }
+
+    var parts = lineDiff(diffLines(r1[4]), diffLines(r2[4]));
+    var ins = 0, del = 0;
+    parts.forEach(function (p) { if (p.t === "+") ins++; else if (p.t === "-") del++; });
+    var t1 = String(r1[1] || ""), t2 = String(r2[1] || "");
+    if (!ins && !del && t1 === t2) {
+      return head + '<div class="info-box"><b>Изменений нет.</b> Текст и название статьи в этих редакциях совпадают.</div>';
+    }
+
+    var titleLine = t1 === t2
+      ? '<div class="diff-title">' + esc(t1) + "</div>"
+      : '<div class="diff-title"><del>' + esc(t1) + "</del> <ins>" + esc(t2) + "</ins></div>";
+
+    var body = parts.filter(function (p) { return p.t !== "="; }).map(function (p) {
+      return '<div class="diff-line ' + (p.t === "+" ? "diff-ins" : "diff-del") + '">' +
+        (p.t === "+" ? "+ " : "− ") + esc(p.v) + "</div>";
+    }).join("");
+    if (!body) body = '<div class="small muted">Изменилось только название статьи.</div>';
+
+    var counts = '<div class="diff-counts"><span class="diff-ins-c">+' + ins +
+      '</span> <span class="diff-del-c">−' + del + "</span>" +
+      (r1[3] || r2[3] ? ' <span class="small muted">' + esc(fmtRed(r1[3] || "")) + " → " +
+        esc(fmtRed(r2[3] || "")) + "</span>" : "") + "</div>";
+
+    return head + '<div class="diff-art diff-changed">' +
+      '<div class="diff-head"><span class="st st-warn">изменена</span>' + counts + "</div>" +
+      titleLine + '<div class="diff-body">' + body + "</div></div>";
+  }
+
+  function viewChanged(id) {
+    var a = byId[id];
+    if (!a) return '<div class="empty"><div class="ico">' + ic("file") + '</div><div>Статья не найдена.</div></div>';
+    var c = codeById(a.c) || { short: a.c, full: a.c, color: "#888" };
+
+    var events = articleChangeEvents(id);
+    var evHtml = events.length
+      ? '<div class="chg-list">' + events.map(function (e) {
+          return '<div class="chg-item"><span class="chg-date">' + esc(fmtDateLong(e.d)) + "</span>" +
+            e.hits.map(function (h) { return '<span class="st ' + h.cls + '">' + esc(h.t) + "</span>"; }).join("") +
+            (e.red ? '<span class="small muted">редакция ' + esc(fmtRed(e.red)) + "</span>" : "") + "</div>";
+        }).join("") + "</div>"
+      : '<div class="info-box">Записей об этой статье в ленте нет. Лента фиксирует изменения с момента появления ' +
+        "приложения и хранит последние полгода — отсутствие записей не означает, что статью никогда не меняли.</div>";
+
+    return '<h1>Что изменилось: ' + esc(c.short) + " · ст. " + esc(a.dn) + "</h1>" +
+      '<p class="lead">' + esc(c.full) + " · " + esc(a.t) + "</p>" +
+      '<div class="crumbs"><span class="lnk" data-go="#/article/' + encodeURIComponent(id) +
+        '">← ' + esc(c.short) + " · ст. " + esc(a.dn) + "</span></div>" +
+
+      '<div class="section-label">Отмечено в ленте изменений</div>' + evHtml +
+
+      '<div class="section-label" style="margin-top:22px">Сравнение с прежней редакцией</div>' +
+      '<div id="chgOut"><div class="loading">Готовим текст статьи…</div></div>' +
+
+      '<div class="actions-row" style="margin-top:14px">' +
+        '<button class="btn btn-sm" data-go="#/article/' + encodeURIComponent(id) + '">← К статье</button>' +
+        '<button class="btn btn-sm" data-go="#/diff/' + esc(a.c) + '">Сравнить весь источник</button>' +
+      "</div>" +
+      '<div class="disclaimer">Сравнение строится по текстам из открытого набора данных и по редакциям, ' +
+      "сохранённым при обновлении источника. Для юридически значимых выводов сверяйтесь с официальной публикацией.</div>";
+  }
+
+  /* Тело блока сравнения: по одному разбору на каждую сохранённую редакцию
+     источника плюс кнопка сверки с онлайн-набором, если он свежее базы. */
+  function changedBody(id) {
+    var a = byId[id];
+    var cur = currentRows(a.c);
+    var blocks = [];
+
+    verList(a.c).forEach(function (v) {
+      blocks.push('<div class="card chg-block">' +
+        oneArtDiff(id, v.articles, cur, "Сохранённая ред. " + fmtRed(v.redaction), "Текущая в базе") +
+        "</div>");
+    });
+
+    if (updates[a.c]) {
+      blocks.push('<div class="card chg-block" id="chgOnlineOut">' +
+        '<div class="actions-row" style="margin:0">' +
+          '<button class="btn btn-primary" id="chgOnline">Сравнить с онлайн-редакцией</button>' +
+          '<span class="small muted">В наборе данных доступна редакция ' +
+            esc(fmtRed(updates[a.c].redaction)) + "</span>" +
+        "</div></div>");
+    }
+
+    if (!blocks.length) {
+      if (!hasFull(a.c)) {
+        blocks.push('<div class="info-box">Полный текст этого источника не входит в открытый набор данных, ' +
+          "поэтому построчное сравнение редакций невозможно. Изменения статьи видно в ленте выше, " +
+          "а официальный текст — по ссылке «Официальный источник» на странице статьи.</div>");
+      } else {
+        blocks.push('<div class="info-box"><b>Прежнего текста под рукой нет.</b> Приложение сохраняет редакцию ' +
+          "источника перед обновлением и умеет сверяться с онлайн-набором; для этого источника ни того, ни другого сейчас нет. " +
+          "Запомните текущую редакцию — после следующего изменения статья появится здесь со сравнением.</div>" +
+          '<div class="actions-row" style="margin-top:10px">' +
+            '<button class="btn" id="chgRemember">Запомнить текущую редакцию</button></div>');
+      }
+    }
+    return blocks.join("");
+  }
+
+  function bindChanged(id) {
+    var a = byId[id];
+    if (!a) return;
+    var out = $("#chgOut");
+    if (!out) return;
+
+    /* Текущий текст берётся из набора полных текстов: без него сравнение
+       показало бы статью как полностью переписанную. Грузим и перерисовываем. */
+    var paint = function () {
+      if (state.route.name !== "changed" || state.route.arg !== id) return;
+      var box = $("#chgOut");
+      if (box) box.innerHTML = changedBody(id);
+      wireOnline();
+      wireRemember();
+    };
+
+    var wireOnline = function () {
+      var on = $("#chgOnline");
+      if (!on) return;
+      on.addEventListener("click", function () {
+        var o = $("#chgOnlineOut");
+        if (!o) return;
+        o.innerHTML = '<div class="info-box"><span class="loading">Загружаем онлайн-редакцию…</span></div>';
+        resolveSide(a.c, "online", function (err, side) {
+          var o2 = $("#chgOnlineOut");
+          if (!o2) return;
+          if (err) {
+            o2.innerHTML = '<div class="warn-box"><b>Не удалось получить онлайн-редакцию.</b> ' +
+              esc(String((err && err.message) || err)) + "</div>";
+            return;
+          }
+          o2.innerHTML = oneArtDiff(id, currentRows(a.c), side.rows,
+            "Текущая в базе", "Онлайн-редакция " + fmtRed(side.red));
+        });
+      });
+    };
+
+    var wireRemember = function () {
+      var rem = $("#chgRemember");
+      if (!rem) return;
+      rem.addEventListener("click", function () {
+        var c0 = CO[a.c] || {}, ov = overrides[a.c] || {};
+        var d = (FRESH && FRESH.docs && FRESH.docs[a.c]) || {};
+        saveVersion({
+          id: a.c,
+          redaction: ov.redaction || c0.redaction || "",
+          hash: ov.hash || d.hash || "",
+          articles: currentRows(a.c),
+          source: ov.source || ""
+        }, function (ok) {
+          toast(ok ? "Редакция запомнена — сравнение появится после изменений"
+                   : "Нечего запоминать: текст источника недоступен");
+          if (ok) render();
+        });
+      });
+    };
+
+    if (hasFull(a.c) || a.note) paint();
+    else loadFull(a.c, function () { paint(); });
+  }
+
   /* --- онлайн-проверка: сравнение снимка с текущими манифестами --- */
 
   /* Сеть в этом приложении нужна только для проверки актуальности.
@@ -10578,6 +10831,80 @@
     if (e.key === "Escape") { var m = $("#artModal"); if (m && !m.hidden) closeArticleModal(); }
   });
 
+  /* ------------------------------------------------------------------ свайпы
+
+     На телефоне и планшете между разделами можно ходить жестами: свайп
+     вправо — назад, влево — вперёд (те же navStep, что и у кнопок панели).
+     Свайп вправо от самого левого края открывает боковое меню — привычный
+     мобильный жест.
+
+     Жест распознаётся осторожно, иначе чтение превратилось бы в случайные
+     переходы. Он должен быть одним пальцем, явно горизонтальным (смещение
+     по X заметно больше, чем по Y), достаточно длинным и коротким по
+     времени. Игнорируется, если палец пошёл по горизонтально прокручиваемому
+     блоку (таблица сравнения, строка вкладок), по выделенному тексту или
+     при открытом меню либо мини-окне статьи. preventDefault не вызываем:
+     вертикальная прокрутка страницы должна работать как обычно. */
+  function bindSwipe() {
+    var MIN_X = 60;    /* минимальная длина свайпа, px */
+    var MAX_Y = 45;    /* насколько палец может уйти по вертикали */
+    var MAX_T = 700;   /* дольше — это уже удержание, а не свайп */
+    var EDGE = 28;     /* ширина краевой зоны для открытия меню */
+    /* Блоки, которые сами прокручиваются вбок: жест принадлежит им */
+    var SCROLL_X = ".cmp-table, .diff-body, .tabs, .art-modal-body, pre";
+    var start = null;
+
+    /* Элемент с горизонтальной прокруткой «забирает» жест: без этой проверки
+       свайп по широкой таблице сравнения уводил бы со страницы. */
+    function scrollsX(el) {
+      for (var n = el; n && n !== document.body; n = n.parentElement) {
+        if (n.nodeType !== 1) continue;
+        if (n.scrollWidth > n.clientWidth + 2) {
+          var ov = "";
+          try { ov = getComputedStyle(n).overflowX; } catch (e) { ov = ""; }
+          if (ov === "auto" || ov === "scroll" || ov === "hidden") return true;
+        }
+      }
+      return false;
+    }
+
+    document.addEventListener("touchstart", function (e) {
+      if (e.touches.length !== 1) { start = null; return; }
+      var t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY, t: Date.now(), el: e.target };
+    }, { passive: true });
+
+    document.addEventListener("touchend", function (e) {
+      var s = start; start = null;
+      if (!s || e.changedTouches.length !== 1) return;
+
+      var m = $("#artModal");
+      if (m && !m.hidden) return;                       /* открыто мини-окно статьи */
+      var sel = window.getSelection && window.getSelection();
+      if (sel && !sel.isCollapsed) return;              /* выделен текст */
+
+      var t = e.changedTouches[0];
+      var dx = t.clientX - s.x, dy = t.clientY - s.y;
+      if (Date.now() - s.t > MAX_T) return;
+      if (Math.abs(dy) > MAX_Y) return;
+      if (Math.abs(dx) < MIN_X) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.6) return;    /* жест скорее вертикальный */
+
+      if (sidebarIsOpen()) {                            /* меню открыто — закрываем свайпом влево */
+        if (dx < 0) setSidebar(false);
+        return;
+      }
+      if (s.el && s.el.nodeType === 1) {
+        if (s.el.closest && s.el.closest(SCROLL_X)) return;
+        if (scrollsX(s.el)) return;
+      }
+
+      if (dx < 0) { navStep(1); return; }               /* влево — вперёд */
+      if (s.x <= EDGE && !wideLayout()) { setSidebar(true); return; }
+      navStep(-1);                                      /* вправо — назад */
+    }, { passive: true });
+  }
+
   function bindGlobal() {
     document.addEventListener("click", function (e) {
       /* e.target может быть самим document (клик по пустому месту) */
@@ -11036,6 +11363,7 @@
     });
 
     bindGlobal();
+    bindSwipe();
     /* Адрес начальной записи приводим к каноническому виду и помечаем её
        нулевой точкой стека: дальше go() добавляет записи, и «Назад» браузера
        идёт ровно по ним. Через replaceState, а не присваиванием location.hash:

@@ -1639,6 +1639,35 @@ details.refs-block[open] > summary { margin-bottom: 12px; }
 .diff-del { background: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--text); }
 .diff-title del { color: var(--danger); text-decoration: line-through; }
 .diff-title ins { color: var(--ok); text-decoration: none; font-weight: 600; }
+
+/* ------------------------------------------- что изменилось в одной статье */
+
+/* Сравнение одной статьи: блок кладётся в карточку, а не в раскрывающийся
+   список, поэтому ему нужны собственные отступы и «шапка» с подписями
+   редакций. Классы .diff-* переиспользованы — вид тот же, что в сравнении
+   редакций, чтобы пользователь не учился читать разметку заново. */
+.chg-block { padding: 12px 14px; margin-bottom: 12px; }
+.chg-block .diff-art { background: var(--bg-3); }
+.diff-sides {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 9px; font-size: var(--fs-2); color: var(--muted);
+}
+.diff-side {
+  padding: 2px 9px; border: 1px solid var(--line);
+  border-radius: var(--r-pill); background: var(--bg-3); color: var(--text-2);
+}
+.diff-changed .diff-head {
+  display: flex; gap: 10px; align-items: center;
+  flex-wrap: wrap; margin-bottom: 4px;
+}
+.chg-block .diff-changed { padding: 9px 12px; }
+.chg-list { display: flex; flex-direction: column; gap: 6px; }
+.chg-item {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 8px 11px; border: 1px solid var(--line);
+  border-radius: var(--r-md); background: var(--bg-2);
+}
+.chg-date { font-weight: 600; white-space: nowrap; }
 .lnk { color: var(--accent); text-decoration: none; border-bottom: 1px dotted currentColor; }
 
 /* ---------------------------------------------------------------- роли */

@@ -11,6 +11,19 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
 <link rel="apple-touch-icon" href="favicon.svg">
 <meta name="description" content="Полные тексты кодексов и законов РФ: поиск по статьям, разбор ситуации, калькуляторы сроков и пошлин, чек-листы следственных действий и шаблоны документов. Работает офлайн.">
+<!-- Как выглядит ссылка на сайт в мессенджерах, соцсетях и поиске.
+     Адрес сайта один и тот же во всех тегах — если приложение когда-нибудь
+     переедет на свой домен, менять здесь три строки: canonical, og:url. -->
+<link rel="canonical" href="https://ztrpgz.github.io/pravovoy-konsultant/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Правовой консультант">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://ztrpgz.github.io/pravovoy-konsultant/">
+<meta property="og:title" content="Правовой консультант — кодексы, сроки, памятки, шаблоны документов">
+<meta property="og:description" content="227 источников и более 19 000 статей: поиск по тексту, разбор ситуации с указанием норм, калькуляторы сроков и пошлин, чек-листы и готовые бланки. Бесплатно, без регистрации, работает офлайн.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Правовой консультант — кодексы, сроки, памятки, шаблоны документов">
+<meta name="twitter:description" content="Поиск по 19 000 статей, разбор ситуации, калькуляторы сроков и пошлин, чек-листы и бланки. Бесплатно, без регистрации, работает офлайн.">
 <!-- Метка версии из адреса (?v=…). GitHub Pages не даёт задавать заголовки
      кеширования: и разметка, и styles.css, и app.js уходят с max-age=600.
      Из-за этого браузер до десяти минут показывал старую вёрстку и старый
@@ -29,10 +42,23 @@
   document.write('<link rel="stylesheet" href="styles.css' + v + '">');
 })();
 </script>
+<!-- Стили подключаются скриптом выше — значит, при выключенном JavaScript
+     их не будет вовсе и страница покажется голым текстом. Для тех, кто
+     заходит с отключёнными скриптами (или с жёстким блокировщиком),
+     подставляем те же стили обычной ссылкой: без метки версии, зато видно. -->
+<noscript><link rel="stylesheet" href="styles.css"></noscript>
 </head>
 <body>
 
 <a class="skip-link" href="#view">Перейти к содержимому</a>
+
+<noscript>
+  <div class="info-box nf-note" style="margin:16px">
+    <b>Для работы приложения нужен JavaScript.</b>
+    Он выключен в браузере или заблокирован расширением. Включите его — и откроется
+    поиск по статьям, разбор ситуаций, калькуляторы и шаблоны документов.
+  </div>
+</noscript>
 
 <div class="app" id="appRoot">
 

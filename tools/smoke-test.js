@@ -668,6 +668,86 @@ server.listen(0, "127.0.0.1", async () => {
   ok("записи прибавляет только прямой переход по адресу, ровно одну",
     w.history.length === hLen + 1, hLen + " → " + w.history.length);
 
+  section = "6d. Мусорные адреса и неожиданные сбои"; console.log("\n" + section);
+  /* Адреса приходят не только из меню: их присылают поисковики, мессенджеры,
+     закладки. Здесь проверяется, что ни один такой адрес не роняет приложение,
+     не оставляет пустой экран и не печатает служебных слов вроде «undefined». */
+  const errsBeforeJunk = errors.length;
+
+  await nav("#/article/%");
+  ok("битый процент-код в адресе статьи не роняет раздел",
+    ($("#view").textContent || "").trim().length > 5, T("#view h1"));
+  ok("битый процент-код не оставил исключений", errors.length === errsBeforeJunk,
+    errors.slice(errsBeforeJunk).join(" | "));
+
+  await nav("#/search/50%");
+  ok("знак процента в поисковом запросе не ломает переход",
+    /Результаты поиска|Поиск статей/.test($("#view").textContent || ""),
+    T("#view h1"));
+  ok("поиск с процентом обошёлся без исключений", errors.length === errsBeforeJunk,
+    errors.slice(errsBeforeJunk).join(" | "));
+
+  await nav("#/calc/нет-такого");
+  ok("неизвестная вкладка калькулятора не печатает «undefined»",
+    !/undefined/.test($("#view").textContent || ""),
+    ($("#view .lead") ? $("#view .lead").textContent : "").slice(0, 70));
+  /* Раньше на таком адресе тело подставляло базовый калькулятор, но
+     обработчики не навешивались — кнопки выглядели живыми и молчали. */
+  const cRun = $("#cRun"), cOut = $("#cOut");
+  ok("на неизвестной вкладке калькулятор отрисован", !!cRun && !!cOut);
+  if (cRun && cOut) {
+    /* Вывод заполняется сразу при отрисовке, поэтому «нажали и появилось» тут
+       ничего не докажет. Меняем число единиц и жмём «Рассчитать»: если
+       обработчик не навешен, результат останется прежним. */
+    const wasCalc = cOut.textContent;
+    const cNum = $("#cNum");
+    if (cNum) cNum.value = String((parseInt(cNum.value, 10) || 2) + 3);
+    cRun.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+    await wait(150);
+    ok("на неизвестной вкладке калькулятор считает",
+      cOut.textContent !== wasCalc && cOut.textContent.length > 20,
+      cOut.textContent.replace(/\s+/g, " ").slice(0, 60));
+  }
+
+  await nav("#/code/нет-такого");
+  ok("несуществующий источник объясняет себя словами",
+    /не найден/i.test($("#view").textContent || ""), ($("#view").textContent || "").slice(0, 60));
+
+  await nav("#/такого-раздела-нет");
+  ok("неизвестный раздел показывает навигатор, а не пустоту",
+    $("#view").children.length > 0 && ($("#view").textContent || "").length > 200,
+    T("#view h1"));
+
+  /* Необработанная ошибка должна превращаться в понятную полоску с кнопкой,
+     а не в молчаливо недорисованный экран. Сначала — обратный случай: обрыв
+     сети сбоем приложения не считается, иначе полоска вылезала бы при каждом
+     мигании связи, которого читатель и не заметил. */
+  ok("полоски о сбое до ошибки нет", !$(".crash-bar"));
+  w.dispatchEvent(new w.ErrorEvent("error", { message: "Failed to fetch" }));
+  await wait(150);
+  ok("обрыв сети не считается сбоем приложения", !$(".crash-bar"));
+
+  w.dispatchEvent(new w.ErrorEvent("error", { message: "проверка обработчика сбоев" }));
+  await wait(150);
+  const crash = $(".crash-bar");
+  ok("необработанная ошибка показывает полоску", !!crash && crash.hidden === false,
+    crash ? "hidden=" + crash.hidden : "полоски нет");
+  ok("в полоске есть «Перезагрузить» и кнопка скрытия",
+    !!$(".crash-bar .cb-go") && !!$(".crash-bar .cb-x"));
+  ok("полоска называет ошибку, а не молчит",
+    /проверка обработчика сбоев/.test($(".crash-bar .cb-tech") ? $(".crash-bar .cb-tech").textContent : ""),
+    $(".crash-bar .cb-tech") ? $(".crash-bar .cb-tech").textContent : "нет строки");
+  ok("полоска поднимает тост (класс на body)", d.body.classList.contains("has-crash"));
+  $(".crash-bar .cb-x").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(450);
+  ok("полоску можно скрыть", crash.hidden === true || !crash.classList.contains("show"),
+    "hidden=" + crash.hidden + " show=" + crash.classList.contains("show"));
+  /* Второй сбой в том же сеансе полоску не возвращает: экран не заваливаем. */
+  w.dispatchEvent(new w.ErrorEvent("error", { message: "вторая проверка" }));
+  await wait(150);
+  ok("повторный сбой не поднимает полоску снова",
+    crash.hidden === true || !crash.classList.contains("show"));
+
   section = "7. Сроки"; console.log("\n" + section);
   await nav("#/deadlines");
   ok("калькулятор рассчитал", /Окончание/.test($("#calcOut").textContent));

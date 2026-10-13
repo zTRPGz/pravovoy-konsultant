@@ -45,8 +45,6 @@
      верхний блик панели. Блик даёт объём без тяжёлых градиентов. */
   --shadow:    0 14px 34px -12px rgba(0,0,0,.62);
   --shadow-sm: 0 4px 14px -6px rgba(0,0,0,.5);
-  --glow:      0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
-               0 10px 30px -10px color-mix(in srgb, var(--accent) 45%, transparent);
   --hair:      linear-gradient(90deg, transparent, rgba(255,255,255,.07) 22%, rgba(255,255,255,.07) 78%, transparent);
   --sheen:     linear-gradient(180deg, rgba(255,255,255,.045), transparent 42%);
 
@@ -109,8 +107,6 @@
   --tone-slate:  #5b6b80;
   --shadow:    0 12px 30px -14px rgba(20,35,55,.30);
   --shadow-sm: 0 4px 14px -8px rgba(20,35,55,.24);
-  --glow:      0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent),
-               0 10px 26px -14px color-mix(in srgb, var(--accent) 55%, transparent);
   --hair:      linear-gradient(90deg, transparent, rgba(20,40,70,.09) 22%, rgba(20,40,70,.09) 78%, transparent);
   --sheen:     linear-gradient(180deg, rgba(20,40,70,.025), transparent 42%);
   --doc-bg:    #ffffff;
@@ -173,12 +169,6 @@ body::before {
 }
 /* клик мышью — без рамки, только клавиатура */
 :focus:not(:focus-visible) { outline: none; }
-
-/* визуально скрыто, но доступно скринридеру */
-.sr-only {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-}
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -410,7 +400,7 @@ button { font: inherit; cursor: pointer; }
 .read-reset { width: 100%; margin-top: 10px; }
 
 /* переменные чтения — применяются к тексту статьи и документам */
-.article-body, .law-text, .law-lead {
+.article-body, .law-text {
   font-size: var(--read-fs, var(--fs-6));
   line-height: var(--read-lh, 1.65);
 }
@@ -678,6 +668,8 @@ mark { background: var(--mark); color: inherit; border-radius: var(--r-xs); padd
   background: var(--accent-bg); border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-radius: var(--r-md); padding: 12px 15px; font-size: var(--fs-4);
 }
+/* объяснение к ненайденному разделу: стоит над навигатором и не должен к нему липнуть */
+.info-box.nf-note { margin-bottom: 16px; }
 .warn-box {
   background: color-mix(in srgb, var(--warn) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--warn) 32%, transparent);
@@ -870,6 +862,14 @@ table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; 
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 10px 13px; background: var(--bg-2); cursor: pointer;
   transition: border-color .12s ease, box-shadow .12s ease;
+  /* В реестре утративших силу — до 400 карточек. content-visibility: auto
+     оставляет разметку прежней, но рисует только то, что попало на экран:
+     первый кадр раздела дешевле, прокрутка плавнее. contain-intrinsic-size
+     с ключом auto — оценка высоты до первого показа; дальше браузер помнит
+     настоящую высоту, поэтому подмены и прыжков полосы прокрутки нет.
+     Браузеры без поддержки просто игнорируют оба свойства. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 92px;
 }
 .rep-item:hover { border-color: var(--accent); }
 .rep-item-head { display: flex; gap: 9px; align-items: baseline; flex-wrap: wrap; }
@@ -1122,6 +1122,37 @@ table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; 
 .update-bar .ub-go, .update-bar .ub-x { flex: none; }
 /* тост показывается над уведомлением, а не поверх него */
 body.has-update .toast { bottom: 104px; }
+
+/* ---------- полоска о неожиданном сбое ------------------------------------
+   Последний рубеж: если что-то всё-таки упало, человек должен понять, что
+   произошло, и иметь кнопку, а не догадываться про F5. Оформление нарочно
+   тише уведомления об обновлении: это не новость о базе, а аварийный случай. */
+.crash-bar {
+  position: fixed; left: 50%; bottom: 24px; z-index: 215;
+  transform: translateX(-50%) translateY(calc(100% + 40px)); opacity: 0;
+  display: flex; align-items: center; gap: 12px;
+  max-width: min(680px, calc(100vw - 32px));
+  padding: 10px 12px 10px 16px;
+  background: color-mix(in srgb, var(--bg-4) 94%, var(--danger));
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border-2));
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  transition: transform .3s cubic-bezier(.2,.9,.3,1.05), opacity .3s ease;
+}
+.crash-bar[hidden] { display: none; }
+.crash-bar.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.crash-bar .cb-ico { flex: none; display: inline-flex; color: var(--danger); }
+.crash-bar .cb-ico .ic { width: 20px; height: 20px; }
+.crash-bar .cb-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.crash-bar .cb-body b { font-size: var(--fs-5); }
+.crash-bar .cb-note { font-size: var(--fs-2); color: var(--text-2); }
+.crash-bar .cb-tech {
+  font-size: var(--fs-1); color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crash-bar .cb-go, .crash-bar .cb-x { flex: none; }
+/* при сбое тост тоже поднимаем: две полоски не должны наехать друг на друга */
+body.has-crash .toast { bottom: 104px; }
 
 /* ---------- официальный текст статьи ---------- */
 .law-meta {
@@ -1564,15 +1595,6 @@ details.refs-block[open] > summary { margin-bottom: 12px; }
 .diff-title ins { color: var(--ok); text-decoration: none; font-weight: 600; }
 .lnk { color: var(--accent); text-decoration: none; border-bottom: 1px dotted currentColor; }
 
-/* версии прежних редакций */
-.ver-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-.ver-item {
-  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-  padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-2);
-}
-.ver-item .ver-red { font-weight: 600; }
-.ver-item .ver-meta { color: var(--muted); font-size: var(--fs-2); flex: 1; }
-
 /* ---------------------------------------------------------------- роли */
 
 .role-switch {
@@ -1729,15 +1751,7 @@ details.refs-block[open] > summary { margin-bottom: 12px; }
 .graph-empty { padding: 24px; text-align: center; color: var(--muted); }
 
 /* ---- резервная копия ---- */
-.bk-list { display: grid; gap: 6px; margin-top: 8px; }
-.bk-row {
-  display: flex; gap: 10px; align-items: baseline; justify-content: space-between;
-  font-size: var(--fs-3); padding: 7px 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-2);
-}
-.bk-row b { font-weight: 620; }
-.bk-num { font-variant-numeric: tabular-nums; color: var(--muted); }
-
-/* кнопка опасного действия (очистка данных) */
+/* кнопка опасного действия: сейчас — «Очистить» в реквизитах для документов */
 .btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
 .btn-danger:hover { background: color-mix(in srgb, var(--danger) 12%, var(--bg-4)); border-color: var(--danger); }
 
@@ -1863,7 +1877,6 @@ details.refs-block[open] > summary { margin-bottom: 12px; }
 /* размеры иконок в отдельных контекстах */
 .law-sanction-mark .ic { width: 1.1em; height: 1.1em; }
 .refs-block > summary .ic { width: 1.05em; height: 1.05em; color: var(--accent); }
-.empty .ico .ic { width: 1em; height: 1em; }
 .nav-item .ico .ic { width: 18px; height: 18px; }
 .result .ibtn .ic { width: 1em; height: 1em; }
 
@@ -2233,7 +2246,11 @@ body::-webkit-scrollbar-track { background: transparent; }
    ощущаться отзывчивым, а не «анимированным». Полностью отключается в
    prefers-reduced-motion (блок ниже). */
 @keyframes viewIn { from { opacity: 0; transform: translateY(10px) scale(.992); } to { opacity: 1; transform: none; } }
-#view.view-anim { animation: viewIn .26s cubic-bezier(.22,.7,.25,1) both; will-change: transform, opacity; }
+/* will-change здесь намеренно нет: класс view-anim остаётся на разделе до
+   следующего перехода, и постоянный слой композитора на длинных текстах
+   стоит памяти и размывает текст на части видеокарт. Анимация короткая —
+   браузер справляется и без подсказки. */
+#view.view-anim { animation: viewIn .26s cubic-bezier(.22,.7,.25,1) both; }
 
 /* поочерёдный вход карточек раздела: задержку ставит app.js (staggerIn),
    класс — только про саму анимацию */

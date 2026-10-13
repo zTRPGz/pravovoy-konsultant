@@ -101,6 +101,7 @@
     menu: '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>',
     close: '<path d="m6 6 12 12"/><path d="m18 6-12 12"/>',
     camera: '<path d="M3 8a2 2 0 0 1 2-2h2l1.4-2h7.2L19 6h0a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.4"/>',
+    alert: '<path d="M12 3.6 2.5 20h19z"/><path d="M12 10v4.4"/><path d="M12 17.4v.1"/>',
     up: '<path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>',
     backspace: '<path d="M9.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9.5L3 12z"/><path d="m12.5 9.5 5 5"/><path d="m17.5 9.5-5 5"/>',
     calculator: '<rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8.2" y="6" width="7.6" height="3" rx="1"/><path d="M8.6 12.4h.01"/><path d="M12 12.4h.01"/><path d="M15.4 12.4h.01"/><path d="M8.6 16h.01"/><path d="M12 16h.01"/><path d="M15.4 16h.01"/>'
@@ -191,7 +192,6 @@
   /* Статусы норм: id статьи -> [статус, акт-основание, дата акта].
      Слой отдельный от индекса: статус есть только у части норм. */
   var STATUS = window.RF_STATUS || {};
-  var STATUS_ACTS = window.RF_STATUS_ACTS || [];
   var STATUS_META = window.RF_STATUS_META || { repealed: 0, suspended: 0, void: 0, total: 0 };
 
   var ST_TITLE = {
@@ -1495,12 +1495,6 @@
     LS.set("role", state.role);
   }
 
-  function roleLabel(extra) {
-    var d = roleDef();
-    if (!d.id) return "";
-    return d.ico + " " + d.title + (extra ? " · " + extra : "");
-  }
-
   function roleSwitchHtml() {
     return '<div class="role-switch">' +
       '<span class="role-lbl">Роль:</span>' +
@@ -1775,10 +1769,6 @@
     for (var i = 0; i < c.items.length; i++) if (c.items[i].id === aid) return i;
     return -1;
   }
-  function caseHasItem(id, aid) {
-    var c = caseById(id);
-    return !!(c && caseItemIdx(c, aid) !== -1);
-  }
   function casesWith(aid) {
     return state.cases.filter(function (c) { return caseItemIdx(c, aid) !== -1; });
   }
@@ -2011,17 +2001,30 @@
     catch (e) { try { location.replace(hash); } catch (e2) {} }
   }
 
+  /* Разбор адреса вызывается и при загрузке страницы, и по hashchange — то
+     есть вне try/catch. А decodeURIComponent бросает URIError на битом
+     процент-коде: «#/search/50%», «#/article/%», ссылка, обрезанная
+     мессенджером. Последствие было двойным: исключение в консоли и, что
+     хуже, полностью пропущенный переход — человек нажимал ссылку и
+     оставался на прежнем разделе без единого слова объяснения.
+     Поэтому декодируем бережно: не получилось — работаем с тем, что есть. */
+  function dec(s) {
+    if (s == null) return "";
+    try { return decodeURIComponent(String(s)); }
+    catch (e) { return String(s); }
+  }
+
   function parseHash() {
     var h = (location.hash || "").replace(/^#\/?/, "");
     var parts = h.split("/");
     var name = parts[0] || "home";
-    if (name === "article") return { name: "article", arg: decodeURIComponent(parts[1] || "") };
-    if (name === "search") return { name: "search", q: decodeURIComponent(parts.slice(1).join("/") || "") };
-    if (name === "repealed") return { name: "repealed", q: decodeURIComponent(parts.slice(1).join("/") || "") };
-    if (name === "timeline") return { name: "timeline", arg: parts[1] ? decodeURIComponent(parts[1]) : null };
+    if (name === "article") return { name: "article", arg: dec(parts[1] || "") };
+    if (name === "search") return { name: "search", q: dec(parts.slice(1).join("/") || "") };
+    if (name === "repealed") return { name: "repealed", q: dec(parts.slice(1).join("/") || "") };
+    if (name === "timeline") return { name: "timeline", arg: parts[1] ? dec(parts[1]) : null };
     if (name === "graph") return { name: "graph", arg: parts[1] || null };
-    if (name === "diff") return { name: "diff", arg: parts[1], q: decodeURIComponent(parts.slice(2).join("/") || "") };
-    if (name === "compare") return { name: "compare", a: decodeURIComponent(parts[1] || ""), b: decodeURIComponent(parts[2] || "") };
+    if (name === "diff") return { name: "diff", arg: parts[1], q: dec(parts.slice(2).join("/") || "") };
+    if (name === "compare") return { name: "compare", a: dec(parts[1] || ""), b: dec(parts[2] || "") };
     if (name === "code") return { name: "code", arg: parts[1] };
     if (name === "checklist") return { name: "checklist", arg: parts[1] };
     if (name === "template") return { name: "template", arg: parts[1] };
@@ -2164,7 +2167,15 @@
     else if (r.name === "diff") { v.innerHTML = viewDiff(r.arg, r.q); bindDiff(r.arg); }
     else if (r.name === "compare") { v.innerHTML = viewCompare(r.a, r.b); bindCompare(); }
     else if (r.name === "help") v.innerHTML = viewHelp();
-    else v.innerHTML = viewHome();
+    else if (r.name === "home" || !r.name) v.innerHTML = viewHome();
+    else {
+      /* Раздел не найден: адрес мог устареть или прийти из чужой ссылки.
+         Показываем навигатор и объясняем, что произошло: молчаливая подмена
+         экрана выглядит как сбой («я нажал ссылку и ничего не случилось»). */
+      v.innerHTML = '<div class="info-box nf-note"><b>Такого раздела нет.</b> ' +
+        "Ссылка могла устареть. Ниже — навигатор, из него можно перейти к нужному разделу.</div>" +
+        viewHome();
+    }
 
     try { window.scrollTo(0, 0); } catch (e) {}
     markNav();
@@ -2424,6 +2435,8 @@
         "Тексты правовых актов не являются объектами авторских прав (п. 6 ст. 1259 ГК РФ). " +
         "Дата редакции указана для каждого источника и для каждой статьи отдельно. " +
         "Справочные аннотации, ключевые слова и практические заметки подготовлены для приложения и не являются официальным текстом. " +
+        "Сам справочный слой — аннотации, памятки, чек-листы, шаблоны, разборы ситуаций и код приложения — охраняется как объект авторского права (ст. 1259 ГК РФ): " +
+        "цитировать его со ссылкой на источник можно, копировать целиком в свой продукт — нет. " +
         "Для юридически значимых действий сверяйтесь с официальной публикацией и пользуйтесь разделом «Проверка актуальности». Приложение не заменяет консультацию юриста." +
       "</div>";
   }
@@ -3271,7 +3284,7 @@
         '<textarea class="textarea" id="asInput" placeholder="Например: задержали с наркотиками; сосед затопил квартиру; уволили за прогул"></textarea></div>' +
         '<div class="actions-row" style="margin-top:0">' +
           '<button class="btn btn-primary" id="asRun">' + ic("compass") + " Разобрать</button>" +
-          '<button class="btn" id="asOcr" type="button" title="Распознать текст с фотографии документа (нужен интернет)">Фото в текст</button>' +
+          '<button class="btn" id="asOcr" type="button" title="Распознать текст с фотографии документа (нужен интернет)">' + ic("camera") + " Фото в текст</button>" +
           '<button class="btn" id="asClear">Очистить</button>' +
           '<input type="file" id="asOcrFile" accept="image/*" hidden>' +
         "</div>" +
@@ -4879,8 +4892,18 @@
     "</div>";
   }
 
+  /* Имя вкладки калькулятора приходит из адреса: по старой ссылке или с
+     опечаткой оно может быть любым. Раньше на такое имя тело раздела
+     подставляло базовый калькулятор, подпись печатала «undefined», а
+     обработчики не навешивались вовсе — кнопки выглядели живыми и молчали.
+     Теперь имя приводится к известному списку в одном месте. */
+  function calcTab(arg) {
+    var k = arg || "base";
+    return CALC_TABS.some(function (t) { return t.k === k; }) ? k : "base";
+  }
+
   function viewCalc(tab) {
-    var k = tab || "base";
+    var k = calcTab(tab);
     var body = k === "limit" ? calcLimitTab()
       : k === "money" ? calcMoneyTab()
       : k === "custody" ? calcCustodyTab()
@@ -4901,7 +4924,7 @@
   }
 
   function bindCalc(tab) {
-    var k = tab || "base";
+    var k = calcTab(tab);
     var today = new Date();
     var iso = today.toISOString().slice(0, 10);
 
@@ -5482,7 +5505,7 @@
           '<input class="input" data-prof="' + f.k + '" value="' + esc(profile[f.k] || "") + '" placeholder="' + esc(f.p) + '"></div>';
       }).join("") + "</div>" +
       '<div class="actions-row"><button class="btn btn-primary" id="profSave">' + ic("check") + " Сохранить</button>" +
-      '<button class="btn" id="profClear">Очистить</button>' +
+      '<button class="btn btn-danger" id="profClear">Очистить</button>' +
       '<span class="small muted">Данные остаются в вашем браузере.</span></div></details>';
 
     /* панель: поиск по шаблонам и быстрый переход к разделу */
@@ -5529,6 +5552,9 @@
       render();
     });
     if (clr) clr.addEventListener("click", function () {
+      /* Реквизиты подставляются в готовые документы: стереть их одним
+         нажатием без вопроса — слишком легко потерять введённое. */
+      if (!confirm("Очистить сохранённые реквизиты? Они подставляются в документы, восстановить их будет нельзя.")) return;
       setProfile({}); toast("Реквизиты очищены"); render();
     });
 
@@ -7384,13 +7410,6 @@
     running: false
   };
 
-  /* Разница в календарных днях между двумя датами (без времени) */
-  function dayDiff(a, b) {
-    var da = new Date(a.getFullYear(), a.getMonth(), a.getDate());
-    var db = new Date(b.getFullYear(), b.getMonth(), b.getDate());
-    return Math.round((db - da) / 86400000);
-  }
-
   function todayKey(d) {
     var t = d || new Date();
     return t.getFullYear() + "-" + pad(t.getMonth() + 1) + "-" + pad(t.getDate());
@@ -7619,22 +7638,6 @@
   }
 
   function verList(id) { return (VERSIONS[id] || []).slice(); }
-
-  function verGet(id, redaction) {
-    var k = verKey(id, redaction);
-    var list = VERSIONS[id] || [];
-    for (var i = 0; i < list.length; i++) if (list[i].vid === k) return list[i];
-    return null;
-  }
-
-  function verDrop(id, redaction) {
-    var k = verKey(id, redaction);
-    var list = VERSIONS[id] || [];
-    for (var i = 0; i < list.length; i++) {
-      if (list[i].vid === k) { list.splice(i, 1); break; }
-    }
-    IDB.verDel(k);
-  }
 
   function verCount(id) { return (VERSIONS[id] || []).length; }
 
@@ -8906,7 +8909,7 @@
       if (asArt && !e.target.closest("button, input, textarea, select")) {
         e.preventDefault();
         var href = asArt.getAttribute("href") || asArt.getAttribute("data-go") || "";
-        openArticleModal(decodeURIComponent(href.replace(/^#\/article\//, "")));
+        openArticleModal(dec(href.replace(/^#\/article\//, "")));
         return;
       }
     }
@@ -9109,12 +9112,12 @@
         return;
       }
       var cr = e.target.closest("[data-copy-raw]");
-      if (cr) { copyText(decodeURIComponent(cr.getAttribute("data-copy-raw")), "Скопировано"); return; }
+      if (cr) { copyText(dec(cr.getAttribute("data-copy-raw")), "Скопировано"); return; }
 
       var dl = e.target.closest("[data-dl]");
       if (dl) {
         var parts = dl.getAttribute("data-dl").split("|");
-        download(decodeURIComponent(parts[0]) + ".txt", decodeURIComponent(parts[1]), "text/plain");
+        download(dec(parts[0]) + ".txt", dec(parts[1]), "text/plain");
         toast("Файл сохранён"); return;
       }
       var fc = e.target.closest("#favClear");
@@ -9387,6 +9390,25 @@
        в любом месте (или Escape). Отметку «уже видел» не ставим — иначе
        при следующем заходе экран бы пропал. */
     setupIntro();
+    setupOffline();
+  }
+
+  /* --- работа без сети ------------------------------------------------------
+     Вступительный экран обещает работу офлайн, но без service worker это было
+     неправдой: без интернета браузер не мог открыть сайт вовсе. Воркер
+     (sw.js) кеширует то, что читатель уже открывал, и отдаёт из кеша только
+     тогда, когда сети нет, — пока связь есть, всегда приходит свежая сборка.
+     Регистрируем после загрузки страницы: иначе воркер отбирал бы канал у
+     самих данных, а они и так весят больше всего. */
+  function setupOffline() {
+    if (!("serviceWorker" in navigator)) return;
+    if (!/^https?:$/.test(location.protocol)) return;
+    var reg = function () {
+      try { navigator.serviceWorker.register("sw.js").catch(function () {}); }
+      catch (e) { /* приватный режим или запрет хранилища — работаем как раньше */ }
+    };
+    if (document.readyState === "complete") reg();
+    else window.addEventListener("load", reg);
   }
 
   function setupIntro() {
@@ -9405,6 +9427,65 @@
     el.classList.add("hide");
     setTimeout(function () { el.hidden = true; }, 320);
   }
+
+  /* --- если что-то всё-таки сломалось --------------------------------------
+     Приложение статическое: когда что-то падает, человек видит половину
+     экрана и не понимает, что произошло, — а спросить некого. Поэтому
+     необработанные исключения и отклонённые промисы перехватываем и показываем
+     одну негромкую полоску с кнопкой «Перезагрузить»: без неё выход из сбоя
+     приходится угадывать (F5). Полоска одна на сеанс — повторные сбои не
+     заваливают экран. */
+  var crashShown = false;
+
+  /* Сообщения, которые сбоем не являются: расширения браузера, чужие
+     скрипты без подробностей, прерванные загрузки. Показывать по ним
+     «что-то пошло не так» — только пугать. */
+  function crashIgnorable(msg) {
+    return /ResizeObserver|Script error|AbortError|The operation was aborted|NetworkError|Load failed|Failed to fetch|quota/i.test(msg || "");
+  }
+
+  function reportCrash(msg) {
+    if (crashShown || crashIgnorable(msg)) return;
+    if (!document.body) return;
+    crashShown = true;
+    var el = document.createElement("div");
+    el.className = "crash-bar";
+    el.setAttribute("role", "alert");
+    el.innerHTML =
+      '<span class="cb-ico">' + ic("alert") + "</span>" +
+      '<div class="cb-body">' +
+        "<b>Что-то пошло не так</b>" +
+        '<span class="cb-note">Часть страницы могла не отрисоваться. ' +
+          "Перезагрузка обычно помогает — данные и настройки сохранятся.</span>" +
+        (msg ? '<span class="cb-tech">' + esc(String(msg).slice(0, 160)) + "</span>" : "") +
+      "</div>" +
+      '<button class="btn btn-primary cb-go" type="button">Перезагрузить</button>' +
+      '<button class="icon-btn cb-x" type="button" aria-label="Скрыть сообщение о сбое">' + ic("close") + "</button>";
+    document.body.appendChild(el);
+    document.body.classList.add("has-crash");
+    requestAnimationFrame(function () { el.classList.add("show"); });
+    el.querySelector(".cb-go").addEventListener("click", function () {
+      /* перезагружаем мимо кеша: сбой мог прийти из наполовину загруженной
+         сборки, и обычное F5 вернуло бы её же из кеша браузера */
+      try { location.replace(location.pathname + location.search + location.hash); }
+      catch (e) { location.reload(); }
+    });
+    el.querySelector(".cb-x").addEventListener("click", function () {
+      el.classList.remove("show");
+      document.body.classList.remove("has-crash");
+      setTimeout(function () { el.hidden = true; }, 280);
+    });
+  }
+
+  window.addEventListener("error", function (e) {
+    /* у событий от чужих источников нет ни файла, ни текста ошибки */
+    if (e && e.target && e.target !== window && e.target.tagName) return;
+    reportCrash((e && (e.message || (e.error && e.error.message))) || "неизвестная ошибка");
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e && e.reason;
+    reportCrash((r && (r.message || r)) || "неизвестная ошибка");
+  });
 
   /* Запуск. Обычно app.js выполняется парсером до DOMContentLoaded — тогда
      ждём событие. Но тег может быть подставлен через document.write (метка

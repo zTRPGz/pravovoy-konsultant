@@ -1712,6 +1712,60 @@ check("каталог публикации несёт правила кеша и
   /_headers/.test(distSrc) && /\.nojekyll/.test(distSrc),
   "без .nojekyll GitHub Pages выбрасывает файлы с подчёркиванием");
 
+/* --- работа без сети ------------------------------------------------------
+   Вступительный экран обещает офлайн-работу. Без service worker обещание было
+   неправдой: без интернета сайт не открывался вовсе. Проверяем и сам воркер,
+   и то, что он доедет до хостинга, и что регистрация не мешает остальному. */
+const swPath = path.join(ROOT, "sw.js");
+const swSrc = fs.existsSync(swPath) ? fs.readFileSync(swPath, "utf8") : "";
+check("воркер офлайн-работы существует и уходит на хостинг",
+  !!swSrc && distMod.FILES.indexOf("sw.js") >= 0,
+  swSrc ? "sw.js · в списке публикации: " + (distMod.FILES.indexOf("sw.js") >= 0) : "файла нет");
+check("стратегия воркера — сначала сеть, кеш только при её отсутствии",
+  /fetch\(req\)\.then/.test(swSrc) && /\.catch\(function \(\) \{[\s\S]{0,400}caches\.match\(req\)/.test(swSrc),
+  "иначе правки застревали бы в кеше воркера — та же беда, что была с HTTP-кешем");
+check("воркер не отдаёт из кеша отпечаток сборки",
+  /version\\\.json/.test(swSrc) && /alwaysNetwork/.test(swSrc),
+  "по нему приложение узнаёт о новой редакции базы");
+check("воркер не кеширует чужие источники и не-GET запросы",
+  /url\.origin !== self\.location\.origin/.test(swSrc) && /req\.method !== "GET"/.test(swSrc));
+check("воркер ограничивает размер кешируемого файла",
+  /MAX_BYTES/.test(swSrc) && /content-length/.test(swSrc),
+  "полные тексты крупнейших кодексов иначе съедят квоту браузера");
+check("ошибка кеша не ломает загрузку страницы",
+  /\.catch\(function \(\) \{\}\)/.test(swSrc) && /catch \(e\) \{ \/\*/.test(swSrc),
+  "воркер обязан пропустить запрос к сети, а не упасть");
+check("приложение регистрирует воркер только там, где он доступен",
+  /function setupOffline\(\)/.test(appSrc) && /"serviceWorker" in navigator/.test(appSrc) &&
+  /register\("sw\.js"\)/.test(appSrc) && /setupOffline\(\)/.test(appSrc) &&
+  /\^https\?:\$\/\.test\(location\.protocol\)/.test(appSrc),
+  "file:// и браузеры без воркера работают как раньше");
+
+/* --- как ссылка выглядит в поиске и соцсетях ------------------------------ */
+check("страница рассказывает о себе поиску и соцсетям",
+  /rel="canonical"/.test(htmlSrc) && /property="og:title"/.test(htmlSrc) &&
+  /property="og:description"/.test(htmlSrc) && /property="og:locale" content="ru_RU"/.test(htmlSrc) &&
+  /name="twitter:card"/.test(htmlSrc),
+  "иначе ссылка в мессенджере выглядит безымянной");
+
+/* --- заход без JavaScript -------------------------------------------------
+   Стили подключаются скриптом (метка версии через document.write). Значит,
+   при выключенных скриптах страница показывалась голым текстом без единой
+   строки оформления — а приложение целиком на JavaScript и молчало о причине. */
+check("стили доходят и при выключенном JavaScript",
+  /<noscript><link rel="stylesheet" href="styles\.css"><\/noscript>/.test(htmlSrc) &&
+  /document\.write\('<link rel="stylesheet" href="styles\.css'/.test(htmlSrc),
+  "иначе без скриптов остаётся неоформленный текст");
+check("выключенный JavaScript объясняется словами",
+  /<noscript>[\s\S]{0,600}нужен JavaScript/.test(htmlSrc),
+  "молчаливо пустая страница выглядит как поломка сайта");
+
+const robotsPath = path.join(ROOT, "robots.txt");
+const robotsSrc = fs.existsSync(robotsPath) ? fs.readFileSync(robotsPath, "utf8") : "";
+check("поисковым роботам сказано, что индексировать",
+  /User-agent:\s*\*/.test(robotsSrc) && /Allow:\s*\//.test(robotsSrc) && distMod.FILES.indexOf("robots.txt") >= 0,
+  "без файла робот всё равно заходит, но по умолчанию — без правил");
+
 check("сборщик предупреждает о пределах бесплатного Cloudflare Pages",
   /25 \* 1024 \* 1024/.test(distSrc) && /20000/.test(distSrc),
   "25 МБ на файл и 20 000 файлов — за ними сборка не пройдёт");

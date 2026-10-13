@@ -734,6 +734,13 @@ server.listen(0, "127.0.0.1", async () => {
     crash ? "hidden=" + crash.hidden : "полоски нет");
   ok("в полоске есть «Перезагрузить» и кнопка скрытия",
     !!$(".crash-bar .cb-go") && !!$(".crash-bar .cb-x"));
+  /* Сбой виден и с клавиатуры, и скринридером: полоска объявляется сама,
+     а у крестика без текста есть подпись. */
+  ok("полоска объявляется скринридеру и кнопка скрытия подписана",
+    $(".crash-bar").getAttribute("role") === "alert" &&
+    !!$(".crash-bar .cb-x").getAttribute("aria-label"),
+    "role=" + $(".crash-bar").getAttribute("role") +
+    " · aria-label=" + $(".crash-bar .cb-x").getAttribute("aria-label"));
   ok("полоска называет ошибку, а не молчит",
     /проверка обработчика сбоев/.test($(".crash-bar .cb-tech") ? $(".crash-bar .cb-tech").textContent : ""),
     $(".crash-bar .cb-tech") ? $(".crash-bar .cb-tech").textContent : "нет строки");

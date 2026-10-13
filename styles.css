@@ -727,6 +727,9 @@ table.tbl th, table.tbl td {
 table.tbl th { color: var(--muted); font-weight: 700; font-size: var(--fs-2); text-transform: uppercase; letter-spacing: .06em; }
 table.tbl tbody tr:hover td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 table.tbl td.term { font-weight: 650; color: var(--text); white-space: nowrap; }
+/* таблица прокручивается внутри себя: на телефоне столбцы не должны
+   растягивать страницу и уезжать за край экрана */
+.tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
 
 /* --- группировка источников --- */
 
@@ -795,8 +798,10 @@ table.tbl td.term { font-weight: 650; color: var(--text); white-space: nowrap; }
 table.tbl-fresh td { vertical-align: middle; }
 table.tbl-fresh td:first-child { min-width: 210px; }
 table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; }
+/* значок статуса: подпалпачник — он же цель нажатия в строках таблиц,
+   поэтому высоту дерим не меньше 26px */
 .st {
-  display: inline-block; padding: 2px 9px; border-radius: var(--r-pill);
+  display: inline-block; padding: 3px 10px; border-radius: var(--r-pill);
   font-size: var(--fs-2); font-weight: 620; white-space: nowrap;
   background: var(--bg-3); color: var(--muted);
 }
@@ -899,6 +904,10 @@ table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; 
 .textarea { min-height: 130px; resize: vertical; line-height: 1.55; }
 
 .form-row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+/* Поля внутри сетки должны ужиматься: у input своя минимальная ширина
+   (размер по умолчанию), и без min-width:0 колонка не сжимается — строка
+   раздвигает карточку, а кнопка «удалить» уезжает за край экрана телефона. */
+.form-row .input, .form-row .select, .form-row .textarea { min-width: 0; }
 
 /* ---------- калькуляторы ---------- */
 /* Таблица контрольных точек: первая колонка — что за срок, вторая —
@@ -911,11 +920,11 @@ table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; 
 .calc-tbl tr.calc-past .term { text-decoration: none; }
 
 /* Строка периодов в расчёте процентов по ст. 395 ГК РФ. */
-.calc-row { grid-template-columns: 1fr 1fr 1fr auto; margin-bottom: 8px; }
+.calc-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto; margin-bottom: 8px; }
 .calc-row .btn { padding: 9px 11px; }
 
 /* Строка требования при сборе цены иска: название, сумма, удаление. */
-.claim-row { grid-template-columns: 1fr 170px auto; margin-bottom: 8px; }
+.claim-row { grid-template-columns: minmax(0,1fr) 170px auto; margin-bottom: 8px; }
 .claim-row .btn { padding: 9px 11px; }
 
 /* Итог по цене иска: крупная сумма и подпись под ней. */
@@ -2004,14 +2013,28 @@ body::-webkit-scrollbar-track { background: transparent; }
   .actions-row { gap: 7px; }
   .topbar-actions { gap: 6px; }
   .icon-btn { width: 34px; height: 34px; }
+  /* Поиск один забирал всю ширину панели: на 375px от него оставалось
+     128px, набирать запрос пальцем неудобно. На телефоне панель становится
+     двухстрочной — строка кнопок, под ней поиск во всю ширину. */
+  .topbar { flex-wrap: wrap; row-gap: 8px; }
+  .search-wrap { order: 10; flex: 1 0 100%; max-width: none; }
   /* на узком экране две стрелки не помещаются рядом с поиском — оставляем
-     «Назад», он и нужен чаще; «Вперёд» остаётся на широком экране */
+     «Назад», он и нужен чаще; «Вперёд» остаётся на широком экране.
+     Кнопку не сжимаем до 30px: палец целится мимо, 36×36 — минимум,
+     который помещается рядом с поиском. */
   .nav-ctl { gap: 2px; }
-  .nav-btn { width: 30px; height: 30px; }
+  .nav-btn { width: 36px; height: 36px; }
   #navFwd { display: none; }
   /* на узком экране подпись роли не помещается — остаётся иконка,
      активная роль по-прежнему видна в полосе под верхней панелью */
   .role-btn-top .role-btn-lbl { display: none; }
+  /* строки калькуляторов на телефоне: две даты в ряд, ставка и «удалить» —
+     под ними; требование по цене иска — название шире, сумма уже */
+  .calc-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; }
+  .claim-row { grid-template-columns: minmax(0,1fr) 112px auto; }
+  /* название акта в бейдже бывает длиннее экрана: разрешаем перенос,
+     иначе бейдж растягивает строку и уводит страницу за край */
+  .badge-code { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
   .hc-row { grid-template-columns: 1fr; gap: 3px; }
   .intro-card { padding: 24px 18px 22px; }
   .intro-title { font-size: var(--fs-8); }

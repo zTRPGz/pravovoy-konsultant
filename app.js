@@ -5155,7 +5155,7 @@
   /* Ближайшие контрольные точки от указанного момента. */
   function calcPointsHtml(from, points, kind) {
     var now = new Date();
-    return '<table class="tbl calc-tbl"><thead><tr><th>Точка</th><th>Дата и время</th><th>Основание</th></tr></thead><tbody>' +
+    return '<div class="tbl-scroll"><table class="tbl calc-tbl"><thead><tr><th>Точка</th><th>Дата и время</th><th>Основание</th></tr></thead><tbody>' +
       points.map(function (p) {
         var at = kind === "custody" ? calcAdd(from, p.h != null ? p.h : p.m, p.h != null ? "hours" : "months")
                                     : calcAdd(from, p.d != null ? p.d : p.m, p.d != null ? "days" : "months");
@@ -5164,7 +5164,7 @@
           "<td>" + esc(p.t) + (p.n ? '<div class="small muted">' + esc(p.n) + "</div>" : "") + "</td>" +
           '<td class="term">' + fmtDateTime(at) + '<div class="small muted">' + dayName(at) + (past ? " · прошло" : "") + "</div></td>" +
           '<td class="small muted">' + esc(p.b) + "</td></tr>";
-      }).join("") + "</tbody></table>";
+      }).join("") + "</tbody></table></div>";
   }
 
   /* --- вкладка: процессуальные сроки ---------------------------------- */
@@ -5358,11 +5358,11 @@
   /* --- вкладка: цена иска и госпошлина --------------------------------- */
 
   function calcClaimTab() {
-    var rules = '<table class="tbl"><thead><tr><th>Категория иска</th><th>Как определяется цена</th><th>Основание</th></tr></thead><tbody>' +
+    var rules = '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>Категория иска</th><th>Как определяется цена</th><th>Основание</th></tr></thead><tbody>' +
       CALC_CLAIM_RULES.map(function (r) {
         return "<tr><td>" + esc(r.t) + "</td><td>" + esc(r.d) +
           '</td><td class="small muted">' + esc(r.b) + "</td></tr>";
-      }).join("") + "</tbody></table>";
+      }).join("") + "</tbody></table></div>";
     var fixedOpts = CALC_DUTY_FIXED.concat(CALC_DUTY_APK_FIXED).map(function (f) {
       return '<option value="' + f.k + '">' + esc(f.t) + " — " + calcMoney(f.v) + "</option>";
     }).join("");
@@ -5452,7 +5452,7 @@
         '<div id="kOut" style="margin-top:14px"></div>' +
       "</div>" +
       '<h2>Пределы продления</h2>' +
-      '<div class="card" style="padding:0;overflow:hidden">' +
+      '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll">' +
         '<table class="tbl"><thead><tr><th>Мера пресечения</th><th>Срок</th><th>Основание</th></tr></thead><tbody>' +
         [
           ["Домашний арест", "до 2 месяцев, продлевается судом", "ч. 2 ст. 107 УПК РФ"],
@@ -5466,8 +5466,7 @@
         ].map(function (r) {
           return "<tr><td>" + esc(r[0]) + '</td><td class="term">' + esc(r[1]) + '</td><td class="small muted">' + esc(r[2]) + "</td></tr>";
         }).join("") +
-        "</tbody></table>" +
-      "</div>" +
+        "</tbody></table></div></div>" +
       '<div class="disclaimer">Расчёт ведётся по календарным правилам ст. 128 УПК РФ. При исчислении сроков заключения под стражу, домашнего ареста, запрета определённых действий и нахождения в медицинской организации нерабочее время включается в срок, поэтому перенос с нерабочего дня к ним не применяется.</div>';
   }
 
@@ -6224,8 +6223,8 @@
       "</div>" +
 
       '<h2>Справочник сроков</h2>' +
-      '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr><th>Что</th><th>Срок</th><th>Основание</th></tr></thead><tbody>' +
-      rows + "</tbody></table></div>" +
+      '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll"><table class="tbl"><thead><tr><th>Что</th><th>Срок</th><th>Основание</th></tr></thead><tbody>' +
+      rows + "</tbody></table></div></div>" +
 
       '<div class="disclaimer">Расчёт выполняется по календарным правилам. Порядок исчисления сроков установлен ст. 128 УПК РФ: сроки исчисляются часами, сутками и месяцами; при задержании срок исчисляется с момента фактического задержания. Выходные и праздничные дни учитываются в зависимости от вида срока.</div>';
   }
@@ -6274,9 +6273,9 @@
         ["Продление задержания судом для представления доказательств", add(72), "не более 72 часов"],
         ["Предъявление обвинения при избранной мере пресечения", add(240), "не более 10 суток"]
       ];
-      $("#detOut").innerHTML = '<table class="tbl"><tbody>' + rows.map(function (r) {
+      $("#detOut").innerHTML = '<div class="tbl-scroll"><table class="tbl"><tbody>' + rows.map(function (r) {
         return "<tr><td>" + esc(r[0]) + '<div class="small muted">' + esc(r[2]) + '</div></td><td class="term">' + fmtDateTime(r[1]) + "</td></tr>";
-      }).join("") + "</tbody></table>";
+      }).join("") + "</tbody></table></div>";
     }
     $("#detRun").addEventListener("click", det);
     var now = new Date();
@@ -9466,11 +9465,11 @@
         : '<div class="info-box">Все источники содержат разобранные статьи. Расхождений в структуре не обнаружено.</div>') +
 
       '<h2>Источники и их редакции</h2>' +
-      '<div class="card" style="padding:0;overflow:hidden"><table class="tbl tbl-fresh"><thead><tr>' +
+      '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll"><table class="tbl tbl-fresh"><thead><tr>' +
         "<th>Источник</th><th>Вид акта</th><th>Реквизиты</th><th>Редакция</th><th>Статей</th><th>Статус</th><th></th>" +
       "</tr></thead><tbody>" +
       CODES.filter(function (c) { return !c.note; }).map(docStatusRow).join("") +
-      "</tbody></table></div>" +
+      "</tbody></table></div></div>" +
       '<div class="small muted" style="margin:8px 2px 0">Значок «с портала» — источник загружен напрямую с actual.pravo.gov.ru ' +
       "(Конституция, ФКЗ и часть федеральных законов). Эти документы сверяются отдельно, минуя общий манифест.</div>" +
 

@@ -225,7 +225,11 @@ server.listen(0, "127.0.0.1", async () => {
     $$("#view .result").length > 0 && $$("#view .result").length <= 15, $$("#view .result").length + " результатов");
 
   section = "4. Статья и ленивая загрузка полного текста"; console.log("\n" + section);
-  await nav("#/article/uk-105", 1300);
+  await nav("#/article/uk-105", 300);
+  /* Полный текст приходит отдельным шардом (data/ft/14.js). На медленной
+     машине он не успевает за фиксированную паузу, и проверка «мигала».
+     Ждём появления текста, а не угадываем время. */
+  await waitFor(() => $("#artText") && /умышленное причинение смерти/i.test($("#artText").textContent), 12000);
   const body = $("#artText") ? $("#artText").textContent : "";
   ok("текст ст. 105 УК загружен", /умышленное причинение смерти/i.test(body), body.length + " символов");
 
@@ -772,7 +776,7 @@ server.listen(0, "127.0.0.1", async () => {
   ok("в меню есть пункт «Калькуляторы»", $$('.nav-item[data-nav="calc"]').length === 1);
   await nav("#/calc", 200);
   ok("раздел калькуляторов открылся", /^Калькуляторы/.test(T("#view h1") || ""), T("#view h1"));
-  ok("пять вкладок расчётов", $$("#view .tabs .tab").length === 5, $$("#view .tabs .tab").length);
+  ok("шесть вкладок расчётов", $$("#view .tabs .tab").length === 6, $$("#view .tabs .tab").length);
 
   /* процессуальные сроки: дата окончания и перенос с нерабочего дня */
   ok("дата начала подставлена", /^\d{4}-\d{2}-\d{2}$/.test($("#cDate").value), $("#cDate").value);
@@ -1040,6 +1044,55 @@ server.listen(0, "127.0.0.1", async () => {
     $$("#tplOut > *").length + " блоков");
   ok("в протоколе по КоАП есть таблица сведений о лице", $$("#tplOut table.doc-tbl td").length >= 8,
     $$("#tplOut table.doc-tbl td").length + " ячеек");
+
+  section = "8b. Готовые исковые заявления"; console.log("\n" + section);
+  const suitList = (w.RF_SUITS || {}).suits || [];
+  const suitGroups = Array.from(new Set(suitList.map(s => s.court)));
+  await nav("#/suits");
+  ok("справочник исков непуст", suitList.length >= 8, suitList.length + " заявлений");
+  ok("список исков", $$("#view .card").length === suitList.length, $$("#view .card").length);
+  ok("иски сгруппированы по судам", $$("#view .tpl-group").length === suitGroups.length,
+    $$("#view .tpl-group").length + " групп из " + suitGroups.length);
+  ok("иски охватывают гражданский, арбитражный и административный процесс",
+    suitGroups.some(g => /гражданск/i.test(g)) && suitGroups.some(g => /арбитраж/i.test(g)) &&
+    suitGroups.some(g => /административ/i.test(g)), suitGroups.join(", "));
+  ok("переключатель «Шаблоны / Иски» на месте",
+    $$("#view .tabs .tab").length === 2 &&
+    $$("#view .tabs .tab").some(t => t.getAttribute("data-go") === "#/suits"),
+    $$("#view .tabs .tab").map(t => t.textContent.trim()).join(" | "));
+
+  /* иск с автоматическим расчётом: цена иска и госпошлина считаются от сумм */
+  await nav("#/suit/isk-dolg");
+  const sOut = $("#suitOut");
+  const sText = () => sOut.textContent.replace(/\u00a0/g, " ");
+  ok("иск открылся", !!sOut && sOut.classList.contains("doc-sheet"));
+  ok("в иске есть шапка, адресат, просительная часть и подпись",
+    $$("#suitOut .doc-title").length === 1 && $$("#suitOut .doc-addr").length === 1 &&
+    $$("#suitOut ol.doc-ol > li").length >= 3 && $$("#suitOut table.doc-sig").length === 1);
+  ok("плейсхолдеры в иске не остались", sOut.textContent.indexOf("{{") === -1);
+  const debtEl = $("#view [data-sf='debt']"), pctEl = $("#view [data-sf='percent']");
+  ok("поля сумм на месте", !!debtEl && !!pctEl);
+  debtEl.value = "500000"; pctEl.value = "0";
+  debtEl.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(80);
+  ok("цена иска посчитана из полей", /500\s?000/.test($("#suitPrice").value), $("#suitPrice").value);
+  ok("госпошлина посчитана по ст. 333.19 НК РФ", /15\s?000/.test($("#suitDuty").value), $("#suitDuty").value);
+  ok("цена и госпошлина подставлены в текст заявления",
+    sText().indexOf("500 000") !== -1 && sText().indexOf("15 000") !== -1);
+  ok("знак рубля в тексте не удвоился", sText().indexOf("₽ ₽") === -1);
+  ok("у госпошлины указано основание", /333\.19/.test(($("#suitDutyNote") || {}).textContent || ""),
+    (($("#suitDutyNote") || {}).textContent || "").slice(0, 60));
+  debtEl.value = "";
+  debtEl.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(60);
+  ok("пустые суммы не дают «NaN» в тексте", sOut.textContent.indexOf("NaN") === -1);
+
+  /* иск с освобождением от пошлины: сумма не считается, причина названа */
+  await nav("#/suit/isk-alimenty");
+  await wait(80);
+  ok("освобождение от пошлины показано словами",
+    /освобождён/.test($("#suitDuty").value) && /333\.36/.test($("#suitDutyNote").textContent),
+    $("#suitDuty").value + " · " + $("#suitDutyNote").textContent.slice(0, 50));
 
   section = "9. Избранное и тема"; console.log("\n" + section);
   await nav("#/article/upk-182", 1300);

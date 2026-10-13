@@ -2048,7 +2048,18 @@ body::-webkit-scrollbar-track { background: transparent; }
   .update-bar.show { transform: translateY(0); }
   .update-bar .ub-note { display: none; }
   body.has-update .toast { bottom: 96px; }
+  /* выбор дела для «В дело» — кнопки в несколько строк, чтобы не выходили
+     за край экрана на телефоне */
+  .suit-casepick { display: flex; flex-wrap: wrap; gap: 6px; }
 }
+
+/* --------------------------------------------- исковые заявления */
+.suit-steps { margin: 0; padding-left: 1.3em; }
+.suit-steps li { margin: 0 0 6px; font-size: var(--fs-2); line-height: 1.45; }
+.suit-att { margin: 0; padding-left: 1.2em; }
+.suit-att li { margin: 0 0 5px; font-size: var(--fs-2); }
+.suit-casepick { margin-top: 10px; }
+.suit-casepick .btn { margin: 0; }
 
 /* --------------------------------------------------- глоссарий (термины) */
 

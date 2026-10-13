@@ -47,7 +47,7 @@ function loadGlobals(files) {
 
 const W = loadGlobals([
   "data/registry.js", "data/index.js", "data/annotations.js",
-  "data/40-reference.js", "data/terms.js", "data/freshness.js", "data/status.js"
+  "data/40-reference.js", "data/41-suits.js", "data/terms.js", "data/freshness.js", "data/status.js"
 ]);
 const codes = W.RF_CODES || [];
 const idx = W.RF_IDX || [];
@@ -1845,11 +1845,25 @@ check("файлы данных подключаются загрузчиком, 
 check("метка версии подставляется только когда она есть в адресе",
   /\[\?&\]v=/.test(htmlSrc) && /encodeURIComponent\(decodeURIComponent/.test(htmlSrc),
   "первый заход и file:// должны работать как раньше");
+/* Список файлов данных берём с диска, а не из константы: новый файл в data/
+   (например, справочник исков) обязан попасть в загрузчик, иначе он просто
+   не доедет до читателя — молча, без единой ошибки в консоли. */
+const dataRootFiles = fs.readdirSync(path.join(ROOT, "data"))
+  .filter((f) => /\.js$/.test(f))
+  .map((f) => "data/" + f)
+  .concat(["data/ft/meta.js"]);
+const missingFromLoader = dataRootFiles.filter((f) => htmlDataFiles.indexOf(f) === -1);
+const loaderUnknown = htmlDataFiles.filter((f) => f !== "data/ft/meta.js" &&
+  !fs.existsSync(path.join(ROOT, f)));
 check("все данные верхнего уровня перечислены в загрузчике",
-  htmlDataFiles.length === 12 && htmlDataFiles.indexOf("data/registry.js") >= 0 &&
-  htmlDataFiles.indexOf("data/freshness.js") >= 0 && htmlDataFiles.indexOf("data/ft/meta.js") >= 0 &&
+  missingFromLoader.length === 0 && loaderUnknown.length === 0 &&
+  htmlDataFiles.indexOf("data/registry.js") >= 0 &&
+  htmlDataFiles.indexOf("data/freshness.js") >= 0 &&
+  htmlDataFiles.indexOf("data/ft/meta.js") >= 0 &&
   htmlDataFiles.indexOf("data/terms.js") >= 0,
-  htmlDataFiles.length + " файлов");
+  missingFromLoader.length ? "не подключены: " + missingFromLoader.join(", ")
+    : loaderUnknown.length ? "в загрузчике нет файлов: " + loaderUnknown.join(", ")
+      : htmlDataFiles.length + " файлов");
 check("метка сборки загруженных данных сравнивается с серверной",
   /function loadedBuiltAt\(\)/.test(appSrc) && /RF_FRESH/.test(appSrc) &&
   /var stale = /.test(appSrc),
@@ -2055,6 +2069,76 @@ check("все цитируемые нормы контекста есть в б�
 check("ответ помечается: применена сила — проверьте правомерность",
   appSrc.indexOf('if (fc) meta.push("применение силы — проверьте правомерность");') !== -1,
   "иначе непонятно, что сделан акцент на правомерности силы");
+
+/* 16 --------------------------------------------------- готовые исковые заявления */
+console.log("\n16. Готовые исковые заявления");
+const suits = W.RF_SUITS ? (W.RF_SUITS.suits || []) : [];
+const suitProblems = [];
+/* Те же правила, что у шаблонов документов: известные блоки, каждый {{ключ}}
+   обеспечен полем, автоисточники допустимы, указано правовое основание. Кроме
+   того — цена иска и госпошлина подставляются через {{price}}/{{duty}}, которые
+   формирует движок, а не поля; расчёт ссылается на существующие поля. */
+const SUIT_BLOCKS = TPL_BLOCKS.concat(["reqs", "att", "calc"]);
+const SUIT_KEYS = ["price", "duty"];
+const suitStats = { blocks: 0, fields: 0, groups: {}, free: 0, fixed: 0, tiers: 0 };
+const suitKnownArt = {};
+idx.forEach(function (r) { suitKnownArt[r[0] + "-" + r[1]] = 1; });
+suits.forEach(function (s) {
+  const used = [];
+  const blocks = s.blocks || [];
+  if (!blocks.length) suitProblems.push(s.id + ": нет ни одного блока");
+  blocks.forEach(function (b) {
+    suitStats.blocks++;
+    if (SUIT_BLOCKS.indexOf(b.t) === -1) suitProblems.push(s.id + ": неизвестный блок «" + b.t + "»");
+    collectKeys(b.x, used); collectKeys(b.l, used); collectKeys(b.r, used); collectKeys(b.h, used);
+  });
+  const declared = (s.fields || []).map((f) => f.k).concat(SUIT_KEYS);
+  const uniq = Array.from(new Set(used));
+  const noField = uniq.filter((k) => declared.indexOf(k) === -1);
+  if (noField.length) suitProblems.push(s.id + ": нет поля для " + noField.join(", "));
+  (s.fields || []).forEach(function (f) {
+    suitStats.fields++;
+    if (!f.src) return;
+    const ok = f.src === "today" ||
+      (f.src.indexOf("profile.") === 0 && PROFILE_KEYS.indexOf(f.src.slice(8)) !== -1);
+    if (!ok) suitProblems.push(s.id + ": недопустимый источник поля «" + f.k + "» — " + f.src);
+    if (f.type === "number" && s.calc && s.calc.price) {
+      const p = s.calc.price;
+      if ((p.parts && p.parts.indexOf(f.k) === -1) || (p.field && p.field !== f.k)) {
+        /* числовое поле вне расчёта — не ошибка, но помечаем для сведения */
+      }
+    }
+  });
+  (s.articles || []).forEach(function (aid) {
+    if (!suitKnownArt[aid]) suitProblems.push(s.id + ": статья не найдена в индексе — " + aid);
+  });
+  if (!(s.articles || []).length) suitProblems.push(s.id + ": не указано правовое основание (articles)");
+  if (!s.court) suitProblems.push(s.id + ": не указан суд (court)");
+  else suitStats.groups[s.court] = (suitStats.groups[s.court] || 0) + 1;
+  const c = s.calc || {};
+  if (c.duty && c.duty.free) suitStats.free++;
+  else if (c.duty && c.duty.fixed) suitStats.fixed++;
+  else suitStats.tiers++;
+  if (c.price && c.price.parts) {
+    const missing = c.price.parts.filter((k) => declared.indexOf(k) === -1);
+    if (missing.length) suitProblems.push(s.id + ": расчёт цены ссылается на отсутствующее поле — " + missing.join(", "));
+  }
+  if (c.price && c.price.field) {
+    if (declared.indexOf(c.price.field) === -1)
+      suitProblems.push(s.id + ": расчёт цены ссылается на отсутствующее поле — " + c.price.field);
+  }
+  if (!c.price && !c.duty) suitProblems.push(s.id + ": не задан расчёт (calc)");
+});
+check("иски: блоки, поля, расчёт и основание согласованы", suitProblems.length === 0,
+  suitProblems.length ? suitProblems.slice(0, 8).join("; ")
+    : suits.length + " исков · " + suitStats.blocks + " блоков · " +
+      Object.keys(suitStats.groups).length + " судов · пошлина: " +
+      suitStats.fixed + " фикс, " + suitStats.tiers + " по шкале, " + suitStats.free + " освобождены");
+check("иски охватывают гражданский, арбитражный и административный процесс",
+  Object.keys(suitStats.groups).some((x) => /гражданск/i.test(x)) &&
+  Object.keys(suitStats.groups).some((x) => /арбитраж/i.test(x)) &&
+  Object.keys(suitStats.groups).some((x) => /административ/i.test(x)),
+  Object.keys(suitStats.groups).length + " судов: " + Object.keys(suitStats.groups).join(", "));
 
 console.log("\n" + "=".repeat(60));
 console.log("Статей в базе: " + idx.length + " · источников с полным текстом: " + codes.length +

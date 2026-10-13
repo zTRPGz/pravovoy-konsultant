@@ -2074,6 +2074,7 @@
     if (name === "code") return { name: "code", arg: parts[1] };
     if (name === "checklist") return { name: "checklist", arg: parts[1] };
     if (name === "template") return { name: "template", arg: parts[1] };
+    if (name === "suit") return { name: "suit", arg: parts[1] };
     if (name === "calc") return { name: "calc", arg: parts[1] || "base" };
     return { name: name, arg: parts[1] || null };
   }
@@ -2107,7 +2108,7 @@
   function routeTitle(r) {
     var t = {
       home: "Навигатор", new: "Новое", assistant: "Помощник", scenarios: "Памятки",
-      checklists: "Чек-листы", templates: "Шаблоны документов", calc: "Калькуляторы",
+      checklists: "Чек-листы", templates: "Шаблоны документов", suits: "Исковые заявления", calc: "Калькуляторы",
       deadlines: "Процессуальные сроки", freshness: "Проверка актуальности", repealed: "Утратившие силу",
       diff: "Сравнение редакций", compare: "Две статьи бок о бок", favorites: "Избранное",
       collection: "Подборка норм", cases: "Дела", timeline: "Лента изменений", stats: "Аналитика",
@@ -2228,6 +2229,8 @@
     else if (r.name === "checklist") v.innerHTML = viewChecklist(r.arg);
     else if (r.name === "templates") v.innerHTML = viewTemplates();
     else if (r.name === "template") v.innerHTML = viewTemplate(r.arg);
+    else if (r.name === "suits") v.innerHTML = viewSuits();
+    else if (r.name === "suit") v.innerHTML = viewSuit(r.arg);
     else if (r.name === "freshness") v.innerHTML = viewFreshness();
     else if (r.name === "new") { v.innerHTML = viewNew(r.arg); bindNew(); }
     else if (r.name === "favorites") v.innerHTML = viewFavorites();
@@ -2259,6 +2262,8 @@
     syncRoleSwitch();
     if (r.name === "template") bindTemplate();
     if (r.name === "templates") bindTemplates();
+    if (r.name === "suits") bindSuits();
+    if (r.name === "suit") bindSuit();
     if (r.name === "deadlines") bindDeadlines();
     if (r.name === "assistant") bindAssistant();
     if (r.name === "freshness") bindFreshness();
@@ -2317,7 +2322,8 @@
       var on = (k === n) || (k === "code" && n === "code") || (k === "checklists" && n === "checklist") ||
         (k === "terms" && (n === "terms" || n === "term")) ||
         (k === "sources" && (n === "sources" || n === "code")) ||
-        (k === "templates" && n === "template") || (k === "cases" && n === "case") ||
+        (k === "templates" && n === "template") || (k === "suits" && n === "suit") ||
+        (k === "cases" && n === "case") ||
         (k === "scenarios" && (n === "scenarios" || n === "scenario")) ||
         (k === "diff" && (n === "diff" || n === "compare")) ||
         (k === "stats" && (n === "stats" || n === "timeline" || n === "graph"));
@@ -3926,6 +3932,12 @@
     { k: "scenarios", t: "Памятки", h: "#/scenarios", ico: "shield" },
     { k: "checklists", t: "Чек-листы", h: "#/checklists", ico: "checkbox" },
     { k: "templates", t: "Шаблоны", h: "#/templates", ico: "file" }
+  ];
+
+  /* Вкладки разделов документов: шаблоны и готовые иски связаны между собой */
+  var DOC_TABS = [
+    { k: "templates", t: "Шаблоны", h: "#/templates", ico: "file" },
+    { k: "suits", t: "Иски", h: "#/suits", ico: "scales" }
   ];
 
   var ANALYTICS_TABS = [
@@ -6535,7 +6547,7 @@
       " по " + groups.length + " " + plural(groups.length, ["разделу", "разделам", "разделам"]) +
       ": уголовный процесс, административные правонарушения, гражданский и арбитражный процесс, трудовые споры, обращения и надзор. " +
       "Заполните поля — документ собирается сразу, с шапкой, реквизитами, пунктами и подписями. Его можно скопировать с форматированием, скачать в Word, сохранить текстом или распечатать.</p>" +
-      tabStrip(SCEN_TABS, "templates") +
+      tabStrip(DOC_TABS, "templates") +
       prof + bar + cards +
       '<div class="empty" id="tplEmpty" hidden><div class="ico">' + ic("search") + '</div><div>Ничего не найдено. Измените запрос или очистите поиск.</div></div>' +
       '<div class="disclaimer">Шаблоны носят справочный характер и требуют адаптации к материалам конкретного дела, а также проверки актуальных требований ведомственных приказов и бланков.</div>';
@@ -6614,7 +6626,7 @@
     return '<div class="crumbs"><span class="lnk" data-go="#/templates">Шаблоны документов</span></div>' +
       "<h1>" + esc(t.t) + "</h1>" +
       '<p class="lead">Правовое основание: ' + esc(t.basis || "") + "</p>" +
-      tabStrip(SCEN_TABS, "templates") +
+      tabStrip(DOC_TABS, "templates") +
       '<div class="split">' +
         "<div>" +
           '<div class="card"><div class="section-label" style="margin-top:0">Данные для подстановки</div>' + fields +
@@ -6691,6 +6703,196 @@
     });
     $("#tplPrint").addEventListener("click", function () {
       printDoc("", '<div class="doc-sheet doc-print">' + word() + "</div>");
+    });
+
+    refresh();
+  }
+
+  /* ==================================================================== иски
+     Готовые исковые заявления. Данные — window.RF_SUITS.suits (data/41-suits.js).
+     Тело документа собирается тем же docHtml/docText, что и шаблоны; цена иска и
+     госпошлина считаются на лету и подставляются через {{price}}/{{duty}}. */
+
+  function suitById(id) {
+    return ((window.RF_SUITS || {}).suits || []).filter(function (x) { return x.id === id; })[0] || null;
+  }
+
+  /* Числовая цена иска: сумма указанных полей либо одно поле. */
+  function suitPriceNum(s, vals) {
+    var c = s && s.calc; if (!c || !c.price) return 0;
+    if (c.price.parts) {
+      return (c.price.parts || []).reduce(function (sum, k) { return sum + (Number(vals[k]) || 0); }, 0);
+    }
+    if (c.price.field) return Number(vals[c.price.field]) || 0;
+    return 0;
+  }
+
+  /* Госпошлина и её основание: освобождение, фиксированный размер или
+     ступень шкалы. Основание показывается всегда — читатель должен видеть,
+     из какой нормы взялась сумма, а не только цифру. */
+  function suitDutyInfo(s, vals) {
+    var c = s && s.calc; if (!c || !c.duty) return { sum: 0, note: "" };
+    var d = c.duty;
+    if (d.free) return { sum: 0, note: d.note || "Освобождение от уплаты госпошлины — ст. 333.36 НК РФ." };
+    if (d.fixed) {
+      var f = (CALC_DUTY_FIXED.concat(CALC_DUTY_APK_FIXED)).filter(function (x) { return x.k === d.fixed; })[0];
+      return { sum: f ? f.v : 0, note: f ? f.t + " — " + f.b : (d.note || "") };
+    }
+    var tiers = d.court === "apk" ? CALC_DUTY_APK : CALC_DUTY_TIERS;
+    var r = calcDutySum(tiers, suitPriceNum(s, vals));
+    var art = d.court === "apk" ? "подп. 1 п. 1 ст. 333.21 НК РФ" : "подп. 1 п. 1 ст. 333.19 НК РФ";
+    return { sum: r.sum, note: "Шкала " + art + " — ступень " + calcDutyBand(r.tier, tiers) + (d.note ? " " + d.note : "") };
+  }
+
+  function viewSuits() {
+    var all = roleSort((window.RF_SUITS || {}).suits || [], function (s) { return s.t + " " + (s.court || ""); });
+    var groups = [], map = {};
+    all.forEach(function (s) {
+      var g = s.court || "Прочее";
+      if (!map[g]) { map[g] = { g: g, items: [] }; groups.push(map[g]); }
+      map[g].items.push(s);
+    });
+    var cards = groups.map(function (gr) {
+      return '<section class="tpl-group" data-group="' + esc(gr.g) + '"><h2>' + esc(gr.g) +
+        '<span class="small muted">' + gr.items.length + "</span></h2>" +
+        '<div class="grid grid-2">' + gr.items.map(function (s) {
+          return '<div class="card" data-go="#/suit/' + s.id + '" style="cursor:pointer">' +
+            '<div style="font-weight:620">' + esc(s.t) + "</div>" +
+            '<div class="small muted" style="margin-top:4px">' + esc(s.basis || "") + "</div>" +
+            '<div class="small muted" style="margin-top:8px">' + (s.articles || []).length + " " +
+            plural((s.articles || []).length, ["статья", "статьи", "статей"]) + "</div></div>";
+        }).join("") + "</div></section>";
+    }).join("");
+
+    return "<h1>Исковые заявления</h1>" +
+      '<p class="lead">' + all.length + " " + plural(all.length, ["готовое исковое заявление", "готовых исковых заявления", "готовых исковых заявлений"]) +
+      " по гражданским, административным и арбитражным делам: взыскание долга, алименты, защита прав потребителя, расторжение брака, возмещение вреда, установление факта, спор с органом власти. " +
+      "Заполните суммы — цена иска и госпошлина подставятся и пересчитаются автоматически, документ можно скачать в Word, выгрузить текстом или распечатать.</p>" +
+      tabStrip(DOC_TABS, "suits") + cards +
+      '<div class="disclaimer">Заявления носят справочный характер и требуют адаптации к обстоятельствам дела, проверки подсудности и актуальных размеров госпошлины (ст. 333.19/333.21 НК РФ).</div>';
+  }
+
+  function bindSuits() { /* список статичен — фильтрация не нужна */ }
+
+  function viewSuit(id) {
+    var s = suitById(id);
+    if (!s) return '<div class="empty"><div class="ico">' + ic("file") + '</div><div>Исковое заявление не найдено.</div></div>';
+    var profile = getProfile();
+    var fields = (s.fields || []).map(function (f) {
+      var v = tplValue(f, profile);
+      var inp = f.type === "number"
+        ? '<input class="input" type="number" min="0" step="1000" data-sf="' + esc(f.k) + '" value="' + esc(v) + '" placeholder="' + esc(f.p || "") + '">'
+        : '<input class="input" data-sf="' + esc(f.k) + '" value="' + esc(v) + '" placeholder="' + esc(f.p || "") + '">';
+      return '<div class="field"><label>' + esc(f.l) + "</label>" + inp + "</div>";
+    }).join("");
+    var arts = (s.articles || []).map(function (aid) { return byId[aid]; }).filter(Boolean);
+    var steps = (s.steps || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
+    var att = (s.att || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
+
+    return '<div class="crumbs"><span class="lnk" data-go="#/suits">Исковые заявления</span></div>' +
+      "<h1>" + esc(s.t) + "</h1>" +
+      '<p class="lead">Правовое основание: ' + esc(s.basis || "") + "</p>" +
+      tabStrip(DOC_TABS, "suits") +
+      '<div class="split">' +
+        "<div>" +
+          (steps ? '<div class="card"><div class="section-label" style="margin-top:0">Как подать</div><ol class="suit-steps">' + steps + "</ol></div>" : "") +
+          '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Данные для подстановки</div>' + fields +
+            '<div class="actions-row">' +
+              '<button class="btn" id="suitReset">Сбросить к образцу</button>' +
+              '<button class="btn" id="suitClear">Очистить</button>' +
+            "</div></div>" +
+          '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Расчёт</div>' +
+            '<div class="field"><label>Цена иска, ₽</label><input class="input" id="suitPrice" readonly></div>' +
+            '<div class="field"><label>Госпошлина, ₽</label><input class="input" id="suitDuty" readonly></div>' +
+            '<div class="small muted" id="suitDutyNote"></div></div>' +
+          (att ? '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Приложите к иску</div><ul class="suit-att">' + att + "</ul></div>" : "") +
+          (arts.length ? '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Правовое основание</div><div class="chips">' +
+            arts.map(function (a) { var c = codeById(a.c) || { short: a.c }; return '<div class="chip" data-go="#/article/' + encodeURIComponent(a.id) + '"><b>' + esc(cite(a)) + "</b> · " + esc(a.t) + "</div>"; }).join("") +
+            '</div><div class="actions-row"><button class="btn" data-col-batch="' + esc((s.articles || []).join(",")) + '">' + ic("clip") + " Статьи в подборку</button></div></div>" : "") +
+        "</div>" +
+        "<div>" +
+          '<div class="card"><div class="section-label" style="margin-top:0">Готовое заявление</div>' +
+          '<div class="doc-sheet" id="suitOut"></div>' +
+          '<div class="actions-row">' +
+            '<button class="btn btn-primary" id="suitCopyRich">' + ic("clip") + " Скопировать</button>" +
+            '<button class="btn" id="suitDoc">' + ic("file") + " Скачать .doc</button>" +
+            '<button class="btn" id="suitTxt">' + ic("file") + " Скачать .txt</button>" +
+            '<button class="btn no-print" id="suitPrint">' + ic("print") + " Печать</button>" +
+            (state.cases.length ? '<button class="btn" id="suitToCase">' + ic("folder") + " В дело</button>" : "") +
+          "</div></div>" +
+        "</div>" +
+      "</div>" +
+      '<div class="disclaimer">Проверьте реквизиты суда, даты и ссылки перед подачей. Размер госпошлины и подсудность сверяйте с актуальной редакцией НК РФ.</div>';
+  }
+
+  function bindSuit() {
+    var s = suitById(state.route.arg);
+    if (!s) return;
+    var out = $("#suitOut");
+
+    function isFree() { return !!(s.calc && s.calc.duty && s.calc.duty.free); }
+    function vals() {
+      var v = {};
+      $$("[data-sf]").forEach(function (el) { v[el.getAttribute("data-sf")] = el.value; });
+      var price = suitPriceNum(s, v);
+      var duty = suitDutyInfo(s, v);
+      /* В тексте заявления за суммой уже стоит «₽», поэтому подставляем
+         число без знака рубля — иначе получилось бы «500 000 ₽ ₽». */
+      v.price = calcRub(price);
+      v.duty = calcRub(duty.sum);
+      var pr = $("#suitPrice"); if (pr) pr.value = isFree() ? "0 — освобождён" : calcRub(price);
+      var du = $("#suitDuty"); if (du) du.value = isFree() ? "0 — освобождён" : calcRub(duty.sum);
+      var dn = $("#suitDutyNote"); if (dn) dn.textContent = duty.note;
+      return v;
+    }
+    function screen() { return docHtml(s.blocks, vals(), false); }
+    function word() { return docHtml(s.blocks, vals(), true); }
+    function plain() { return docText(s.blocks, vals()); }
+    function refresh() { out.innerHTML = screen(); }
+
+    $$("[data-sf]").forEach(function (el) {
+      el.addEventListener("input", refresh);
+      el.addEventListener("change", refresh);
+    });
+    var rst = $("#suitReset"); if (rst) rst.addEventListener("click", function () {
+      var p = getProfile();
+      $$("[data-sf]").forEach(function (el) {
+        var f = (s.fields || []).filter(function (x) { return x.k === el.getAttribute("data-sf"); })[0];
+        el.value = f ? tplValue(f, p) : "";
+      });
+      refresh(); toast("Поля сброшены к образцу");
+    });
+    var clr = $("#suitClear"); if (clr) clr.addEventListener("click", function () {
+      $$("[data-sf]").forEach(function (el) { el.value = ""; });
+      refresh(); toast("Поля очищены");
+    });
+    var cr = $("#suitCopyRich"); if (cr) cr.addEventListener("click", function () { copyRich(word(), plain(), "Заявление скопировано"); });
+    var tx = $("#suitTxt"); if (tx) tx.addEventListener("click", function () { download(s.id + ".txt", plain(), "text/plain"); toast("Файл сохранён"); });
+    var dc = $("#suitDoc"); if (dc) dc.addEventListener("click", function () {
+      saveDocx(s.id + ".doc", s.t, '<div style="font-family:\'Times New Roman\',serif;font-size:12pt">' + word() + "</div>");
+      toast("Файл сохранён");
+    });
+    var pr = $("#suitPrint"); if (pr) pr.addEventListener("click", function () { printDoc("", '<div class="doc-sheet doc-print">' + word() + "</div>"); });
+
+    var tc = $("#suitToCase");
+    if (tc) tc.addEventListener("click", function () {
+      if (!state.cases.length) { toast("Сначала создайте дело в разделе «Дела»"); return; }
+      var box = document.createElement("div");
+      box.className = "suit-casepick";
+      box.innerHTML = state.cases.map(function (c) {
+        return '<button class="btn" data-case="' + esc(c.id) + '">' + esc(c.title) + "</button>";
+      }).join("");
+      tc.parentNode.insertBefore(box, tc.nextSibling);
+      box.querySelectorAll("[data-case]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var cid = b.getAttribute("data-case");
+          var c = caseById(cid);
+          if (!c) return;
+          caseAddNote(cid, "Готовое заявление: " + s.t + "\n\n" + plain());
+          if (box.parentNode) box.parentNode.removeChild(box);
+          toast("Заявление добавлено в дело «" + c.title + "»");
+        });
+      });
     });
 
     refresh();
@@ -9769,6 +9971,7 @@
       { t: "Сравнение редакций", h: "#/diff", k: "сравнить редакции версии изменения дифф что изменилось" },
       { t: "Чек-листы", h: "#/checklists", k: "чеклист следственные действия" },
       { t: "Шаблоны документов", h: "#/templates", k: "шаблон документ бланк постановление протокол иск жалоба ходатайство коап гражданский трудовой прокуратура орм" },
+      { t: "Исковые заявления", h: "#/suits", k: "иск заявление суд взыскание алименты долг вред расторжение брака потребитель административный арбитраж готовый образец" },
       { t: "Избранное", h: "#/favorites", k: "избранное сохраненное" },
       { t: "Подборка норм", h: "#/collection", k: "подборка выборка норм экспорт выгрузка цитата" },
       { t: "Дела", h: "#/cases", k: "дела папка заметки по делу журнал" },

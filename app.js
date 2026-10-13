@@ -678,9 +678,13 @@
       var c = CO[a.c];
       return !!c && c.kind === opt.kind;
     });
-    /* Ограничение выдачи ОДНИМ источником (Помощник в режиме «только этот
-       кодекс/ФЗ/Пленум»): отвечаем исключительно нормами выбранного акта. */
-    if (opt.scope) pool = pool.filter(function (a) { return a.c === opt.scope; });
+    /* Ограничение выдачи ВЫБРАННЫМИ источниками (Помощник в режиме «только
+       эти акты»): отвечаем исключительно нормами выбранных актов. scope —
+       запятами-перечисленные id; пусто или "" — без ограничения. */
+    if (opt.scope) {
+      var sids = String(opt.scope).split(",");
+      pool = pool.filter(function (a) { return sids.indexOf(a.c) !== -1; });
+    }
 
     var qStems = FT ? FT.stems(p.tokens.join(" ")) : [];
     var mustStems = FT ? FT.stems(p.must.join(" ")) : [];
@@ -1408,7 +1412,7 @@
     read: LS.get("read", { fs: 15, lh: 1.65, w: 0 }),  // настройки чтения текста
     role: LS.get("role", ""),       // роль: "" | sle || adv | gos
     newSeen: LS.get("newSeen", 0),  // сколько верхних записей ленты «Новое» уже показано
-    assistScope: LS.get("assistScope", ""), // Помощник: id источника для режима «только этот акт» ("" — все)
+    assistScope: LS.get("assistScope", ""), // Помощник: запятами-перечисленные id источников для режима «только эти акты» ("" — все)
     route: { name: "home", arg: null, q: "" }
   };
 
@@ -3741,7 +3745,7 @@
     return '<h1>Источники</h1>' +
       '<p class="lead">Все акты базы — ' + total + " " + plural(total, ["источник", "источника", "источников"]) +
         (withText < total ? (" (полный текст размещён у " + withText + ")") : "") +
-        ". Выберите один, чтобы читать его статьи по главам или спрашивать по нему Помощник в режиме «только этот источник».</p>" +
+        ". Выберите акт (или несколько), чтобы читать его статьи по главам или спрашивать по нему Помощник в режиме «только выбранные источники».</p>" +
       '<div class="card" style="padding:14px;margin-bottom:16px">' +
         '<div class="field" style="margin-bottom:0"><label>Фильтр по названию, коду или номеру</label>' +
         '<input class="input" id="srcFilter" placeholder="например: Уголовный, УК, О полиции, 158" autocomplete="off"></div>' +
@@ -3823,36 +3827,147 @@
      судебная практика в ответ не попадают. Выбор запоминается и виден
      полосой-состоянием под переключателем. */
 
-  function assistScopeCode() { return state.assistScope ? codeById(state.assistScope) : null; }
+  function assistScopeIds() {
+    return (state.assistScope || "").split(",").map(function (s) { return s.trim(); })
+      .filter(function (s) { return s && codeById(s); });
+  }
+  function assistScopeCodes() { return assistScopeIds().map(codeById); }
 
+  /* Установить один источник (заменяет выбор). Используется кнопками
+     «спросить Помощника только по этому источнику» на страницах кодексов. */
   function setAssistScope(id) {
     state.assistScope = (id && codeById(id)) ? id : "";
     LS.set("assistScope", state.assistScope);
     syncAssistScope();
+    renderScopeChips();
+  }
+
+  /* Переключить вхождение одного источника во множество (чекбоксы пикера). */
+  function toggleAssistScope(id) {
+    if (!codeById(id)) return;
+    var set = {};
+    assistScopeIds().forEach(function (x) { set[x] = 1; });
+    if (set[id]) delete set[id]; else set[id] = 1;
+    state.assistScope = Object.keys(set).join(",");
+    LS.set("assistScope", state.assistScope);
+    syncAssistScope();
+    renderScopeChips();
   }
 
   /* Строка состояния под переключателем источника: показывает, отвечаем ли
-     «по всему» или «только по этому акту», цветом этого акта. */
+     «по всему» или «только по выбранным актам». */
   function syncAssistScope() {
     var el = $("#asScopeBadge");
     if (!el) return;
-    var c = assistScopeCode();
-    el.innerHTML = c
-      ? '<span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(c.short) + "</span> " +
-        '<span class="as-scope-on">Помощник отвечает <b>только</b> по этому источнику</span>'
-      : '<span class="muted">Используются все источники базы</span>';
+    var cs = assistScopeCodes();
+    if (!cs.length) {
+      el.innerHTML = '<span class="muted">Используются все источники базы</span>';
+      return;
+    }
+    el.innerHTML = '<span class="as-scope-on">Помощник отвечает <b>только</b> по выбранным источникам:</span> ' +
+      cs.map(function (c) {
+        return '<span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(c.short) + "</span>";
+      }).join(" ");
   }
 
-  /* Пункты переключателя: сгруппированы по видам актов, как в реестре. */
-  function assistScopeOpts() {
-    var html = '<option value=""' + (state.assistScope ? "" : " selected") + ">Все источники базы</option>";
-    docGroups().forEach(function (g) {
-      html += '<optgroup label="' + esc(g.title) + '">' + g.items.map(function (c) {
-        return '<option value="' + esc(c.id) + '"' + (state.assistScope === c.id ? " selected" : "") + ">" +
-          esc(c.short) + "</option>";
-      }).join("") + "</optgroup>";
+  function scopeTriggerLabel() {
+    var cs = assistScopeCodes();
+    if (!cs.length) return "Все источники базы";
+    if (cs.length <= 3) return cs.map(function (c) { return c.short; }).join(", ");
+    return cs.length + " источников выбрано";
+  }
+
+  /* Выбранные источники — съёмные чипы над пикером. Заодно освежаем подпись
+     на кнопке-триггере, чтобы она отражала текущий выбор без полной перерисовки. */
+  function renderScopeChips() {
+    var box = $("#asScopeChips");
+    if (box) {
+      var cs = assistScopeCodes();
+      box.innerHTML = cs.map(function (c) {
+        return '<span class="chip chip-rem" data-scope-rem="' + esc(c.id) + '">' +
+          '<span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(c.short) + "</span>" +
+          '<span class="chip-x" title="Убрать">×</span></span>';
+      }).join("");
+    }
+    var lbl = $(".scope-trigger-label");
+    if (lbl) lbl.textContent = scopeTriggerLabel();
+  }
+
+  /* Пикер множественного выбора источников: группы по видам актов, как в
+     реестре, плюс поле быстрого поиска. Чекбоксы отражают текущий выбор. */
+  function assistScopePicker() {
+    var ids = {}; assistScopeIds().forEach(function (x) { ids[x] = 1; });
+    var html = docGroups().map(function (g) {
+      var items = g.items.map(function (c) {
+        var on = ids[c.id] ? " checked" : "";
+        return '<label class="scope-opt"><input type="checkbox" data-scope-chk="' + esc(c.id) + '"' + on + ">" +
+          '<span class="scope-opt-c"><span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(c.short) + "</span></span>" +
+          '<span class="scope-opt-t">' + esc(c.a) + "</span></label>";
+      }).join("");
+      return '<div class="scope-group"><div class="scope-group-h">' + esc(g.title) + "</div>" + items + "</div>";
+    }).join("");
+    return '<div class="scope-picker" id="scopePicker" hidden>' +
+      '<div class="scope-picker-bar">' +
+        '<input class="input" id="scopeSearch" placeholder="Найти источник (УК, УПК, закон…)" style="flex:1">' +
+        '<button class="btn btn-sm" id="scopeClear" type="button">Снять всё</button>' +
+        '<button class="btn btn-sm btn-primary" id="scopeDone" type="button">Готово</button>' +
+      "</div>" +
+      '<div class="scope-picker-body" id="scopePickerBody">' + html + "</div>" +
+      "</div>";
+  }
+
+  /* Открытие/закрытие пикера, поиск, чекбоксы и съёмные чипы. */
+  function bindScopePicker() {
+    var trigger = $("#scopeTrigger"), picker = $("#scopePicker");
+    if (!trigger || !picker) return;
+    trigger.addEventListener("click", function () {
+      picker.hidden = !picker.hidden;
+      if (!picker.hidden) { var s = $("#scopeSearch"); if (s) s.focus(); }
     });
-    return html;
+    var done = $("#scopeDone"); if (done) done.addEventListener("click", function () {
+      picker.hidden = true; if (asText) render();
+    });
+    var clr = $("#scopeClear"); if (clr) clr.addEventListener("click", function () {
+      state.assistScope = ""; LS.set("assistScope", "");
+      $$("[data-scope-chk]", picker).forEach(function (cb) { cb.checked = false; });
+      syncAssistScope(); renderScopeChips(); if (asText) render();
+    });
+    var sInp = $("#scopeSearch"); if (sInp) sInp.addEventListener("input", function () {
+      var q = this.value.trim().toLowerCase();
+      $$(".scope-group", picker).forEach(function (g) {
+        var any = false;
+        $$(".scope-opt", g).forEach(function (o) {
+          var hit = !q || o.textContent.toLowerCase().indexOf(q) !== -1;
+          o.style.display = hit ? "" : "none"; if (hit) any = true;
+        });
+        g.style.display = any ? "" : "none";
+      });
+    });
+    $$("[data-scope-chk]", picker).forEach(function (cb) {
+      cb.addEventListener("change", function () {
+        toggleAssistScope(this.getAttribute("data-scope-chk"));
+        if (asText) render();
+      });
+    });
+    /* съёмные чипы выбранных источников (над пикером): клик по крестику
+       убирает акт из ограничения. Вешаем на контейнер чипов — он пересоздаётся
+       при каждой перерисовке, поэтому утечки слушателей нет. */
+    var chips = $("#asScopeChips");
+    if (chips) chips.addEventListener("click", function (e) {
+      var rem = e.target.closest("[data-scope-rem]");
+      if (!rem) return;
+      e.preventDefault();
+      toggleAssistScope(rem.getAttribute("data-scope-rem"));
+      if (asText) render();
+    });
+    if (!window.__scopeOutsideBound) {
+      document.addEventListener("click", function (ev) {
+        var p = $("#scopePicker"), t = $("#scopeTrigger");
+        if (!p || p.hidden) return;
+        if (!p.contains(ev.target) && ev.target !== t && !(t && t.contains(ev.target))) p.hidden = true;
+      });
+      window.__scopeOutsideBound = true;
+    }
   }
 
   function viewAssistant() {
@@ -3875,8 +3990,10 @@
           '<button class="btn" id="asClear">Очистить</button>' +
           '<input type="file" id="asOcrFile" accept="image/*" hidden>' +
         "</div>" +
-        '<div class="field as-scope-field"><label>Отвечать только по одному источнику</label>' +
-          '<select class="input" id="asScope">' + assistScopeOpts() + "</select>" +
+        '<div class="field as-scope-field"><label>Отвечать только по выбранным источникам</label>' +
+          '<button class="btn scope-trigger" id="scopeTrigger" type="button"><span class="scope-trigger-label">' + esc(scopeTriggerLabel()) + '</span> <span class="caret">▾</span></button>' +
+          '<div class="chips" id="asScopeChips" style="margin-top:8px"></div>' +
+          assistScopePicker() +
           '<div class="small" id="asScopeBadge" style="margin-top:6px"></div></div>' +
         '<div class="chips" style="margin-top:12px">' +
           examples.map(function (x) {
@@ -3908,16 +4025,12 @@
     $("#asClear").addEventListener("click", function () {
       input.value = ""; out.innerHTML = ""; asText = ""; asAnswers = {}; input.focus();
     });
-    /* Переключатель источника. Смена сразу пересчитывает уже готовый разбор:
-       иначе пользователь не видел бы эффекта, пока не нажмёт «Разобрать» снова. */
-    var scopeSel = $("#asScope");
-    if (scopeSel) {
-      scopeSel.addEventListener("change", function () {
-        setAssistScope(this.value);
-        if (asText) render();
-      });
-      syncAssistScope();
-    }
+    /* Переключатель источников (множественный выбор через пикер). Смена
+       сразу пересчитывает уже готовый разбор: иначе пользователь не видел бы
+       эффекта, пока не нажмёт «Разобрать» снова. */
+    bindScopePicker();
+    syncAssistScope();
+    renderScopeChips();
     /* уточняющие вопросы и сброс — пересобирают разбор без повторного ввода */
     out.addEventListener("click", function (e) {
       if (e.target.closest("[data-help-reset]")) { e.preventDefault(); asAnswers = {}; render(); return; }
@@ -4285,7 +4398,7 @@
     }
 
     var arts = (h.articles || []).map(function (id) { return byId[id]; }).filter(Boolean);
-    if (sc) arts = arts.filter(function (a) { return a.c === sc; });
+    if (sc && sc.length) arts = arts.filter(function (a) { return sc.indexOf(a.c) !== -1; });
     var artIds = arts.map(function (a) { return a.id; });
     if (arts.length) {
       /* Полный перечень норм ответа — один раз, в блоке «Нормы для проверки»
@@ -4758,7 +4871,7 @@
        преступность. В разборе спецсубъекта это ключевой блок — встраиваем в
        вывод сразу после строки «Надёжность». В режиме одного источника —
        только если выбранный акт участвует (УК, ФЗ «О полиции»). */
-    var fa = forceAnalysis(fc && (!sc || sc === "uk" || sc === "fz3pol" || sc === "koap") ? fc : null);
+    var fa = forceAnalysis(fc && (!sc.length || sc.indexOf("uk") !== -1 || sc.indexOf("fz3pol") !== -1 || sc.indexOf("koap") !== -1) ? fc : null);
     if (fa) {
       lead = lead + " " + fa.intro;
       if (rows.length) rows = rows.slice(0, 1).concat(fa.rows, rows.slice(1));
@@ -4767,12 +4880,15 @@
 
     /* Явная метка режима одного источника: пользователь должен понимать, что
        ответ собран не по всей базе, а строго в рамках выбранного акта. */
-    var scopeCode = sc ? codeById(sc) : null;
+    var scopeCodes = (sc || []).filter(function (id) { return codeById(id); });
     return '<div class="card concl">' +
       '<div class="concl-head">' + ic("check") + "Вывод по запросу</div>" +
-      (scopeCode ? '<div class="concl-scope">' + ic("book") +
-        " Ответ ограничен источником <b style=\"color:" + esc(scopeCode.color) + "\">" + esc(scopeCode.short) +
-        "</b>. Нормы других актов и общая судебная практика в вывод не включены — " +
+      (scopeCodes.length ? '<div class="concl-scope">' + ic("book") +
+        " Ответ ограничен источниками: " + scopeCodes.map(function (id) {
+          var c = codeById(id);
+          return '<b style="color:' + esc(c.color) + '">' + esc(c.short) + "</b>";
+        }).join(", ") +
+        ". Нормы других актов и общая судебная практика в вывод не включены — " +
         "снять ограничение можно переключателем над полем ввода.</div>" : "") +
       answer +
       '<p class="concl-p">' + esc(lead) + "</p>" +
@@ -4802,7 +4918,7 @@
     scored.forEach(function (x) { hitWords = hitWords.concat(x.hits); });
     /* Режим «только этот источник»: если выбран конкретный акт, все поиски
        собека ограничиваются им. */
-    var sc = state.assistScope || "";
+    var sc = assistScopeIds();
     var res = search(hitWords.length ? hitWords.join(" ") : text, { need: 1, cut: 0.5, scope: sc }).slice(0, 5);
 
 
@@ -4838,10 +4954,10 @@
        разбор опирался на другие кодексы, добираем нормы с помощью поиска уже
        внутри этого источника — ответ остаётся заполненным, но строго в рамках
        выбранного акта. */
-    if (sc) {
-      keyArts = keyArts.filter(function (a) { return a.c === sc; });
+    if (sc.length) {
+      keyArts = keyArts.filter(function (a) { return sc.indexOf(a.c) !== -1; });
       if (!keyArts.length) {
-        keyArts = res.filter(function (x) { return x.a.c === sc; })
+        keyArts = res.filter(function (x) { return sc.indexOf(x.a.c) !== -1; })
           .slice(0, 6).map(function (x) { return x.a; });
       }
     }
@@ -4882,7 +4998,7 @@
        её блок не показываем: «ответь только по УК» и отдельный «сверху — ещё и
        Пленумы» противоречат друг другу. Пункты нужного Пленума, если он и есть
        выбранный источник, приходят через обычный scoped-поиск (res). */
-    var practice = sc ? [] : search(practiceQ, { need: 1, cut: 0.5, kind: "plenum" })
+    var practice = sc.length ? [] : search(practiceQ, { need: 1, cut: 0.5, kind: "plenum" })
       .filter(function (x) { return x.cov >= 2; })
       .slice(0, 3);
 
@@ -10628,6 +10744,9 @@
 
       (unread ? '<div class="info-box" id="newUnreadBox"><b>Непрочитанных изменений: ' + unread + "</b></div>" : "") +
 
+      (all.length ? '<p class="small muted" style="margin:0 0 12px">Лента не разрастается бесконечно: хранится только последние 180 дней изменений (не более 400 записей), более старые уходят автоматически при ночной сборке — новым посетителям не накопится «тысяча статей». Показан период: ' +
+        esc(fmtDateLong(all[all.length - 1].d)) + " — " + esc(fmtDateLong(all[0].d)) + ".</p>" : "") +
+
       '<div class="grid grid-4" style="margin-bottom:14px">' +
         stat(all.length, "записей в ленте", "activity") +
         stat(nRed, "новых редакций", "book") +
@@ -11029,9 +11148,9 @@
         e.preventDefault();
         var scid = scEl.getAttribute("data-scope");
         setAssistScope(scid);
-        var scc = assistScopeCode();
+        var scc = assistScopeCodes();
         go("#/assistant");
-        toast(scc ? "Помощник будет отвечать только по: " + scc.short : "Помощник: все источники");
+        toast(scc.length ? "Помощник будет отвечать только по: " + scc.map(function (c) { return c.short; }).join(", ") : "Помощник: все источники");
         return;
       }
 

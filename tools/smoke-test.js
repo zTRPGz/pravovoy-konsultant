@@ -677,6 +677,58 @@ server.listen(0, "127.0.0.1", async () => {
     /Разбор предварительный/.test(T("#asOut .concl-p") || ""),
     (T("#asOut .concl-p") || "").slice(-70));
 
+  /* --- множественный выбор источников для Помощника --- */
+  section = "6b2. Помощник: множественный выбор источников"; console.log("\n" + section);
+  await nav("#/assistant", 200);
+  /* сбрасываем предыдущий разбор, чтобы переключение чекбоксов не вызывало
+     перерисовку раздела (иначе ссылки на элементы пикера устаревают) */
+  const clr0 = $("#asClear");
+  if (clr0) clr0.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  const trig = $("#scopeTrigger");
+  ok("кнопка выбора источников есть", !!trig, trig ? trig.textContent.trim() : "нет");
+  ok("стартовая подпись — все источники", /Все источники базы/.test(T(".scope-trigger-label") || ""), T(".scope-trigger-label"));
+  /* открываем пикер */
+  trig.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  let picker = $("#scopePicker");
+  ok("пикер открывается", picker && picker.hidden === false, picker ? "открыт" : "нет");
+  ok("в пикере есть чекбоксы источников", $$("[data-scope-chk]").length > 50, $$("[data-scope-chk]").length + " чекбоксов");
+  let uk = $('[data-scope-chk="uk"]'), upk = $('[data-scope-chk="upk"]');
+  ok("найден чекбокс УК РФ", !!uk);
+  ok("найден чекбокс УПК РФ", !!upk);
+  if (uk) { uk.checked = true; uk.dispatchEvent(new w.Event("change")); }
+  if (upk) { upk.checked = true; upk.dispatchEvent(new w.Event("change")); }
+  ok("выбрано два источника — чипы", $$("#asScopeChips .chip-rem").length === 2, $$("#asScopeChips .chip-rem").length + " чипов");
+  ok("бейдж называет оба источника", /УК РФ/.test(T("#asScopeBadge") || "") && /УПК РФ/.test(T("#asScopeBadge") || ""), T("#asScopeBadge"));
+  ok("подпись кнопки обновлена", /УК РФ/.test(T(".scope-trigger-label") || "") && /УПК РФ/.test(T(".scope-trigger-label") || ""), T(".scope-trigger-label"));
+  /* ответ строится строго в рамках выбранных актов */
+  $("#asInput").value = "украли телефон в магазине";
+  $("#asRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(300);
+  const arts = $$("#asOut .as-art");
+  ok("нормы ответа ограничены выбранными источниками", arts.length === 0 || arts.every(a => {
+    const href = a.getAttribute("data-go") || "";
+    return /#\/article\/(?:uk|upk)-/.test(href);
+  }), arts.slice(0, 3).map(a => a.getAttribute("data-go")).join(", "));
+  /* снимаем один источник по крестику на чипе (после перерисовки ссылки заново) */
+  let rem = $("#asScopeChips .chip-rem[data-scope-rem]");
+  const remId = rem && rem.getAttribute("data-scope-rem");
+  if (rem) rem.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(50);
+  ok("после снятия одного остался один чип", $$("#asScopeChips .chip-rem").length === 1, $$("#asScopeChips .chip-rem").length + " чипов");
+  const remChk = remId && $('[data-scope-chk="' + remId + '"]');
+  ok("снятый источник убран и из пикера", !remChk || remChk.checked === false);
+  /* проверяем закрытие пикера кнопкой «Готово» — пикер после перерисовки
+     закрыт, поэтому сначала открываем его заново свежей ссылкой */
+  let trig2 = $("#scopeTrigger");
+  if (trig2) trig2.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  let done = $("#scopeDone");
+  if (done) done.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  picker = $("#scopePicker");
+  ok("пикер закрывается по «Готово»", picker && picker.hidden === true);
+  const clr = $("#scopeClear");
+  if (clr) clr.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ok("«Снять всё» очищает выбор", $$("#asScopeChips .chip-rem").length === 0, $$("#asScopeChips .chip-rem").length + " чипов");
+
   section = "6c. Перемещение по разделам кнопками"; console.log("\n" + section);
   /* Кнопки в панели и кнопка «Назад» браузера ходят по одной и той же истории
      (go() пишет адрес через pushState, navStep — через history.go), а глубина

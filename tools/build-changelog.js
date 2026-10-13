@@ -46,9 +46,9 @@ const STATE_DIR = path.join(__dirname, "state");
 const SNAP = path.join(STATE_DIR, "snapshot.json");
 const OUT = path.join(DATA, "changelog.js");
 
-/* Лента не должна расти бесконечно: держим последние полгода, но не больше
+/* Лента не должна расти бесконечно: держим последние 15 дней, но не больше
    400 записей. Обе границы считаются от самой свежей записи. */
-const KEEP_DAYS = 180;
+const KEEP_DAYS = 15;
 const KEEP_MAX = 400;
 
 /* Порядок записей внутри одной даты: чем важнее для пользователя, тем выше.

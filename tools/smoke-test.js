@@ -29,9 +29,10 @@ let lastStep = "старт";
 /* Ожидаемые объёмы базы. Это «замок»: если данные внезапно усохнут, тест
    это заметит. При осознанном добавлении источников значения обновляются
    здесь — в одном месте, а не по всему файлу. */
-const N_SOURCES = 249;    // кодексы 24, законы 105, ФКЗ 14, Конституция, постановления Правительства 6, Пленумы ВС РФ 99
-const N_ARTICLES = 20742;
+const N_SOURCES = 330;    // кодексы 24, законы 105, ФКЗ 14, Конституция, постановления Правительства 6, Пленумы ВС РФ 99, обзоры судебной практики 81
+const N_ARTICLES = 22658;
 const N_PLENUMS = 99;
+const N_REVIEWS = 81;
 
 function ok(name, cond, extra) {
   lastStep = name;
@@ -161,9 +162,9 @@ server.listen(0, "127.0.0.1", async () => {
     /* Законы считаем как остаток: N_SOURCES задан одной константой выше, а
        остальные виды актов перечислены поимённо — так добавление закона не
        требует правки ещё одной цифры здесь. */
-    const laws = N_SOURCES - 1 - 24 - 14 - 6 - N_PLENUMS;
+    const laws = N_SOURCES - 1 - 24 - 14 - 6 - N_PLENUMS - N_REVIEWS;
     return k.constitution === 1 && k.code === 24 && k.fkz === 14 && k.law === laws &&
-      k.decree === 6 && k.plenum === N_PLENUMS;
+      k.decree === 6 && k.plenum === N_PLENUMS && k.review === N_REVIEWS;
   })(), (() => { const k = {}; (w.RF_CODES || []).forEach(c => k[c.kind] = (k[c.kind] || 0) + 1); return JSON.stringify(k); })());
   ok("новые источники: ФЗ о ФСБ и постановления Правительства", (() => {
     const by = {}; (w.RF_CODES || []).forEach(c => by[c.id] = c.kind);
@@ -180,6 +181,20 @@ server.listen(0, "127.0.0.1", async () => {
     const pm = (w.RF_FRESH || {}).plenums;
     return !!pm && pm.count === N_PLENUMS && pm.oldest === "18.11.1999" && /sudact\.ru/.test(pm.catalogue || "");
   })(), JSON.stringify((w.RF_FRESH || {}).plenums || null));
+  ok("обзоры судебной практики в реестре", (() => {
+    const by = {}; (w.RF_CODES || []).forEach(c => by[c.id] = c);
+    /* Обзор по отдельным вопросам судебной практики, связанным с COVID-19:
+       разбирается по вопросам, поэтому пунктов должно быть много. */
+    const r = by["obzor-3-2021-koronavirusnoi-infektsii"];
+    return !!r && r.kind === "review" && r.branch === "Судебная практика" && r.count > 20;
+  })(), (() => {
+    const r = (w.RF_CODES || []).filter(c => c.kind === "review")[0];
+    return r ? r.short.slice(0, 70) + " (" + r.count + " п.)" : "нет";
+  })());
+  ok("снимок актуальности обзоров", (() => {
+    const rm = (w.RF_FRESH || {}).reviews;
+    return !!rm && rm.count === N_REVIEWS && /sudact\.ru/.test(rm.catalogue || "");
+  })(), JSON.stringify((w.RF_FRESH || {}).reviews || null));
   ok("поисковый индекс", (w.RF_IDX || []).length === N_ARTICLES, (w.RF_IDX || []).length + " записей");
   ok("аннотации", Object.keys(w.RF_ANNOT || {}).length === 352, Object.keys(w.RF_ANNOT || {}).length + " аннотаций");
   ok("устаревший слой RF_EXTRA пуст", ((w.RF_EXTRA || {}).articles || []).length === 0);
@@ -363,6 +378,26 @@ server.listen(0, "127.0.0.1", async () => {
   await nav("#/code/zk");
   ok("ЗК: римские главы сгруппированы", $$("#view .chapter").length >= 25, $$("#view .chapter").length + " групп");
   ok("ЗК: глава V.1 распознана", /ГЛАВА V\.1|Глава V\.1/.test(T("#view") || ""), (T("#view") || "").match(/глава V\.1[^<]{0,30}/i) || "—");
+
+  section = "5c. Обзоры судебной практики ВС РФ"; console.log("\n" + section);
+  /* Обзоры — отдельный вид акта: Пленум разъясняет, Президиум обобщает
+     практику. Проверяем, что группа есть в панели, обзор открывается и что
+     единица цитирования у обзора по вопросам — вопрос вместе с ответом. */
+  ok("в боковой панели есть группа обзоров судебной практики",
+    !!$('.nav-sub[data-toggle-kind="review"]') &&
+    /Обзоры судебной практики/.test(T('.nav-sub[data-toggle-kind="review"]') || ""),
+    T('.nav-sub[data-toggle-kind="review"]'));
+  ok("обзоры перечислены в своей группе",
+    $$('.nav-sub-wrap[data-kind="review"] .nav-item').length === N_REVIEWS,
+    $$('.nav-sub-wrap[data-kind="review"] .nav-item').length + " обзоров");
+  await nav("#/code/obzor-3-2021-koronavirusnoi-infektsii", 300);
+  ok("заголовок обзора", /Обзор/.test(T("h1") || ""), T("h1"));
+  ok("пункты обзора в списке", $$("#view .art-row").length > 20, $$("#view .art-row").length + " пунктов");
+  await nav("#/article/obzor-3-2021-koronavirusnoi-infektsii-3", 700);
+  await waitFor(() => $("#artText") && ($("#artText").textContent || "").length > 200, 12000);
+  ok("текст вопроса обзора загружен",
+    !!$("#artText") && ($("#artText").textContent || "").length > 200,
+    ($("#artText") ? ($("#artText").textContent || "").length : 0) + " символов");
 
   section = "6. Помощник"; console.log("\n" + section);
   await nav("#/assistant");

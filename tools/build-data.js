@@ -326,6 +326,10 @@ function build() {
      хэша официального портала, поэтому «Проверка актуальности» для них работает
      иначе: в снимок кладём дату загрузки каталога и реквизиты источника. */
   const plenumMeta = { count: 0, fetched_at: "", source: "", catalogue: "", newest: "", oldest: "", lastRedaction: "" };
+  /* Обзоры судебной практики и постановления Президиума ВС РФ: тот же набор
+     сведений, что у Пленума, — но другой источник (sudact.ru/vsrf/presidium/),
+     поэтому и сводка отдельная. */
+  const reviewMeta = { count: 0, fetched_at: "", source: "", catalogue: "", newest: "", oldest: "", lastRedaction: "" };
 
   /* Статусы норм: утрата силы, приостановление, признание недействующей.
      Отдельный слой (data/status.js) — по id статьи «<источник>-<номер>»,
@@ -397,8 +401,12 @@ function build() {
          отдаёт text.stems(), он же используется при разборе запроса. */
       var st = text.stemTokens(a.t + "\n" + (a.g || "") + "\n" + a.text);
       index.push([cfg.id, a.n, a.t, a.g, st.length]);
-      /* статус нормы: утратила силу / приостановлена / недействующая */
-      if (parse.detectStatus) {
+      /* Статус нормы: утратила силу / приостановлена / недействующая.
+         Только у нормативных актов. В постановлениях Пленума и обзорах
+         судебной практики «утратил силу» встречается в самом тексте — как
+         ссылка на утратившую силу норму, а не как судьба самого пункта, — и
+         разбор порождал мусор: акт-основание вида «ии из описи». */
+      if (parse.detectStatus && cfg.kind !== "plenum" && cfg.kind !== "review") {
         var stt = parse.detectStatus(a.text);
         if (stt) {
           statuses[cfg.id + "-" + a.n] = [stt.status, stt.act || "", stt.date || ""];
@@ -570,8 +578,46 @@ function build() {
     });
   })();
 
+  /* --- 8. Обзоры судебной практики и постановления Президиума ВС РФ ---
+
+     Пленум разъясняет, Президиум обобщает практику — это разные виды актов, и
+     в приложении они разделены. Единица цитирования у обзора — вопрос обзора
+     («Вопрос 14: …») или его пункт; у обзоров сплошного изложения (практика по
+     категориям дел) единица одна — весь документ, потому что своей нумерации
+     у такого текста нет, а выдумывать её нельзя (см. tools/fetch-reviews.js). */
+  (function () {
+    const list = loadJSON(path.join(SRC, "reviews.json"));
+    if (!list || !list.length) { warnings.push("нет обзоров судебной практики ВС РФ (vendor/ruslaw/reviews.json)"); return; }
+    const ord = (s) => { const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s); return m ? m[3] + m[2] + m[1] : s; };
+    list.forEach(function (raw) {
+      if (!raw.app_id) { warnings.push("у обзора судебной практики нет app_id: " + raw.slug); return; }
+      reviewMeta.count++;
+      if (raw.fetched_at && raw.fetched_at > reviewMeta.fetched_at) reviewMeta.fetched_at = raw.fetched_at;
+      if (raw.source_url) {
+        reviewMeta.source = reviewMeta.source || raw.source_url;
+        reviewMeta.catalogue = reviewMeta.catalogue || raw.source_url.replace(/\/law\/[^\/]+\/?$/, "/vsrf/presidium/");
+      }
+      const ad = raw.adopted || "";
+      if (ad) {
+        if (!reviewMeta.newest || ord(ad) > ord(reviewMeta.newest)) reviewMeta.newest = ad;
+        if (!reviewMeta.oldest || ord(ad) < ord(reviewMeta.oldest)) reviewMeta.oldest = ad;
+      }
+      if (raw.redaction_date && (!reviewMeta.lastRedaction || ord(raw.redaction_date) > ord(reviewMeta.lastRedaction))) {
+        reviewMeta.lastRedaction = raw.redaction_date;
+      }
+      addDoc({
+        id: raw.app_id, kind: "review", raw: raw, short: raw.short, topic: raw.name,
+        full: raw.full || raw.name,
+        branch: raw.branch || "Судебная практика", mode: "plain",
+        req: raw.adopted ? "от " + raw.adopted + (raw.number ? " № " + raw.number : "") : "",
+        number: raw.number || "", adopted: raw.adopted || "",
+        slug: "", group: "extra", src: "reviews.json", key: raw.app_id
+      });
+    });
+  })();
+
   /* --- запись реестра --- */
-  const order = { constitution: 0, code: 1, fkz: 2, law: 3, decree: 4, plenum: 5 };
+  const order = { constitution: 0, code: 1, fkz: 2, law: 3, decree: 4, plenum: 5, review: 6 };
   registry.sort(function (a, b) {
     if (order[a.kind] !== order[b.kind]) return order[a.kind] - order[b.kind];
     return 0;
@@ -709,11 +755,12 @@ function build() {
       api_base: "http://actual.pravo.gov.ru:8000/api/ebpi/",
       docs: freshness,
       plenums: plenumMeta,
+      reviews: reviewMeta,
       manifests: { codes: ctx.codesManifest, laws: ctx.lawsManifest }
     }) + ";\n", "utf8");
 
   /* --- отчёт --- */
-  const byKind = { code: 0, law: 0, fkz: 0, constitution: 0, decree: 0, plenum: 0 };
+  const byKind = { code: 0, law: 0, fkz: 0, constitution: 0, decree: 0, plenum: 0, review: 0 };
   let ta = 0, ts = 0;
   stats.forEach(function (s) { ta += s.articles; ts += s.sub; byKind[s.kind] = (byKind[s.kind] || 0) + 1; });
 
@@ -731,7 +778,8 @@ function build() {
     " — кодексов " + byKind.code + ", федеральных законов " + byKind.law +
     ", ФКЗ " + byKind.fkz + ", Конституция " + byKind.constitution +
     ", постановлений Правительства " + byKind.decree +
-    ", постановлений Пленума ВС РФ " + byKind.plenum);
+    ", постановлений Пленума ВС РФ " + byKind.plenum +
+    ", обзоров судебной практики " + byKind.review);
   if (warnings.length) { console.log("\nПредупреждения:"); warnings.forEach(function (w) { console.log("  " + w); }); }
 
   /* --- версия сборки ------------------------------------------------------

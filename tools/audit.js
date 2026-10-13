@@ -79,12 +79,17 @@ function collectSources() {
      «источник → индекс» они нужны по ключу, равному id источника в реестре. */
   const pl = loadJSON(path.join(SRC, "plenums.json"));
   if (Array.isArray(pl)) pl.forEach((raw) => { byKey[raw.app_id] = { raw: raw, file: "plenums.json" }; });
+  /* Обзоры судебной практики и постановления Президиума ВС РФ — по той же
+     причине: главы у них римские («I. Общие вопросы»), маркеров «ГЛАВА N» нет. */
+  const rv = loadJSON(path.join(SRC, "reviews.json"));
+  if (Array.isArray(rv)) rv.forEach((raw) => { byKey[raw.app_id] = { raw: raw, file: "reviews.json" }; });
   return { byName: byName, byKey: byKey };
 }
 
 /* Режим разбора ровно такой, как в tools/build-data.js */
 function modeOf(kind) {
-  return (kind === "constitution" || kind === "fkz" || kind === "decree" || kind === "plenum")
+  return (kind === "constitution" || kind === "fkz" || kind === "decree" ||
+    kind === "plenum" || kind === "review")
     ? "plain" : "articles";
 }
 
@@ -231,14 +236,19 @@ function auditIndexStructure() {
 
   /* Короткие акты Пленума — это изменяющие постановления и акты о дне начала
      деятельности судов; для них 1–8 пунктов нормально, в общее замечание не
-     включаем, но показываем отдельной строкой. */
-  const isShortByNature = (c) => c.kind === "plenum";
+     включаем, но показываем отдельной строкой. Обзоры судебной практики —
+     тем более: у обзора сплошного изложения единица цитирования одна. */
+  const isShortByNature = (c) => c.kind === "plenum" || c.kind === "review";
   const small = CODES.map((c) => ({ c, n: (perCode[c.id] || []).length }))
     .filter((x) => x.n < 10 && !isShortByNature(x.c));
   if (small.length) warn("источников с менее чем 10 статьями: " + small.map((x) => x.c.short + "=" + x.n).join(", "));
   else ok("нет источников с подозрительно малым числом статей");
   const smallPl = CODES.filter((c) => c.kind === "plenum" && (perCode[c.id] || []).length < 10).length;
   console.log("         постановлений Пленума с менее чем 10 пунктами: " + smallPl + " (изменяющие акты — норма)");
+  const rvAll = CODES.filter((c) => c.kind === "review");
+  const rvOne = rvAll.filter((c) => (perCode[c.id] || []).length === 1).length;
+  console.log("         обзоров судебной практики: " + rvAll.length +
+    ", из них одним документом (сплошное изложение без нумерации): " + rvOne);
 }
 
 /* --------------------------------------------------- C. полные тексты */
@@ -252,7 +262,11 @@ function auditFull() {
   IDX.forEach((r, i) => { (idxByCode[r[0]] = idxByCode[r[0]] || []).push({ r, i }); });
 
   const PLENUM_IDS = {};
-  CODES.forEach((c) => { if (c.kind === "plenum") PLENUM_IDS[c.id] = 1; });
+  CODES.forEach((c) => {
+    /* У постановлений Пленума и обзоров судебной практики дата редакции одна
+       на весь акт — она в реестре, а не в тексте каждого пункта. */
+    if (c.kind === "plenum" || c.kind === "review") PLENUM_IDS[c.id] = 1;
+  });
 
   const ids = fs.readdirSync(FULL_DIR).filter((f) => /\.js$/.test(f)).map((f) => f.replace(/\.js$/, ""));
   const missing = CODES.filter((c) => ids.indexOf(c.id) === -1);

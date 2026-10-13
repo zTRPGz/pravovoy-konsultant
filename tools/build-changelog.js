@@ -217,7 +217,18 @@ function diff(d, snap, st, day) {
     }));
   });
 
-  /* --- статусы норм: утрата силы и восстановление --- */
+  /* --- статусы норм: утрата силы и восстановление ---
+     Статус нормы есть только у нормативных актов: у постановлений Пленума и
+     обзоров судебной практики он не определяется (см. tools/build-data.js), а в
+     старых снимках мусорные записи ещё лежат. Их не показываем ни как
+     «утратили силу», ни как «снова действуют» — иначе правка разбора выглядела
+     бы в ленте как восстановление силы пункта Пленума. */
+  const NO_STATUS_KIND = { plenum: 1, review: 1 };
+  const stIgnored = function (id) {
+    const src = srcOf(id);
+    const k = (byId[src] && byId[src].kind) || (snap.docs[src] && snap.docs[src].k);
+    return !!NO_STATUS_KIND[k];
+  };
   const stDoc = {};
   function stBuck(src) {
     if (!stDoc[src]) stDoc[src] = { rep: [], res: [] };
@@ -225,10 +236,12 @@ function diff(d, snap, st, day) {
   }
   Object.keys(st.status).forEach(function (id) {
     if (snap.status[id]) return;                       /* был и остался */
+    if (stIgnored(id)) return;
     stBuck(srcOf(id)).rep.push(id);
   });
   Object.keys(snap.status).forEach(function (id) {
     if (st.status[id]) return;                         /* пропал — снова действует */
+    if (stIgnored(id)) return;
     const src = srcOf(id);
     if (!st.docs[src]) return;
     stBuck(src).res.push(id);

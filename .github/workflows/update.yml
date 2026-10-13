@@ -68,6 +68,9 @@ jobs:
       - name: Загрузка постановлений Пленума ВС РФ
         run: node tools/fetch-plenums.js
 
+      - name: Загрузка обзоров судебной практики ВС РФ
+        run: node tools/fetch-reviews.js
+
       - name: Сборка данных
         run: node tools/build-data.js
 

@@ -204,16 +204,27 @@ async function checkFreshness() {
    колонка (h-col2-rightmenu) и список судебной практики по документу
    (<h2>реквизиты</h2><ul class="results2">), который к тексту не относится.
 
+   У обзоров судебной практики тело лежит в <div id="law_text_body">, а вместо
+   «чанков» стоит навигация «следующая страница» (pagination_l_t) — она тоже
+   граница. На страницах постановлений Пленума этого маркера не бывает вовсе
+   (проверено на всех загруженных), так что разбор Пленумов не меняется.
+
    Разбираем не только <p>: в «Регламенте Верховного Суда РФ» заголовки глав
    свёрстаны как <b>1. Общие положения</b><br/> — вне абзаца. Поэтому текст
    берём блоками (htmlToParagraphs), а не выборкой <p>. */
 function extractBody(html) {
-  const s = html.search(/<div id="lawchunkbody_/);
-  if (s < 0) return [];
+  const chunk = html.search(/<div id="lawchunkbody_/);
+  const textBody = html.search(/<div id="law_text_body"/);
+  let s;
+  if (chunk >= 0) s = chunk;
+  else if (textBody >= 0) s = html.indexOf(">", textBody) + 1;   /* после самого тега */
+  else return [];
+
   const cands = [html.length];
   const add = (i) => { if (i > s) cands.push(i); };
   add(html.indexOf("footer_adv", s));
   add(html.indexOf("h-col2-rightmenu", s));
+  add(html.indexOf("pagination_l_t", s));
   const ul = html.indexOf('<ul class="results2"', s);
   if (ul > 0) {
     const h2 = html.lastIndexOf("<h2", ul);
@@ -470,4 +481,14 @@ async function main() {
   console.log("  знаков текста: " + chars.toLocaleString("ru-RU"));
 }
 
-main().catch((e) => { console.error("Сбой: " + (e && e.stack || e)); process.exitCode = 1; });
+/* Запуск только при прямом вызове: разборщик страниц sudact.ru переиспользует
+   tools/fetch-reviews.js (обзоры судебной практики ВС РФ), и ему нужны
+   extractBody / plenumItems / docHeader, а не побочный эффект загрузки. */
+if (require.main === module) {
+  main().catch((e) => { console.error("Сбой: " + (e && e.stack || e)); process.exitCode = 1; });
+}
+
+module.exports = {
+  get, getCached, extractBody, docHeader, plenumItems,
+  ruDate, cleanTitle, decodeEntities, BASE, UA
+};

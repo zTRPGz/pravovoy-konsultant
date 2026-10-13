@@ -155,6 +155,10 @@ function sourceEntries(id) {
     const hit = srcJSON("plenums.json").filter(function (x) { return x.app_id === d.key; })[0];
     return hit ? hit.articles : null;
   }
+  if (d.src === "reviews.json") {
+    const hit = srcJSON("reviews.json").filter(function (x) { return x.app_id === d.key; })[0];
+    return hit ? hit.articles : null;
+  }
   return null;
 }
 

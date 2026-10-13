@@ -678,6 +678,9 @@
       var c = CO[a.c];
       return !!c && c.kind === opt.kind;
     });
+    /* Ограничение выдачи ОДНИМ источником (Помощник в режиме «только этот
+       кодекс/ФЗ/Пленум»): отвечаем исключительно нормами выбранного акта. */
+    if (opt.scope) pool = pool.filter(function (a) { return a.c === opt.scope; });
 
     var qStems = FT ? FT.stems(p.tokens.join(" ")) : [];
     var mustStems = FT ? FT.stems(p.must.join(" ")) : [];
@@ -1405,6 +1408,7 @@
     read: LS.get("read", { fs: 15, lh: 1.65, w: 0 }),  // настройки чтения текста
     role: LS.get("role", ""),       // роль: "" | sle || adv | gos
     newSeen: LS.get("newSeen", 0),  // сколько верхних записей ленты «Новое» уже показано
+    assistScope: LS.get("assistScope", ""), // Помощник: id источника для режима «только этот акт» ("" — все)
     route: { name: "home", arg: null, q: "" }
   };
 
@@ -2108,7 +2112,7 @@
       diff: "Сравнение редакций", compare: "Две статьи бок о бок", favorites: "Избранное",
       collection: "Подборка норм", cases: "Дела", timeline: "Лента изменений", stats: "Аналитика",
       graph: "Связи источников", help: "Как пользоваться", search: "Поиск",
-      terms: "Термины", term: "Термин"
+      terms: "Термины", term: "Термин", sources: "Источники"
     }[r.name];
     if (t !== undefined) {
       if (r.name === "search") return "Поиск" + (r.q ? ": " + r.q : "");
@@ -2212,6 +2216,7 @@
     else if (r.name === "search") { v.innerHTML = viewSearch(r.q); afterSearch(r.q); }
     else if (r.name === "terms") { v.innerHTML = viewTerms(r.q); bindTerms(); }
     else if (r.name === "term") { v.innerHTML = viewTerm(r.arg); }
+    else if (r.name === "sources") { v.innerHTML = viewSources(); bindSources(); }
     else if (r.name === "article") { v.innerHTML = viewArticle(r.arg); afterArticle(r.arg); }
     else if (r.name === "code") { v.innerHTML = viewCode(r.arg); afterCode(r.arg); }
     else if (r.name === "assistant") v.innerHTML = viewAssistant();
@@ -2311,6 +2316,7 @@
       var k = el.getAttribute("data-nav");
       var on = (k === n) || (k === "code" && n === "code") || (k === "checklists" && n === "checklist") ||
         (k === "terms" && (n === "terms" || n === "term")) ||
+        (k === "sources" && (n === "sources" || n === "code")) ||
         (k === "templates" && n === "template") || (k === "cases" && n === "case") ||
         (k === "scenarios" && (n === "scenarios" || n === "scenario")) ||
         (k === "diff" && (n === "diff" || n === "compare")) ||
@@ -2467,6 +2473,7 @@
       '<div class="grid grid-3" style="margin-top:16px">' +
         quickCard("search", "Поиск статей", "По номеру, названию или ключевому слову", "#/search/", "blue") +
         quickCard("book", "Термины", TERMS.length + " " + plural(TERMS.length, ["определение", "определения", "определений"]) + " со ссылками на нормы", "#/terms", "green") +
+        quickCard("scales", "Источники", "Реестр актов: открыть один кодекс или спрашивать Помощник только по нему", "#/sources", "teal") +
         quickCard("compass", "Помощник", "Опишите ситуацию или вопрос — разберём состав, квалификацию и порядок действий", "#/assistant", "violet") +
         quickCard("clip", "Подборка норм", colCount() ? "В подборке " + colCount() + " " + plural(colCount(), ["статья", "статьи", "статей"]) : "Рабочий набор статей по делу с выгрузкой", "#/collection", "teal") +
         quickCard("folder", "Дела", state.cases.length ? "Дел заведено: " + state.cases.length + " — нормы, заметки, журнал" : "Папки по делам: нормы с заметками и журнал по делу", "#/cases", "amber") +
@@ -3530,6 +3537,8 @@
       '<div class="actions-row" style="margin-bottom:16px">' +
         '<button class="btn" data-copy-cite="' + esc(c.full) + '">Скопировать название</button>' +
         '<button class="btn" data-go="#/diff/' + esc(id) + '">Сравнить редакции</button>' +
+        '<button class="btn" data-scope="' + esc(id) + '" title="Открыть Помощник в режиме, когда ответ строится только по этому акту">' +
+          ic("compass") + " Спросить Помощника только по этому источнику</button>" +
         (verCount(id) ? '<span class="st st-muted">сохранено версий: ' + verCount(id) + "</span>" : "") +
         (c.source_url ? '<a class="btn" href="' + esc(c.source_url) + '" target="_blank" rel="noopener">' +
           (isPl ? "Открыть на sudact.ru ↗" : "Официальный источник ↗") + "</a>" : "") +
@@ -3615,10 +3624,132 @@
     }).join("");
   }
 
+  /* --- раздел «Источники»: реестр актов одним списком --------------------
+     Отдельная вкладка, чтобы открыть один кодекс, закон или постановление
+     Пленума сразу, не через главную: фильтр по названию, коду или номеру.
+     Здесь же — точка входа в режим Помощника «ответить только по этому
+     источнику» (кнопка data-scope). */
+
+  function viewSources() {
+    var g = docGroups();
+    var total = CODES.length;
+    var withText = CODES.filter(function (c) { return !c.note; }).length;
+    return '<h1>Источники</h1>' +
+      '<p class="lead">Все акты базы — ' + total + " " + plural(total, ["источник", "источника", "источников"]) +
+        (withText < total ? (" (полный текст размещён у " + withText + ")") : "") +
+        ". Выберите один, чтобы читать его статьи по главам или спрашивать по нему Помощник в режиме «только этот источник».</p>" +
+      '<div class="card" style="padding:14px;margin-bottom:16px">' +
+        '<div class="field" style="margin-bottom:0"><label>Фильтр по названию, коду или номеру</label>' +
+        '<input class="input" id="srcFilter" placeholder="например: Уголовный, УК, О полиции, 158" autocomplete="off"></div>' +
+        '<div class="small muted" style="margin-top:8px" id="srcFilterInfo"></div>' +
+      "</div>" +
+      '<div id="srcList">' + sourcesBody(g) + "</div>" +
+      '<div class="disclaimer">Каждый источник открывается отдельной страницей со списком статей по главам, датой редакции и ссылкой на официальную публикацию. Справочные карточки подготовлены для приложения и не являются официальным текстом акта.</div>';
+  }
+
+  function sourcesBody(groups) {
+    return groups.map(function (g) {
+      return '<details class="kind-block"' + (g.kind === "code" ? " open" : "") + ">" +
+        '<summary class="kind-title">' + esc(g.title) + '<span class="cnt">' + g.items.length + "</span></summary>" +
+        '<div class="grid grid-3">' + g.items.map(sourceCard).join("") + "</div></details>";
+    }).join("");
+  }
+
+  function sourceCard(c) {
+    var n = (byCode[c.id] || []).length;
+    return '<div class="code-card" data-go="#/code/' + c.id + '" data-src="' +
+        esc(c.short + " " + c.full + " " + c.id) + '" style="--c:' + c.color + '">' +
+      '<div class="cc-short">' + esc(c.short) + "</div>" +
+      '<div class="cc-full">' + esc(c.full) + "</div>" +
+      '<div class="cc-meta"><span>' + esc(c.req || c.branch || "") + "</span><span>" +
+        n + (isPlenum(c) ? " п." : " ст.") + "</span></div>" +
+      '<div class="cc-red">' + (c.redaction ? "ред. " + fmtRed(c.redaction) : (c.note ? "" : "справочно")) + "</div>" +
+      '<div class="cc-actions">' +
+        '<button class="btn btn-sm" data-go="#/code/' + c.id + '">Открыть</button>' +
+        '<button class="btn btn-sm" data-scope="' + esc(c.id) +
+          '" title="Открыть Помощник в режиме ответа только по этому источнику">' +
+          ic("compass") + " Спросить Помощника</button>" +
+      "</div></div>";
+  }
+
+  function bindSources() {
+    var inp = $("#srcFilter");
+    if (!inp) return;
+    var tmr = null, box = $("#srcList");
+    inp.addEventListener("input", function () {
+      if (tmr) clearTimeout(tmr);
+      var q = this.value;
+      tmr = setTimeout(function () { applySrcFilter(q, box); }, 120);
+    });
+  }
+
+  function applySrcFilter(raw, box) {
+    if (!box) return;
+    var q = String(raw || "").trim().toLowerCase();
+    var shown = 0;
+    box.querySelectorAll(".code-card").forEach(function (card) {
+      var hay = (card.getAttribute("data-src") || "").toLowerCase();
+      var on = !q || hay.indexOf(q) !== -1;
+      card.style.display = on ? "" : "none";
+      if (on) shown++;
+    });
+    /* Группа без совпадений прячется целиком — иначе фильтр даёт пустые
+       разделы «…0», среди которых теряется результат. */
+    box.querySelectorAll(".kind-block").forEach(function (blk) {
+      var any = false, kids = blk.querySelectorAll(".code-card");
+      for (var i = 0; i < kids.length; i++) { if (kids[i].style.display !== "none") { any = true; break; } }
+      blk.classList.toggle("gone", !any);
+    });
+    var info = $("#srcFilterInfo");
+    if (info) info.textContent = q ? ("Найдено источников: " + shown) : "";
+  }
+
   /* --- помощник: разбор ситуации и правовых вопросов --- */
 
   /* выбранные уточнения и текущий текст — живут между перерисовками разбора */
   var asText = "", asAnswers = {};
+
+  /* --- Помощник: режим «только этот источник» ----------------------------
+
+     Иногда нужно ответить на вопрос, опираясь ИСКЛЮЧИТЕЛЬНО на один акт:
+     «что по этому поводу говорит Уголовный кодекс», «разберите по этому
+     Пленуму». Для этого Помощник переключается в режим одного источника:
+     подбор норм и дословные цитаты берутся только из выбранного кодекса,
+     закона или постановления Пленума, нормы соседних отраслей и общая
+     судебная практика в ответ не попадают. Выбор запоминается и виден
+     полосой-состоянием под переключателем. */
+
+  function assistScopeCode() { return state.assistScope ? codeById(state.assistScope) : null; }
+
+  function setAssistScope(id) {
+    state.assistScope = (id && codeById(id)) ? id : "";
+    LS.set("assistScope", state.assistScope);
+    syncAssistScope();
+  }
+
+  /* Строка состояния под переключателем источника: показывает, отвечаем ли
+     «по всему» или «только по этому акту», цветом этого акта. */
+  function syncAssistScope() {
+    var el = $("#asScopeBadge");
+    if (!el) return;
+    var c = assistScopeCode();
+    el.innerHTML = c
+      ? '<span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(c.short) + "</span> " +
+        '<span class="as-scope-on">Помощник отвечает <b>только</b> по этому источнику</span>'
+      : '<span class="muted">Используются все источники базы</span>';
+  }
+
+  /* Пункты переключателя: сгруппированы по видам актов, как в реестре. */
+  function assistScopeOpts() {
+    var html = '<option value=""' + (state.assistScope ? "" : " selected") + ">Все источники базы</option>";
+    docGroups().forEach(function (g) {
+      html += '<optgroup label="' + esc(g.title) + '">' + g.items.map(function (c) {
+        return '<option value="' + esc(c.id) + '"' + (state.assistScope === c.id ? " selected" : "") + ">" +
+          esc(c.short) + "</option>";
+      }).join("") + "</optgroup>";
+    });
+    return html;
+  }
 
   function viewAssistant() {
     var examples = [
@@ -3640,6 +3771,9 @@
           '<button class="btn" id="asClear">Очистить</button>' +
           '<input type="file" id="asOcrFile" accept="image/*" hidden>' +
         "</div>" +
+        '<div class="field as-scope-field"><label>Отвечать только по одному источнику</label>' +
+          '<select class="input" id="asScope">' + assistScopeOpts() + "</select>" +
+          '<div class="small" id="asScopeBadge" style="margin-top:6px"></div></div>' +
         '<div class="chips" style="margin-top:12px">' +
           examples.map(function (x) {
             return '<div class="chip" data-fill="' + esc(x) + '" title="' + esc(x) + '">' +
@@ -3670,6 +3804,16 @@
     $("#asClear").addEventListener("click", function () {
       input.value = ""; out.innerHTML = ""; asText = ""; asAnswers = {}; input.focus();
     });
+    /* Переключатель источника. Смена сразу пересчитывает уже готовый разбор:
+       иначе пользователь не видел бы эффекта, пока не нажмёт «Разобрать» снова. */
+    var scopeSel = $("#asScope");
+    if (scopeSel) {
+      scopeSel.addEventListener("change", function () {
+        setAssistScope(this.value);
+        if (asText) render();
+      });
+      syncAssistScope();
+    }
     /* уточняющие вопросы и сброс — пересобирают разбор без повторного ввода */
     out.addEventListener("click", function (e) {
       if (e.target.closest("[data-help-reset]")) { e.preventDefault(); asAnswers = {}; render(); return; }
@@ -3977,8 +4121,10 @@
     return kept;
   }
 
-  /* развёрнутый разбор: характеристика, квалификация, уточнения, действия */
-  function helpCard(x) {
+  /* развёрнутый разбор: характеристика, квалификация, уточнения, действия.
+     В режиме одного источника (sc) в перечень норм карточки попадают только
+     статьи выбранного акта — иначе разбор ссылался бы на другой кодекс. */
+  function helpCard(x, sc) {
     var h = x.h;
     var picked = {};
     Object.keys(asAnswers).forEach(function (qid) { picked[asAnswers[qid]] = 1; });
@@ -4029,6 +4175,7 @@
     }
 
     var arts = (h.articles || []).map(function (id) { return byId[id]; }).filter(Boolean);
+    if (sc) arts = arts.filter(function (a) { return a.c === sc; });
     var artIds = arts.map(function (a) { return a.id; });
     if (arts.length) {
       /* Полный перечень норм ответа — один раз, в блоке «Нормы для проверки»
@@ -4053,7 +4200,7 @@
     }
 
     html += '<div class="actions-row">' +
-      '<button class="btn" data-col-batch="' + esc(artIds.join(",")) + '">' + ic("clip") + " Все нормы в подборку</button>" +
+      (artIds.length ? '<button class="btn" data-col-batch="' + esc(artIds.join(",")) + '">' + ic("clip") + " Все нормы в подборку</button>" : "") +
       '<button class="btn" data-help-reset="1">Сбросить уточнения</button>' +
       "</div>";
 
@@ -4226,7 +4373,7 @@
      установить. Собирается только из данных сайта и идёт первым, чтобы ответ
      читался с вывода. Заголовок намеренно не <h2>: первый h2 остаётся за
      самим развёрнутым разбором. */
-  function conclusionBox(help, scored, res, conf, qStems, keyArts, practice, auto) {
+  function conclusionBox(help, scored, res, conf, qStems, keyArts, practice, auto, sc) {
     /* Ответы на уточняющие вопросы и подсказка из самого описания — разные
        вещи. Если человек ответил на вопрос «Какая тяжесть вреда установлена?»,
        его выбор перекрывает догадку движка: у вопроса один вариант, а не два. */
@@ -4369,8 +4516,15 @@
         "</div>";
     }
 
+    /* Явная метка режима одного источника: пользователь должен понимать, что
+       ответ собран не по всей базе, а строго в рамках выбранного акта. */
+    var scopeCode = sc ? codeById(sc) : null;
     return '<div class="card concl">' +
       '<div class="concl-head">' + ic("check") + "Вывод по запросу</div>" +
+      (scopeCode ? '<div class="concl-scope">' + ic("book") +
+        " Ответ ограничен источником <b style=\"color:" + esc(scopeCode.color) + "\">" + esc(scopeCode.short) +
+        "</b>. Нормы других актов и общая судебная практика в вывод не включены — " +
+        "снять ограничение можно переключателем над полем ввода.</div>" : "") +
       answer +
       '<p class="concl-p">' + esc(lead) + "</p>" +
       (rows.length ? '<div class="concl-rows">' + rows.map(function (r) {
@@ -4397,7 +4551,10 @@
        нетрезвом вождении — в ответе про побои это выглядело чужеродно. */
     help.slice(0, 1).forEach(function (x) { hitWords = hitWords.concat(x.hits); });
     scored.forEach(function (x) { hitWords = hitWords.concat(x.hits); });
-    var res = search(hitWords.length ? hitWords.join(" ") : text, { need: 1, cut: 0.5 }).slice(0, 5);
+    /* Режим «только этот источник»: если выбран конкретный акт, все поиски
+       собека ограничиваются им. */
+    var sc = state.assistScope || "";
+    var res = search(hitWords.length ? hitWords.join(" ") : text, { need: 1, cut: 0.5, scope: sc }).slice(0, 5);
 
 
     /* Единый перечень норм ответа. Порядок — по близости к описанию (сначала
@@ -4428,6 +4585,17 @@
        описания (блок «Нормы, наиболее близкие к запросу») — второй такой же
        список в выводе был бы повтором. */
     var keyArts = (help.length || scored.length) ? keyIds.slice(0, 8) : [];
+    /* В режиме одного источника оставляем только нормы выбранного акта. Если
+       разбор опирался на другие кодексы, добираем нормы с помощью поиска уже
+       внутри этого источника — ответ остаётся заполненным, но строго в рамках
+       выбранного акта. */
+    if (sc) {
+      keyArts = keyArts.filter(function (a) { return a.c === sc; });
+      if (!keyArts.length) {
+        keyArts = res.filter(function (x) { return x.a.c === sc; })
+          .slice(0, 6).map(function (x) { return x.a; });
+      }
+    }
 
     /* Судебная практика. Ни один разбор и ни одно правило на постановления
        Пленума не ссылались, поэтому в ответы они не попадали вовсе — хотя на
@@ -4454,20 +4622,24 @@
     if (practiceQ.replace(/[^а-яёa-z0-9]/gi, "").length < 4) {
       practiceQ = hitWords.length ? hitWords.join(" ") : low;
     }
-    var practice = search(practiceQ, { need: 1, cut: 0.5, kind: "plenum" })
+    /* Судебная практика по природе межотраслевая. В режиме одного источника
+       её блок не показываем: «ответь только по УК» и отдельный «сверху — ещё и
+       Пленумы» противоречат друг другу. Пункты нужного Пленума, если он и есть
+       выбранный источник, приходят через обычный scoped-поиск (res). */
+    var practice = sc ? [] : search(practiceQ, { need: 1, cut: 0.5, kind: "plenum" })
       .filter(function (x) { return x.cov >= 2; })
       .slice(0, 3);
 
     /* Основы для дословных цитат: цитируем текст нормы по тем словам, которые
        действительно сработали в разборе, а не по всему описанию. */
     var qStems = FT ? FT.stems((hitWords.length ? hitWords.join(" ") : low)) : [];
-    var html = conclusionBox(help, scored, res, f.confidence, qStems, keyArts, practice, autoQualPicks(low));
+    var html = conclusionBox(help, scored, res, f.confidence, qStems, keyArts, practice, autoQualPicks(low), sc);
 
     if (help.length) {
       html += '<div class="ground-box"><span class="ico">' + ic("shield") + "</span>" +
         "<div>Разбор построен <b>только по текстам, размещённым на сайте</b>: " +
         "каждая ссылка открывает статью с источником и датой редакции.</div></div>";
-      html += helpCard(help[0]);
+      html += helpCard(help[0], sc);
       /* Второй разбор — свёрнутым. Он нужен (в описании действительно бывает
          две ситуации), но полной карточкой он перебивал основной ответ и
          уводил читателя в другую тему. Раскрывается по требованию. */
@@ -4476,7 +4648,7 @@
           '<span class="as-alt-k">Возможно, вторая ситуация</span>' +
           '<span class="as-alt-t">' + esc(help[1].h.t) + "</span>" +
           '<span class="as-alt-n">' + esc(help[1].h.area) + " · совпадений: " + help[1].n + "</span>" +
-          "</summary>" + helpCard(help[1]) + "</details>";
+          "</summary>" + helpCard(help[1], sc) + "</details>";
       }
     }
 
@@ -9442,6 +9614,7 @@
       { t: "Навигатор", h: "#/home", k: "главная начало" },
       { t: "Помощник", h: "#/assistant", k: "помощник разбор ситуации анализ консультант вопрос" },
       { t: "Термины", h: "#/terms", k: "термин определение словарь глоссарий что такое значит понятие" },
+      { t: "Источники", h: "#/sources", k: "источники реестр кодекс закон фкз пленум постановление акт только по одному источнику по кодексу" },
       { t: "Памятки", h: "#/scenarios", k: "памятка сценарий оперативник орм что делать порядок действий досмотр доставление кусп" },
       { t: "Калькуляторы", h: "#/calc", k: "калькулятор рассчитать посчитать арифметика сложить умножить разделить обычный счёт 5+5 срок давность пошлина неустойка проценты 395 госпошлина 333.19 зачёт стража задержание" },
       { t: "Процессуальные сроки", h: "#/deadlines", k: "сроки калькулятор" },
@@ -9703,6 +9876,20 @@
          же, до [data-go]: кнопки не несут адреса, они ходят по стеку. */
       if (e.target.closest("#navBack")) { e.preventDefault(); navStep(-1); return; }
       if (e.target.closest("#navFwd")) { e.preventDefault(); navStep(1); return; }
+
+      /* «Спросить Помощника только по этому источнику»: включает режим одного
+         источника и открывает Помощник. Обрабатываем до [data-go], чтобы
+         сначала запомнить источник, а затем отрисовать помощник. */
+      var scEl = e.target.closest("[data-scope]");
+      if (scEl) {
+        e.preventDefault();
+        var scid = scEl.getAttribute("data-scope");
+        setAssistScope(scid);
+        var scc = assistScopeCode();
+        go("#/assistant");
+        toast(scc ? "Помощник будет отвечать только по: " + scc.short : "Помощник: все источники");
+        return;
+      }
 
       var goEl = e.target.closest("[data-go]");
       if (goEl) {

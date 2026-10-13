@@ -924,7 +924,7 @@ table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; 
   margin: 14px 0 4px; padding: 12px 14px;
   background: var(--bg-3); border: 1px solid var(--border-2); border-radius: var(--radius);
 }
-.claim-total b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.claim-total b { font-size: var(--fs-8); font-variant-numeric: tabular-nums; }
 .claim-total .small { margin: 0; }
 
 /* Чекбокс «не переносить с нерабочего дня» — обычная подпись, не поле. */
@@ -1300,6 +1300,18 @@ body.has-crash .toast { bottom: 104px; }
   color: var(--accent); font-weight: 650; margin-bottom: 8px;
 }
 .concl-head .ic { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
+/* Метка режима «ответить только по одному источнику»: предупреждает, что
+   вывод собран в рамках одного акта, а не по всей базе. */
+.concl-scope {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0 0 10px; padding: 9px 12px;
+  font-size: var(--fs-3); line-height: 1.5; color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--warn, #c9a227) 40%, var(--border));
+  border-left: 3px solid var(--warn, #c9a227);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--warn, #c9a227) 10%, var(--card));
+}
+.concl-scope .ic { width: 1.05em; height: 1.05em; flex: 0 0 auto; margin-top: 2px; color: var(--warn, #c9a227); }
 /* Короткий ответ первым экраном вывода. Раньше квалификация стояла третьей
    строкой ниже абзаца о том, что будет дальше, и ответ читался как «много
    информации, но непонятно, что решили». */
@@ -1523,6 +1535,12 @@ details.refs-block[open] > summary { margin-bottom: 12px; }
 }
 
 .code-card .cc-red { font-size: var(--fs-1); color: var(--muted); margin-top: 6px; opacity: .85; }
+/* Кнопки в карточке источника (раздел «Источники»): «Открыть» и «Спросить
+   Помощника». Клик по кнопке не должен «залипать» на навигации всей карточки. */
+.code-card .cc-actions { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 7px; }
+.code-card .cc-actions .btn .ic { color: var(--accent); }
+/* Группа источников, отфильтрованная до нуля, скрывается целиком. */
+.kind-block.gone { display: none; }
 
 .disclaimer {
   border-top: 1px solid var(--border); margin-top: 38px; padding-top: 18px;

@@ -1976,6 +1976,50 @@ check("мини-окно статьи закрывается при перехо
   "иначе окно осталось бы висеть поверх нового раздела");
 
 /* итог */
+console.log("\n14. Режим одного источника (ответить исключительно по одному акту)");
+check("поиск умеет ограничиваться одним источником",
+  appSrc.indexOf("if (opt.scope) pool = pool.filter(function (a) { return a.c === opt.scope; })") !== -1,
+  "иначе «ответить только по УК» не отфильтровало бы выдачу по акту");
+check("Помощник хранит и запоминает выбранный источник",
+  appSrc.indexOf('assistScope: LS.get("assistScope"') !== -1 &&
+  appSrc.indexOf('LS.set("assistScope", state.assistScope)') !== -1 &&
+  appSrc.indexOf("function assistScopeCode") !== -1,
+  "выбор должен переживать перезагрузку раздела");
+check("переключатель источника выводится в Помощнике",
+  appSrc.indexOf('id="asScope"') !== -1 && appSrc.indexOf("function assistScopeOpts") !== -1 &&
+  appSrc.indexOf("id=\"asScopeBadge\"") !== -1,
+  "иначе режим некуда включать, а состояние — негде показать");
+check("смена источника пересчитывает готовый разбор",
+  /scopeSel\.addEventListener\("change",[\s\S]{0,160}if \(asText\) render\(\)/.test(appSrc),
+  "иначе пользователь не видел бы эффекта без повторного «Разобрать»");
+check("нормы ответа фильтруются по выбранному акту",
+  appSrc.indexOf("keyArts = keyArts.filter(function (a) { return a.c === sc; })") !== -1 &&
+  appSrc.indexOf("if (sc) arts = arts.filter") !== -1,
+  "иначе вывод ссылался бы на нормы другого кодекса");
+check("судебная практика отключается в режиме одного источника",
+  /var practice = sc \? \[\] : search/.test(appSrc),
+  "«ответь только по УК» и отдельный блок Пленумов противоречат друг другу");
+check("режим помечен в выводе",
+  appSrc.indexOf('class="concl-scope"') !== -1 &&
+  appSrc.indexOf("Ответ ограничен источником") !== -1,
+  "иначе непонятно, почему в ответе только нормы одного акта");
+check("вкладка «Источники» разбирает адрес, рисует вид и имеет заголовок",
+  appSrc.indexOf("function viewSources") !== -1 &&
+  appSrc.indexOf("function bindSources") !== -1 &&
+  appSrc.indexOf('name === "sources") { v.innerHTML = viewSources()') !== -1 &&
+  appSrc.indexOf('sources: "Источники"') !== -1,
+  "без маршрута и заголовка вкладка не открылась бы и не нашлась бы");
+check("вкладка «Источники» есть в боковом меню, палитре и на главной",
+  /data-nav="sources"/.test(htmlSrc) &&
+  appSrc.indexOf('{ t: "Источники", h: "#/sources"') !== -1 &&
+  appSrc.indexOf('quickCard("scales", "Источники"') !== -1,
+  "иначе раздел было бы не найти");
+check("из одного источника можно сразу спросить Помощник только по нему",
+  appSrc.indexOf('data-scope="') !== -1 &&
+  appSrc.indexOf('closest("[data-scope]")') !== -1 &&
+  /closest\("\[data-scope\]"\)[\s\S]{0,220}go\("#\/assistant"\)/.test(appSrc),
+  "кнопка связывает просмотр акта с режимом ответа только по нему");
+
 console.log("\n" + "=".repeat(60));
 console.log("Статей в базе: " + idx.length + " · источников с полным текстом: " + codes.length +
   " · справочных аннотаций: " + Object.keys(annot).length + " · терминов: " + terms.length);

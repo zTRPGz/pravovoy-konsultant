@@ -29,8 +29,8 @@ let lastStep = "старт";
 /* Ожидаемые объёмы базы. Это «замок»: если данные внезапно усохнут, тест
    это заметит. При осознанном добавлении источников значения обновляются
    здесь — в одном месте, а не по всему файлу. */
-const N_SOURCES = 227;    // кодексы 24, законы 83, ФКЗ 14, Конституция, постановления Правительства 6, Пленумы ВС РФ 99
-const N_ARTICLES = 19307;
+const N_SOURCES = 249;    // кодексы 24, законы 105, ФКЗ 14, Конституция, постановления Правительства 6, Пленумы ВС РФ 99
+const N_ARTICLES = 20742;
 const N_PLENUMS = 99;
 
 function ok(name, cond, extra) {
@@ -158,7 +158,12 @@ server.listen(0, "127.0.0.1", async () => {
   ok("реестр источников", (w.RF_CODES || []).length === N_SOURCES, (w.RF_CODES || []).length + " источников");
   ok("виды актов", (() => {
     const k = {}; (w.RF_CODES || []).forEach(c => k[c.kind] = (k[c.kind] || 0) + 1);
-    return k.constitution === 1 && k.code === 24 && k.fkz === 14 && k.law === 83 && k.decree === 6 && k.plenum === N_PLENUMS;
+    /* Законы считаем как остаток: N_SOURCES задан одной константой выше, а
+       остальные виды актов перечислены поимённо — так добавление закона не
+       требует правки ещё одной цифры здесь. */
+    const laws = N_SOURCES - 1 - 24 - 14 - 6 - N_PLENUMS;
+    return k.constitution === 1 && k.code === 24 && k.fkz === 14 && k.law === laws &&
+      k.decree === 6 && k.plenum === N_PLENUMS;
   })(), (() => { const k = {}; (w.RF_CODES || []).forEach(c => k[c.kind] = (k[c.kind] || 0) + 1); return JSON.stringify(k); })());
   ok("новые источники: ФЗ о ФСБ и постановления Правительства", (() => {
     const by = {}; (w.RF_CODES || []).forEach(c => by[c.id] = c.kind);
@@ -2175,8 +2180,22 @@ server.listen(0, "127.0.0.1", async () => {
   await nav("#/new", 400);
   ok("пункт «Новое» есть в меню", $$('.nav-item[data-nav="new"]').length === 1);
   ok("пустая лента открывается заголовком «Новое»", /Новое/.test(T("#view h1") || ""), T("#view h1"));
-  ok("на пустой ленте показано объяснение", /Лента пока пуста/.test($("#view").textContent || ""));
-  ok("на пустой ленте счётчик в меню пуст", T("#newCount") === "" || T("#newCount") === "0", JSON.stringify(T("#newCount")));
+  /* Лента в репозитории может быть и пустой, и заполненной: записи появляются
+     после ночной сборки и после ручных правок базы. Проверяем то состояние,
+     которое реально пришло в data/changelog.js, — иначе тест падал бы всякий
+     раз, когда в ленте что-то есть. */
+  {
+    const realEntries = (w.RF_CHANGELOG && w.RF_CHANGELOG.entries) || [];
+    if (realEntries.length) {
+      ok("лента показывает записи текущей сборки", $$("#view .ncard").length > 0,
+        $$("#view .ncard").length + " карточек при " + realEntries.length + " записях");
+      ok("счётчик в меню совпадает с числом непрочитанных",
+        T("#newCount") === String(realEntries.length), T("#newCount") + " при " + realEntries.length + " записях");
+    } else {
+      ok("на пустой ленте показано объяснение", /Лента пока пуста/.test($("#view").textContent || ""));
+      ok("на пустой ленте счётчик в меню пуст", T("#newCount") === "" || T("#newCount") === "0", JSON.stringify(T("#newCount")));
+    }
+  }
   ok("активный пункт меню — «Новое»",
     !!($('.nav-item[data-nav="new"]') && $('.nav-item[data-nav="new"]').classList.contains("active")));
 

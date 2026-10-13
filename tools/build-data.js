@@ -337,11 +337,27 @@ function build() {
   const ftMap = {};
   let ftTokens = 0;
 
+  /* Опознавательный ключ федерального закона: «номер|название» в нижнем
+     регистре без лишних пробелов. Два разных набора (открытый набор данных и
+     дополнительные законы с официального портала) описывают один и тот же
+     закон по-разному — id и файл у них свои, а номер и официальное название
+     совпадают. По этому ключу ловим дубли: иначе один закон попадал бы в
+     реестр дважды, и в поиске появлялись бы две одинаковые карточки, а статьи
+     делились между ними. */
+  function lawKeyOf(raw) {
+    if (!raw) return "";
+    return String(raw.number || "").replace(/\s+/g, "").toLowerCase() + "|" +
+      String(raw.name || "").replace(/\s+/g, " ").trim().toLowerCase();
+  }
+  const seenLawKeys = {};
+
   /* --- вспомогательная сборка одного документа --- */
   function addDoc(cfg) {
     // cfg: { id, kind, raw, short, full, branch, req, file (для диагностики), slug, group }
     const raw = cfg.raw;
     if (!raw) { warnings.push("нет данных для " + cfg.id); return; }
+
+    if (cfg.kind === "law") seenLawKeys[lawKeyOf(raw)] = cfg.id;
 
     const res = parse.parseDoc(raw, { mode: cfg.mode || "articles" });
     const arts = res.arts;
@@ -453,6 +469,14 @@ function build() {
     if (!list || !list.length) { warnings.push("нет дополнительных законов (vendor/ruslaw/laws-extra.json)"); return; }
     list.forEach(function (raw) {
       if (!raw.app_id) { warnings.push("у дополнительного закона нет app_id: " + raw.slug); return; }
+      /* Закон уже пришёл из открытого набора данных (LAWS) — второй раз не
+         берём: набор данных считается основным, дополнительный список лишь
+         дополняет его. Дубль в реестре раздвоил бы карточку закона. */
+      const twin = seenLawKeys[lawKeyOf(raw)];
+      if (twin) {
+        warnings.push("дополнительный закон " + raw.app_id + " «" + raw.short + "» пропущен — уже есть как " + twin);
+        return;
+      }
       addDoc({
         id: raw.app_id, kind: "law", raw: raw, short: raw.short,
         full: "Федеральный закон «" + innerQuotes(stripOuterQuotes(String(raw.name || "").replace(/^Федеральный закон\s*/i, ""))) + "»",

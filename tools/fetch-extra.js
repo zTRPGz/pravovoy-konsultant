@@ -85,7 +85,40 @@ const EXTRA_LAWS = [
   { id: "fz262suds",  number: "262-ФЗ",  date: "22.12.2008", short: "ФЗ о доступе к информации о судах", branch: "Судебный процесс", name: "Об обеспечении доступа к информации о деятельности судов в Российской Федерации" },
   /* --- военная служба --- */
   { id: "fz76voen",   number: "76-ФЗ",   date: "27.05.1998", short: "ФЗ о статусе военнослужащих", branch: "Административное право", name: "О статусе военнослужащих" },
-  { id: "fz53voin",   number: "53-ФЗ",   date: "28.03.1998", short: "ФЗ о воинской обязанности", branch: "Административное право", name: "О воинской обязанности и военной службе" }
+  { id: "fz53voin",   number: "53-ФЗ",   date: "28.03.1998", short: "ФЗ о воинской обязанности", branch: "Административное право", name: "О воинской обязанности и военной службе" },
+  /* --- хозяйственный оборот: юрлица, закупки, банкротство, оценка --- */
+  { id: "fz14ooo",    number: "14-ФЗ",   date: "08.02.1998", short: "ФЗ об ООО", branch: "Гражданское право", name: "Об обществах с ограниченной ответственностью" },
+  { id: "fz208ao",    number: "208-ФЗ",  date: "26.12.1995", short: "ФЗ об АО", branch: "Гражданское право", name: "Об акционерных обществах" },
+  { id: "fz129egrul", number: "129-ФЗ",  date: "08.08.2001", short: "ФЗ о регистрации юрлиц", branch: "Гражданское право", name: "О государственной регистрации юридических лиц и индивидуальных предпринимателей" },
+  { id: "fz44zakup",  number: "44-ФЗ",   date: "05.04.2013", short: "ФЗ о контрактной системе", branch: "Гражданское право", name: "О контрактной системе в сфере закупок товаров, работ, услуг для обеспечения государственных и муниципальных нужд" },
+  { id: "fz223zakup", number: "223-ФЗ",  date: "18.07.2011", short: "ФЗ о закупках отдельными видами юрлиц", branch: "Гражданское право", name: "О закупках товаров, работ, услуг отдельными видами юридических лиц" },
+  /* 230-ФЗ «О защите прав… при возврате просроченной задолженности» и 218-ФЗ
+     «О кредитных историях» здесь НЕ дублируются: первый уже есть в открытом
+     наборе данных, а второй берётся заплаткой (см. PATCH) — версия набора
+     устарела и не содержала ст. 10.1 и 10.2. */
+  { id: "fz135ocenka",number: "135-ФЗ",  date: "29.07.1998", short: "ФЗ об оценочной деятельности", branch: "Гражданское право", name: "Об оценочной деятельности в Российской Федерации" },
+  { id: "fz99lic",    number: "99-ФЗ",   date: "04.05.2011", short: "ФЗ о лицензировании", branch: "Административное право", name: "О лицензировании отдельных видов деятельности" },
+  /* --- страхование, медицина, санитарные требования --- */
+  { id: "fz326oms",   number: "326-ФЗ",  date: "29.11.2010", short: "ФЗ об ОМС", branch: "Социальное право", name: "Об обязательном медицинском страховании в Российской Федерации" },
+  { id: "fz52san",    number: "52-ФЗ",   date: "30.03.1999", short: "ФЗ о санитарно-эпидемиологическом благополучии", branch: "Административное право", name: "О санитарно-эпидемиологическом благополучии населения" },
+  /* --- семья, дети, социальные гарантии --- */
+  { id: "fz81posob",  number: "81-ФЗ",   date: "19.05.1995", short: "ФЗ о пособиях гражданам с детьми", branch: "Социальное право", name: "О государственных пособиях гражданам, имеющим детей" },
+  { id: "fz124rebenok",number: "124-ФЗ", date: "24.07.1998", short: "ФЗ об основных гарантиях прав ребёнка", branch: "Семейное право", name: "Об основных гарантиях прав ребенка в Российской Федерации" },
+  { id: "fz143zags",  number: "143-ФЗ",  date: "15.11.1997", short: "ФЗ об актах гражданского состояния", branch: "Семейное право", name: "Об актах гражданского состояния" },
+  /* --- процесс и доказывание --- */
+  { id: "fz73eksp",   number: "73-ФЗ",   date: "31.05.2001", short: "ФЗ о судебно-экспертной деятельности", branch: "Судебный процесс", name: "О государственной судебно-экспертной деятельности в Российской Федерации" },
+  /* --- государственная служба и ведомства --- */
+  { id: "fz58gos",    number: "58-ФЗ",   date: "27.05.2003", short: "ФЗ о системе госслужбы", branch: "Административное право", name: "О системе государственной службы Российской Федерации" },
+  { id: "fz79ggs",    number: "79-ФЗ",   date: "27.07.2004", short: "ФЗ о гражданской службе", branch: "Административное право", name: "О государственной гражданской службе Российской Федерации" },
+  { id: "fz342ovd",   number: "342-ФЗ",  date: "30.11.2011", short: "ФЗ о службе в ОВД", branch: "Административное право", name: "О службе в органах внутренних дел Российской Федерации и внесении изменений в отдельные законодательные акты Российской Федерации" },
+  { id: "fz247socgar",number: "247-ФЗ",  date: "19.07.2011", short: "ФЗ о соцгарантиях сотрудникам ОВД", branch: "Социальное право", name: "О социальных гарантиях сотрудникам органов внутренних дел Российской Федерации и внесении изменений в отдельные законодательные акты Российской Федерации" },
+  /* --- избирательное право и общественные объединения --- */
+  { id: "fz67izbir",  number: "67-ФЗ",   date: "12.06.2002", short: "ФЗ о гарантиях избирательных прав", branch: "Конституционное право", name: "Об основных гарантиях избирательных прав и права на участие в референдуме граждан Российской Федерации" },
+  /* --- окружающая среда, безопасность, земля --- */
+  { id: "fz7ohrana",  number: "7-ФЗ",    date: "10.01.2002", short: "ФЗ об охране окружающей среды", branch: "Земельное право", name: "Об охране окружающей среды" },
+  { id: "fz89othody", number: "89-ФЗ",   date: "24.06.1998", short: "ФЗ об отходах производства", branch: "Земельное право", name: "Об отходах производства и потребления" },
+  { id: "fz69pozhar", number: "69-ФЗ",   date: "21.12.1994", short: "ФЗ о пожарной безопасности", branch: "Административное право", name: "О пожарной безопасности" },
+  { id: "fz217sad",   number: "217-ФЗ",  date: "29.07.2017", short: "ФЗ о садоводстве и огородничестве", branch: "Земельное право", name: "О ведении гражданами садоводства и огородничества для собственных нужд и о внесении изменений в отдельные законодательные акты Российской Федерации" }
 ];
 
 /* Постановления Правительства Российской Федерации, необходимые в работе
@@ -108,7 +141,11 @@ const DECREES = [
    неполными или подменёнными (проверено при сборке). */
 const PATCH = [
   { id: "fz86", number: "86-ФЗ", date: "10.07.2002", short: "ФЗ о Банке России", branch: "Финансовое право", name: "О Центральном банке Российской Федерации (Банке России)" },
-  { id: "fz196", number: "196-ФЗ", date: "10.12.1995", short: "ФЗ о БДД", branch: "Транспортное право", name: "О безопасности дорожного движения" }
+  { id: "fz196", number: "196-ФЗ", date: "10.12.1995", short: "ФЗ о БДД", branch: "Транспортное право", name: "О безопасности дорожного движения" },
+  /* 218-ФЗ «О кредитных историях»: в наборе данных текст застрял на редакции
+     от 04.08.2026 и не содержит ст. 10.1 и 10.2 — берём с официального
+     портала, там редакция от 01.10.2026 и все 31 статья. */
+  { id: "fz218b", number: "218-ФЗ", date: "30.12.2004", short: "ФЗ о кредитных историях", branch: "Финансовое право", name: "О кредитных историях" }
 ];
 const FKZ_LIST = [
   { number: "1-ФКЗ", date: "21.07.1994", short: "ФКЗ о КС РФ",   name: "О Конституционном Суде Российской Федерации" },
@@ -175,6 +212,26 @@ async function actualRedaction(hash) {
       .sort((a, b) => String(b.reddate || "").localeCompare(String(a.reddate || "")))[0];
   }
   return cand || null;
+}
+
+/* Кандидаты редакций по порядку: сначала актуальная, затем готовые — от
+   свежих к старым. Нужно потому, что у части документов актуальная редакция
+   отдаётся заглушкой «Подготовка текста редакции» (например, 79-ФЗ), и
+   единственный способ получить текст — взять предыдущую готовую редакцию. */
+async function redactionCandidates(hash) {
+  const reds = await redactions(hash);
+  const list = reds.redactions || [];
+  const actual = list.filter(r => r.actual);
+  const rest = list.filter(r => !r.actual && r.redcompleted)
+    .sort((a, b) => String(b.reddate || "").localeCompare(String(a.reddate || "")));
+  return actual.concat(rest);
+}
+
+/* Заглушка вместо текста: портал вернул не сам акт, а служебную строку. */
+function isStubHtml(html) {
+  const paras = htmlToParagraphs(html || []);
+  const plain = paras.join(" ").trim();
+  return !plain || plain.length < 400 || /^Подготовка текста/i.test(plain);
 }
 
 /* ---------------------------------------------------------------- HTML -> статьи */
@@ -442,11 +499,18 @@ async function fetchDoc(found, name, extra, converter) {
   if (!found) return { error: "не найдено: " + name };
   const hash = found.dochash;
   const c = await card(hash);
-  const red = await actualRedaction(hash);
-  if (!red) return { error: "нет актуальной редакции: " + name };
-  const txt = await redtext(red.redid);
-  const html = txt.redtext || "";
-  const arts = (converter || paragraphsToArticles)(htmlToParagraphs(html));
+  const cands = await redactionCandidates(hash);
+  if (!cands.length) return { error: "нет актуальной редакции: " + name };
+  /* Берём первую редакцию, у которой текст не заглушка. Если все заглушки —
+     возвращаемся к актуальной: пусть лучше будет пусто, чем чужой текст. */
+  let red = cands[0], html = "", arts = [];
+  for (const cand of cands) {
+    const txt = await redtext(cand.redid);
+    const h = txt.redtext || "";
+    const a = (converter || paragraphsToArticles)(htmlToParagraphs(h));
+    if (!isStubHtml(h) && a.length) { red = cand; html = h; arts = a; break; }
+    if (cand === cands[0]) { red = cand; html = h; arts = a; }
+  }
   const adopt = (c.adoptions || [])[0] || {};
   const redDate = String(red.reddate || "");
   return {
@@ -574,26 +638,34 @@ if (require.main !== module) {
   }
 
   // 3. Дополнительные федеральные законы (нет в наборе данных)
+  /* Догрузка по одному: список EXTRA_LAWS со временем растёт, а полный
+     --force перекачивал бы и то, что уже лежит. Поэтому читаем прежний
+     файл и запрашиваем только отсутствующие (по app_id). */
   const extraFile = path.join(SRC, "laws-extra.json");
-  if (fs.existsSync(extraFile) && !FORCE) {
-    console.log("Доп. федеральные законы: уже загружены (vendor/ruslaw/laws-extra.json)");
-  } else {
-    console.log("\nДополнительные федеральные законы: " + EXTRA_LAWS.length);
-    const list = [];
-    for (const f of EXTRA_LAWS) {
-      try {
-        const found = await findByNumberDate(f.number, f.date, FZ_RE);
-        const d = await fetchDoc(found, f.name, { id: f.id, short: f.short, branch: f.branch, kind: "Федеральный закон" });
-        if (d.error) { console.log("  —    " + f.number + " " + f.date + "  (" + d.error + ")"); continue; }
-        d.app_id = f.id;
-        list.push(d);
-        console.log("  OK   " + (d.number + " от " + d.adopted).padEnd(22) + " статей " + String(d.n_articles).padStart(3) + "  ред. " + d.redaction_date + "  " + f.short);
-      } catch (e) {
-        console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
-      }
+  const extraList = fs.existsSync(extraFile)
+    ? JSON.parse(fs.readFileSync(extraFile, "utf8"))
+    : [];
+  const extraHave = {};
+  extraList.forEach(d => { if (d && d.app_id) extraHave[d.app_id] = 1; });
+  const extraTodo = EXTRA_LAWS.filter(f => FORCE || !extraHave[f.id]);
+  console.log("\nДополнительные федеральные законы: в списке " + EXTRA_LAWS.length +
+    ", загружено " + extraList.length + ", догружаем " + extraTodo.length);
+  for (const f of extraTodo) {
+    try {
+      const found = await findByNumberDate(f.number, f.date, FZ_RE);
+      const d = await fetchDoc(found, f.name, { id: f.id, short: f.short, branch: f.branch, kind: "Федеральный закон" });
+      if (d.error) { console.log("  —    " + f.number + " " + f.date + "  (" + d.error + ")"); continue; }
+      d.app_id = f.id;
+      const i = extraList.findIndex(x => x && x.app_id === f.id);
+      if (i === -1) extraList.push(d); else extraList[i] = d;
+      console.log("  OK   " + (d.number + " от " + d.adopted).padEnd(22) + " статей " + String(d.n_articles).padStart(3) + "  ред. " + d.redaction_date + "  " + f.short);
+    } catch (e) {
+      console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
     }
-    fs.writeFileSync(extraFile, JSON.stringify(list, null, 1), "utf8");
-    console.log("  сохранено: vendor/ruslaw/laws-extra.json (" + list.length + ")");
+  }
+  if (extraTodo.length) {
+    fs.writeFileSync(extraFile, JSON.stringify(extraList, null, 1), "utf8");
+    console.log("  сохранено: vendor/ruslaw/laws-extra.json (" + extraList.length + ")");
   }
 
   // 4. Постановления Правительства (пункты, а не статьи)

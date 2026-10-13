@@ -1726,6 +1726,10 @@
     LS.set("col", state.col);
   }
   function colClear() { state.col = []; LS.set("col", state.col); syncColCount(); }
+  /* Название подборки: попадает в выгрузку, поэтому хранится рядом с ней */
+  function colTitle() { return LS.get("colTitle", ""); }
+  function colTitleSet(v) { LS.set("colTitle", String(v || "").slice(0, 120)); }
+  function colName() { return colTitle().trim() || "Подборка норм"; }
   function syncColCount() {
     var el = $("#colCount");
     if (el) { el.textContent = state.col.length; el.style.display = state.col.length ? "" : "none"; }
@@ -1758,7 +1762,7 @@
       title: String(title || "").trim() || "Дело без названия",
       desc: String(desc || "").trim(),
       created: Date.now(), updated: Date.now(),
-      items: [], notes: []
+      items: [], notes: [], docs: [], prof: {}
     };
     state.cases.unshift(c);
     caseSave();
@@ -1828,6 +1832,98 @@
     c.notes = c.notes.filter(function (n) { return n.id !== nid; });
     c.updated = Date.now();
     caseSave();
+  }
+
+  /* --- готовые документы дела: шаблоны и иски, доведённые до текста ---
+     Документ хранится в самом деле (текст, а не ссылка): дело должно
+     открываться и выгружаться целиком, даже если шаблон потом изменится. */
+  function caseDocs(c) { return (c && c.docs) || []; }
+  function caseAddDoc(id, title, text, kind) {
+    var c = caseById(id);
+    if (!c || !String(text || "").trim()) return null;
+    if (!c.docs) c.docs = [];
+    var d = {
+      id: "d" + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36),
+      title: String(title || "Документ").trim() || "Документ",
+      kind: kind || "Документ",
+      text: String(text), created: Date.now()
+    };
+    c.docs.unshift(d);
+    c.updated = Date.now();
+    caseSave();
+    return d;
+  }
+  function caseDelDoc(id, did) {
+    var c = caseById(id);
+    if (!c || !c.docs) return;
+    c.docs = c.docs.filter(function (d) { return d.id !== did; });
+    c.updated = Date.now();
+    caseSave();
+  }
+  function caseDocById(id, did) {
+    var c = caseById(id);
+    return (caseDocs(c).filter(function (d) { return d.id === did; })[0]) || null;
+  }
+
+  /* --- реквизиты сторон дела ---
+     Ключи совпадают с ключами полей шаблонов и исков (istets, otvet,
+     ist_adres, gorod, fio, organ…). Поэтому «Заполнить из дела» в шаблоне —
+     это просто перенос совпадающих ключей, без второй таблицы соответствий. */
+  var CASE_PROF_FIELDS = [
+    { k: "istets", l: "Истец / потерпевший", p: "Петров Пётр Петрович" },
+    { k: "ist_adres", l: "Адрес истца", p: "г. Москва, ул. Примерная, д. 1, кв. 1" },
+    { k: "otvet", l: "Ответчик / обвиняемый", p: "Сидоров Сергей Сергеевич" },
+    { k: "otv_adres", l: "Адрес ответчика", p: "г. Москва, ул. Заводская, д. 2" },
+    { k: "fio", l: "ФИО (если дело ведёт одно лицо)", p: "Петров П.П." },
+    { k: "gorod", l: "Населённый пункт", p: "г. Москва" },
+    { k: "organ", l: "Орган, подразделение", p: "СО ОМВД России по району ..." },
+    { k: "dolzhnost", l: "Должность и звание", p: "следователь, лейтенант юстиции" }
+  ];
+  function caseProf(c) { return (c && c.prof) || {}; }
+  function caseProfSet(id, k, v) {
+    var c = caseById(id);
+    if (!c) return;
+    if (!c.prof) c.prof = {};
+    c.prof[k] = v;
+    c.updated = Date.now();
+    LS.set("cases", state.cases);
+  }
+  /* Заполненные реквизиты дела в виде значений полей документа */
+  function caseProfVals(c) {
+    var p = caseProf(c), out = {};
+    CASE_PROF_FIELDS.forEach(function (f) {
+      var v = p[f.k];
+      if (v != null && String(v).trim() !== "") out[f.k] = String(v);
+    });
+    return out;
+  }
+
+  /* Вложения дела. Пределы подобраны так, чтобы браузер не «подавился»
+     сканами: один файл — 10 МБ, все вложения вместе — 60 МБ. */
+  var CASE_FILE_MAX = 10 * 1024 * 1024;
+  var CASE_FILE_TOTAL = 60 * 1024 * 1024;
+
+  function fmtSize(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + " Б";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + " КБ";
+    return (n / (1024 * 1024)).toFixed(1) + " МБ";
+  }
+
+  /* Имя файла из русского названия: латиница, цифры и дефисы. Нужно там, где
+     файл сохраняется по названию документа, а не по его идентификатору. */
+  var TRANSLIT = {
+    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i",
+    й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t",
+    у: "u", ф: "f", х: "h", ц: "c", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "",
+    э: "e", ю: "yu", я: "ya"
+  };
+  function slug(s) {
+    var out = String(s || "").toLowerCase().split("").map(function (ch) {
+      return TRANSLIT[ch] != null ? TRANSLIT[ch] : ch;
+    }).join("");
+    out = out.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+    return out || "document";
   }
   function syncCaseCount() {
     var el = $("#caseCount");
@@ -6630,6 +6726,7 @@
       '<div class="split">' +
         "<div>" +
           '<div class="card"><div class="section-label" style="margin-top:0">Данные для подстановки</div>' + fields +
+            casePickBar() +
             '<div class="actions-row">' +
               '<button class="btn" id="tplReset">Сбросить к образцу</button>' +
               '<button class="btn" id="tplClear">Очистить</button>' +
@@ -6705,14 +6802,63 @@
       printDoc("", '<div class="doc-sheet doc-print">' + word() + "</div>");
     });
 
+    bindCasePick("data-tf", {
+      after: refresh,
+      title: function () { return t.t; },
+      text: plain,
+      kind: "Документ по шаблону"
+    });
+
     refresh();
+  }
+
+  /* ------------------------------------------------- документ и дело вместе
+     Ключи полей шаблонов и исков (istets, otvet, ist_adres, gorod…) совпадают
+     с ключами реквизитов дела. Поэтому «Заполнить из дела» — это перенос
+     совпадающих ключей, без второй таблицы соответствий, а «В дело» —
+     сохранение готового текста в дело отдельным документом. */
+
+  function casePickBar() {
+    if (!state.cases.length) return "";
+    return '<div class="actions-row doc-casepick">' +
+      '<select class="select" id="docCaseSel" aria-label="Дело">' +
+        state.cases.map(function (c) {
+          return '<option value="' + esc(c.id) + '">' + esc(c.title) + "</option>";
+        }).join("") +
+      "</select>" +
+      '<button class="btn" id="docCaseFill">' + ic("folder") + " Заполнить из дела</button>" +
+      '<button class="btn" id="docCaseSave">' + ic("save") + " В дело</button>" +
+      "</div>";
+  }
+
+  /* attr — «data-tf» у шаблонов и «data-sf» у исков; opts.after — перерисовать
+     документ, opts.title()/opts.text() — что положить в дело. */
+  function bindCasePick(attr, opts) {
+    var sel = $("#docCaseSel"), fill = $("#docCaseFill"), save = $("#docCaseSave");
+    if (fill && sel) fill.addEventListener("click", function () {
+      var c = caseById(sel.value);
+      if (!c) return;
+      var vals = caseProfVals(c), n = 0;
+      $$("[" + attr + "]").forEach(function (el) {
+        var k = el.getAttribute(attr);
+        if (vals[k] != null) { el.value = vals[k]; n++; }
+      });
+      if (opts && opts.after) opts.after();
+      toast(n ? "Заполнено полей: " + n + " — из дела «" + c.title + "»"
+        : "В реквизитах дела нет данных для полей этого документа");
+    });
+    if (save && sel) save.addEventListener("click", function () {
+      var c = caseById(sel.value);
+      if (!c) return;
+      var d = caseAddDoc(c.id, opts.title(), opts.text(), opts.kind);
+      toast(d ? "Документ добавлен в дело «" + c.title + "»" : "Документ пуст — сохранять нечего");
+    });
   }
 
   /* ==================================================================== иски
      Готовые исковые заявления. Данные — window.RF_SUITS.suits (data/41-suits.js).
      Тело документа собирается тем же docHtml/docText, что и шаблоны; цена иска и
      госпошлина считаются на лету и подставляются через {{price}}/{{duty}}. */
-
   function suitById(id) {
     return ((window.RF_SUITS || {}).suits || []).filter(function (x) { return x.id === id; })[0] || null;
   }
@@ -6756,7 +6902,8 @@
       return '<section class="tpl-group" data-group="' + esc(gr.g) + '"><h2>' + esc(gr.g) +
         '<span class="small muted">' + gr.items.length + "</span></h2>" +
         '<div class="grid grid-2">' + gr.items.map(function (s) {
-          return '<div class="card" data-go="#/suit/' + s.id + '" style="cursor:pointer">' +
+          var hay = (s.t + " " + (s.basis || "") + " " + (s.court || "")).toLowerCase();
+          return '<div class="card" data-go="#/suit/' + s.id + '" data-suit-hay="' + esc(hay) + '" style="cursor:pointer">' +
             '<div style="font-weight:620">' + esc(s.t) + "</div>" +
             '<div class="small muted" style="margin-top:4px">' + esc(s.basis || "") + "</div>" +
             '<div class="small muted" style="margin-top:8px">' + (s.articles || []).length + " " +
@@ -6764,15 +6911,54 @@
         }).join("") + "</div></section>";
     }).join("");
 
+    var bar = '<div class="tpl-bar">' +
+      '<input class="input" id="suitFind" type="search" autocomplete="off" placeholder="Поиск заявления: название, правовое основание, суд">' +
+      '<div class="chips tpl-nav">' + groups.map(function (gr) {
+        return '<div class="chip" data-suit-jump="' + esc(gr.g) + '">' + esc(gr.g) + " <b>" + gr.items.length + "</b></div>";
+      }).join("") + "</div></div>";
+
     return "<h1>Исковые заявления</h1>" +
       '<p class="lead">' + all.length + " " + plural(all.length, ["готовое исковое заявление", "готовых исковых заявления", "готовых исковых заявлений"]) +
       " по гражданским, административным и арбитражным делам: взыскание долга, алименты, защита прав потребителя, расторжение брака, возмещение вреда, установление факта, спор с органом власти. " +
       "Заполните суммы — цена иска и госпошлина подставятся и пересчитаются автоматически, документ можно скачать в Word, выгрузить текстом или распечатать.</p>" +
-      tabStrip(DOC_TABS, "suits") + cards +
+      tabStrip(DOC_TABS, "suits") + bar + cards +
+      '<div class="empty" id="suitEmpty" hidden><div class="ico">' + ic("search") + '</div><div>Ничего не найдено. Измените запрос или очистите поиск.</div></div>' +
       '<div class="disclaimer">Заявления носят справочный характер и требуют адаптации к обстоятельствам дела, проверки подсудности и актуальных размеров госпошлины (ст. 333.19/333.21 НК РФ).</div>';
   }
 
-  function bindSuits() { /* список статичен — фильтрация не нужна */ }
+  function bindSuits() {
+    var find = $("#suitFind");
+    if (find) {
+      var apply = function () {
+        var q = find.value.trim().toLowerCase();
+        var shown = 0;
+        $$("#view .tpl-group").forEach(function (sec) {
+          var n = 0;
+          $$(".card", sec).forEach(function (card) {
+            var hit = !q || (card.getAttribute("data-suit-hay") || "").indexOf(q) !== -1;
+            card.hidden = !hit;
+            if (hit) n++;
+          });
+          sec.hidden = n === 0;
+          shown += n;
+        });
+        var empty = $("#suitEmpty");
+        if (empty) empty.hidden = shown !== 0;
+      };
+      find.addEventListener("input", apply);
+      find.addEventListener("search", apply);
+      find.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && find.value) { find.value = ""; apply(); }
+      });
+    }
+    $$("#view [data-suit-jump]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var g = el.getAttribute("data-suit-jump");
+        var sec = $$("#view .tpl-group").filter(function (s) { return s.getAttribute("data-group") === g; })[0];
+        if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }
 
   function viewSuit(id) {
     var s = suitById(id);
@@ -6797,6 +6983,7 @@
         "<div>" +
           (steps ? '<div class="card"><div class="section-label" style="margin-top:0">Как подать</div><ol class="suit-steps">' + steps + "</ol></div>" : "") +
           '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Данные для подстановки</div>' + fields +
+            casePickBar() +
             '<div class="actions-row">' +
               '<button class="btn" id="suitReset">Сбросить к образцу</button>' +
               '<button class="btn" id="suitClear">Очистить</button>' +
@@ -6818,7 +7005,6 @@
             '<button class="btn" id="suitDoc">' + ic("file") + " Скачать .doc</button>" +
             '<button class="btn" id="suitTxt">' + ic("file") + " Скачать .txt</button>" +
             '<button class="btn no-print" id="suitPrint">' + ic("print") + " Печать</button>" +
-            (state.cases.length ? '<button class="btn" id="suitToCase">' + ic("folder") + " В дело</button>" : "") +
           "</div></div>" +
         "</div>" +
       "</div>" +
@@ -6874,25 +7060,11 @@
     });
     var pr = $("#suitPrint"); if (pr) pr.addEventListener("click", function () { printDoc("", '<div class="doc-sheet doc-print">' + word() + "</div>"); });
 
-    var tc = $("#suitToCase");
-    if (tc) tc.addEventListener("click", function () {
-      if (!state.cases.length) { toast("Сначала создайте дело в разделе «Дела»"); return; }
-      var box = document.createElement("div");
-      box.className = "suit-casepick";
-      box.innerHTML = state.cases.map(function (c) {
-        return '<button class="btn" data-case="' + esc(c.id) + '">' + esc(c.title) + "</button>";
-      }).join("");
-      tc.parentNode.insertBefore(box, tc.nextSibling);
-      box.querySelectorAll("[data-case]").forEach(function (b) {
-        b.addEventListener("click", function () {
-          var cid = b.getAttribute("data-case");
-          var c = caseById(cid);
-          if (!c) return;
-          caseAddNote(cid, "Готовое заявление: " + s.t + "\n\n" + plain());
-          if (box.parentNode) box.parentNode.removeChild(box);
-          toast("Заявление добавлено в дело «" + c.title + "»");
-        });
-      });
+    bindCasePick("data-sf", {
+      after: refresh,
+      title: function () { return s.t; },
+      text: plain,
+      kind: "Исковое заявление"
     });
 
     refresh();
@@ -6903,7 +7075,10 @@
   function viewCollection() {
     var items = colItems();
     var head = '<h1>Подборка норм</h1>' +
-      '<p class="lead">Рабочий набор статей по делу: добавляйте нормы из поиска, из текста статьи и из разбора ситуации, пишите заметки к позициям и выгружайте одним документом. Хранится только в вашем браузере.</p>';
+      '<p class="lead">Рабочий набор статей по делу: добавляйте нормы из поиска, из текста статьи и из разбора ситуации, пишите заметки к позициям и выгружайте одним документом. Хранится только в вашем браузере.</p>' +
+      '<div class="info-box"><b>Зачем это нужно.</b> Нормы по одному вопросу разбросаны по кодексам: три статьи УК, две УПК, статья КоАП. ' +
+      "Подборка собирает их в один список в нужном порядке, с заметками «зачем эта норма» — из него получается выписка, " +
+      "которую можно приложить к делу или передать коллеге, не собирая всё заново.</div>";
 
     if (!items.length) {
       return head + '<div class="empty"><div class="ico">' + ic("clip") + '</div><div>Подборка пуста. Откройте статью и нажмите «В подборку» — или добавьте нормы прямо из результатов поиска.</div></div>' +
@@ -6936,11 +7111,19 @@
     }).join("");
 
     return head +
+      '<div class="card" style="margin-bottom:14px">' +
+        '<div class="field" style="margin:0"><label>Название подборки</label>' +
+          '<input class="input" id="colTitle" value="' + esc(colTitle()) +
+          '" placeholder="Например: Дело № 123456, Иванов — нормы к ходатайству"></div>' +
+        '<div class="small muted" style="margin-top:6px">Название попадает в выгруженный документ и в дело — ' +
+        "по нему подборку потом легко найти.</div>" +
+      "</div>" +
       '<div class="actions-row">' +
         '<button class="btn btn-primary" id="colExportDoc">Скачать .doc</button>' +
         '<button class="btn" id="colExportTxt">Скачать .txt</button>' +
         '<button class="btn" id="colCopy">Скопировать текстом</button>' +
         '<button class="btn" id="colPrint">Печать / PDF</button>' +
+        (state.cases.length ? '<button class="btn" id="colToCase">' + ic("folder") + " В дело</button>" : "") +
         '<button class="btn" id="colClear">Очистить подборку</button>' +
       "</div>" +
       '<div class="small muted" style="margin-bottom:14px">В подборке ' + items.length + " " +
@@ -6972,10 +7155,12 @@
 
     var cards = state.cases.map(function (c) {
       var items = caseItems(c.id);
+      var docs = caseDocs(c);
       return '<div class="card case-card" data-go="#/case/' + encodeURIComponent(c.id) + '">' +
         '<div class="case-card-head">' +
           '<span class="result-title">' + ic("folder") + " " + esc(c.title) + "</span>" +
           '<span class="badge">' + items.length + " " + plural(items.length, ["норма", "нормы", "норм"]) + "</span>" +
+          '<span class="badge">' + docs.length + " " + plural(docs.length, ["документ", "документа", "документов"]) + "</span>" +
           '<span class="badge">' + c.notes.length + " " + plural(c.notes.length, ["заметка", "заметки", "заметок"]) + "</span>" +
         "</div>" +
         (c.desc ? '<div class="small muted">' + esc(c.desc) + "</div>" : "") +
@@ -7001,12 +7186,16 @@
 
     var items = caseItems(c.id);
     var missing = c.items.length - items.length;
+    var docs = caseDocs(c);
+    var pv = caseProfVals(c);
+    var profFilled = Object.keys(pv).length;
 
     var head = '<div class="article-head">' +
       '<div class="article-cite">Дело · изменено ' + esc(fmtDate(new Date(c.updated || c.created))) + "</div>" +
       '<div class="article-title">' + ic("folder") + " " + esc(c.title) + "</div>" +
       '<div class="result-meta"><span>' + items.length + " " + plural(items.length, ["норма", "нормы", "норм"]) + "</span>" +
         "<span>" + c.notes.length + " " + plural(c.notes.length, ["заметка", "заметки", "заметок"]) + "</span>" +
+        "<span>" + docs.length + " " + plural(docs.length, ["документ", "документа", "документов"]) + "</span>" +
         (missing > 0 ? "<span>" + missing + " " + plural(missing, ["запись недоступна", "записи недоступны", "записей недоступно"]) + "</span>" : "") +
       "</div></div>";
 
@@ -7015,6 +7204,7 @@
       '<button class="btn" id="caseExportTxt">Скачать .txt</button>' +
       '<button class="btn" id="caseCopy">Скопировать текстом</button>' +
       '<button class="btn" id="casePrint">Печать / PDF</button>' +
+      '<button class="btn" id="caseExportJson">Выгрузить дело (JSON)</button>' +
       '<button class="btn" id="caseDel">Удалить дело</button>' +
       "</div>";
 
@@ -7023,6 +7213,19 @@
       '<textarea class="textarea" id="caseDesc" rows="2" placeholder="Краткое описание: что произошло, статья, стадия, участники" style="width:100%">' +
         esc(c.desc) + "</textarea>" +
       '<div class="small muted" style="margin-top:8px">Поля сохраняются сразу, кнопки сохранять нет.</div></div>';
+
+    /* Стороны дела: ключи совпадают с полями шаблонов и исков, поэтому
+       документ можно собрать одним нажатием — «Заполнить из дела». */
+    var prof = '<details class="prof"' + (profFilled ? "" : " open") + "><summary>Стороны дела и реквизиты" +
+      (profFilled ? '<span class="badge">заполнено</span>'
+        : '<span class="small muted">заполните — подставятся в шаблоны и иски одним нажатием</span>') +
+      '</summary><div class="prof-grid">' + CASE_PROF_FIELDS.map(function (f) {
+        return '<div class="field"><label>' + esc(f.l) + "</label>" +
+          '<input class="input" data-case-prof="' + f.k + '" value="' + esc(pv[f.k] || "") +
+          '" placeholder="' + esc(f.p) + '"></div>';
+      }).join("") + "</div>" +
+      '<div class="small muted">Эти данные остаются в вашем браузере и подставляются в документы, ' +
+      "собранные по этому делу.</div></details>";
 
     var find = '<div class="card"><h3 style="margin-top:0">Добавить норму</h3>' +
       '<div class="actions-row">' +
@@ -7051,6 +7254,39 @@
         "</div>";
     }).join("") : '<div class="empty"><div class="ico">' + ic("file") + '</div><div>В деле пока нет норм.</div></div>';
 
+    /* Готовые документы: сюда попадают шаблоны и иски кнопкой «В дело».
+       Текст хранится копией — дело остаётся целым, даже если шаблон изменят. */
+    var docsHtml = '<div class="card"><h3 style="margin-top:0">Документы дела</h3>' +
+      (docs.length ? '<div class="case-docs">' + docs.map(function (d) {
+        return '<div class="case-doc" data-case-doc-row="' + esc(d.id) + '">' +
+          '<div class="case-doc-head">' +
+            '<span class="badge">' + esc(d.kind) + "</span>" +
+            '<span class="case-doc-title">' + esc(d.title) + "</span>" +
+            '<span class="small muted">' + esc(fmtDate(new Date(d.created))) + "</span>" +
+            '<span class="col-tools">' +
+              '<button class="ibtn" data-case-doc-txt="' + esc(d.id) + '" title="Скачать .txt" aria-label="Скачать .txt">↓</button>' +
+              '<button class="ibtn" data-case-doc-copy="' + esc(d.id) + '" title="Скопировать текст" aria-label="Скопировать текст">⧉</button>' +
+              '<button class="ibtn ibtn-del" data-case-doc-del="' + esc(d.id) + '" title="Удалить документ" aria-label="Удалить документ">✕</button>' +
+            "</span>" +
+          "</div>" +
+          '<textarea class="textarea" data-case-doc-text="' + esc(d.id) + '" rows="6" style="width:100%">' + esc(d.text) + "</textarea>" +
+          "</div>";
+      }).join("") + "</div>"
+        : '<div class="small muted">Документов пока нет. Откройте шаблон или иск и нажмите «В дело» — ' +
+          "документ сохранится здесь вместе с реквизитами сторон.</div>") +
+      '<p class="small muted" style="margin-top:10px">Правки в тексте сохраняются автоматически. ' +
+      "В выгрузку дела документы попадают отдельным разделом.</p></div>";
+
+    var files = '<div class="card"><h3 style="margin-top:0">Вложения</h3>' +
+      '<div class="actions-row">' +
+        '<button class="btn" id="caseFileAdd">' + ic("clip") + " Прикрепить файлы</button>" +
+        '<input type="file" id="caseFileInput" multiple style="display:none">' +
+      "</div>" +
+      '<div id="caseFileList"><div class="small muted">Загружаем список…</div></div>' +
+      '<p class="small muted">Сканы, фото, справки: до ' + fmtSize(CASE_FILE_MAX) + " на файл и до " +
+        fmtSize(CASE_FILE_TOTAL) + " на все дела. Файлы хранятся только в вашем браузере — " +
+        "на сервер они не отправляются. В JSON-выгрузку дела вложения не попадают.</p></div>";
+
     var notes = '<div class="card"><h3 style="margin-top:0">Заметки по делу</h3>' +
       '<textarea class="textarea" id="caseNoteNew" rows="3" ' +
         'placeholder="Свободная заметка: хронология, что сделано, что проверить, вопросы…" style="width:100%"></textarea>' +
@@ -7064,8 +7300,10 @@
       }).join("") + "</div>" : '<div class="small muted" style="margin-top:10px">Заметок пока нет.</div>') +
       "</div>";
 
-    return head + actions + edit + find +
-      '<h2 style="margin-top:22px">Нормы в деле</h2>' + body + notes;
+    return head + actions + edit + prof +
+      '<h2 style="margin-top:22px">Нормы в деле</h2>' + find + body +
+      '<h2 style="margin-top:22px">Документы</h2>' + docsHtml +
+      '<h2 style="margin-top:22px">Материалы</h2>' + files + notes;
   }
 
   /* Полные тексты норм дела: догружаем отсутствующие */
@@ -7088,6 +7326,13 @@
     var out = "ДЕЛО: " + c.title + "\n";
     if (c.desc) out += c.desc + "\n";
     out += fmtDate(new Date()) + "\n\n" + blocks.join("\n\n" + "-".repeat(60) + "\n\n");
+    var docs = caseDocs(c);
+    if (docs.length) {
+      out += "\n\n" + "=".repeat(60) + "\n\nДОКУМЕНТЫ ПО ДЕЛУ\n\n" +
+        docs.map(function (d, i) {
+          return (i + 1) + ". " + d.title + " (" + d.kind + ", " + fmtDate(new Date(d.created)) + ")\n\n" + d.text;
+        }).join("\n\n" + "-".repeat(60) + "\n\n");
+    }
     if (c.notes.length) {
       out += "\n\n" + "=".repeat(60) + "\n\nЗАМЕТКИ ПО ДЕЛУ\n\n" +
         c.notes.map(function (n, i) {
@@ -7102,6 +7347,11 @@
       return '<p class="m"><b>' + (i + 1) + ".</b> " + esc(fmtDate(new Date(n.created))) + "</p>" +
         "<pre>" + esc(n.text) + "</pre>";
     }).join("") : "";
+    var docs = caseDocs(c);
+    var docsHtml = docs.length ? "<hr><h2>Документы по делу</h2>" + docs.map(function (d) {
+      return '<p class="m"><b>' + esc(d.title) + "</b> · " + esc(d.kind) + " · " +
+        esc(fmtDate(new Date(d.created))) + "</p><pre>" + esc(d.text) + "</pre>";
+    }).join("") : "";
     return '<html><head><meta charset="utf-8"><title>' + esc(c.title) + "</title><style>" +
       "body{font:14px/1.6 Georgia,serif;margin:32px;color:#111}" +
       "h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 8px}" +
@@ -7111,8 +7361,10 @@
       "</style></head><body><h1>" + esc(c.title) + "</h1>" +
       (c.desc ? '<p class="m">' + esc(c.desc) + "</p>" : "") +
       '<p class="m">' + esc(fmtDate(new Date())) + " · " + items.length + " " +
-      plural(items.length, ["норма", "нормы", "норм"]) + "</p><hr>" +
-      colTextHtml(items) + notes + "</body></html>";
+      plural(items.length, ["норма", "нормы", "норм"]) +
+      (docs.length ? " · " + docs.length + " " + plural(docs.length, ["документ", "документа", "документов"]) : "") +
+      "</p><hr>" +
+      colTextHtml(items) + docsHtml + notes + "</body></html>";
   }
 
   function bindCases() {
@@ -7156,7 +7408,13 @@
                 id: c.id, title: String(c.title || "Дело без названия"), desc: String(c.desc || ""),
                 created: c.created || Date.now(), updated: c.updated || Date.now(),
                 items: Array.isArray(c.items) ? c.items.filter(function (i) { return i && i.id; }) : [],
-                notes: Array.isArray(c.notes) ? c.notes.filter(function (n) { return n && n.id; }) : []
+                notes: Array.isArray(c.notes) ? c.notes.filter(function (n) { return n && n.id; }) : [],
+                docs: Array.isArray(c.docs) ? c.docs.filter(function (d) { return d && d.id && d.text; })
+                  .map(function (d) {
+                    return { id: d.id, title: String(d.title || "Документ"), kind: String(d.kind || "Документ"),
+                      text: String(d.text), created: d.created || Date.now() };
+                  }) : [],
+                prof: (c.prof && typeof c.prof === "object") ? c.prof : {}
               });
               add++;
             });
@@ -7297,11 +7555,147 @@
     var pr = $("#casePrint");
     if (pr) pr.addEventListener("click", function () {
       caseCollect(id, function (items) {
+        var d = caseDocs(c);
         printDoc(c.title, colTextHtml(items) +
+          (d.length ? "<hr><h2>Документы по делу</h2>" + d.map(function (x) {
+            return '<p class="m"><b>' + esc(x.title) + "</b> · " + esc(x.kind) + "</p><pre>" + esc(x.text) + "</pre>";
+          }).join("") : "") +
           (c.notes.length ? "<hr><h2>Заметки по делу</h2>" + c.notes.map(function (n, i) {
             return '<p class="m"><b>' + (i + 1) + ".</b> " + esc(fmtDate(new Date(n.created))) + "</p><pre>" + esc(n.text) + "</pre>";
           }).join("") : ""));
       });
+    });
+
+    var ej = $("#caseExportJson");
+    if (ej) ej.addEventListener("click", function () {
+      download("delo-" + id + ".json", JSON.stringify({
+        app: "pravovoy-konsultant", kind: "case", exported: new Date().toISOString(), cases: [c]
+      }, null, 1), "application/json");
+      toast("Дело выгружено в файл");
+    });
+
+    /* --- стороны дела: значения подставляются в шаблоны и иски --- */
+    $$("[data-case-prof]").forEach(function (el) {
+      el.addEventListener("input", function () { caseProfSet(id, el.getAttribute("data-case-prof"), el.value); });
+    });
+
+    /* --- документы дела --- */
+    $$("[data-case-doc-text]").forEach(function (t) {
+      t.addEventListener("input", function () {
+        var d = caseDocById(id, t.getAttribute("data-case-doc-text"));
+        if (!d) return;
+        d.text = t.value;
+        c.updated = Date.now();
+        LS.set("cases", state.cases);
+      });
+    });
+    $$("[data-case-doc-del]").forEach(function (b) {
+      b.addEventListener("click", function () { caseDelDoc(id, b.getAttribute("data-case-doc-del")); render(); toast("Документ удалён"); });
+    });
+    $$("[data-case-doc-txt]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var d = caseDocById(id, b.getAttribute("data-case-doc-txt"));
+        if (d) { download(slug(d.title) + ".txt", d.text, "text/plain"); toast("Файл сохранён"); }
+      });
+    });
+    $$("[data-case-doc-copy]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var d = caseDocById(id, b.getAttribute("data-case-doc-copy"));
+        if (d) copyText(d.text, "Документ скопирован");
+      });
+    });
+
+    /* --- вложения: файлы лежат в IndexedDB, к делу привязаны полем case --- */
+    var fileList = $("#caseFileList");
+    var fInput = $("#caseFileInput");
+    var fAdd = $("#caseFileAdd");
+    var fBusy = false;
+
+    function fileRow(f) {
+      return '<div class="case-file" data-file-row="' + esc(f.id) + '">' +
+        '<span class="ico" data-ico="file"></span>' +
+        '<span class="case-file-name" title="' + esc(f.name) + '">' + esc(f.name) + "</span>" +
+        '<span class="small muted">' + esc(fmtSize(f.size)) + "</span>" +
+        '<span class="col-tools">' +
+          '<button class="ibtn" data-file-get="' + esc(f.id) + '" title="Открыть" aria-label="Открыть">↓</button>' +
+          '<button class="ibtn ibtn-del" data-file-del="' + esc(f.id) + '" title="Удалить вложение" aria-label="Удалить вложение">✕</button>' +
+        "</span></div>";
+    }
+
+    function paintFiles(list) {
+      if (!fileList) return;
+      if (!IDB.available()) {
+        fileList.innerHTML = '<div class="small muted">Хранилище браузера недоступно — вложения не сохранятся. ' +
+          "Проверьте, не открыт ли сайт в приватном окне.</div>";
+        return;
+      }
+      if (!list.length) {
+        fileList.innerHTML = '<div class="small muted">Вложений пока нет.</div>';
+        return;
+      }
+      var total = list.reduce(function (s, f) { return s + (Number(f.size) || 0); }, 0);
+      fileList.innerHTML = '<div class="case-files">' + list.map(fileRow).join("") + "</div>" +
+        '<div class="small muted" style="margin-top:6px">' + list.length + " " +
+        plural(list.length, ["файл", "файла", "файлов"]) + " · " + fmtSize(total) + "</div>";
+      paintIcons(fileList);
+      $$("[data-file-get]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          IDB.fileGet(b.getAttribute("data-file-get"), function (f) {
+            if (!f || !f.blob) { toast("Файл не найден"); return; }
+            var url = URL.createObjectURL(f.blob);
+            var a = document.createElement("a");
+            a.href = url; a.download = f.name || "file";
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+          });
+        });
+      });
+      $$("[data-file-del]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          IDB.fileDel(b.getAttribute("data-file-del"), function () {
+            toast("Вложение удалено");
+            IDB.fileAll(function (all) { paintFiles(all.filter(function (f) { return f.case === id; })); });
+          });
+        });
+      });
+    }
+
+    if (fileList) {
+      IDB.fileAll(function (all) {
+        paintFiles((all || []).filter(function (f) { return f && f.case === id; }));
+      });
+    }
+    if (fAdd && fInput) fAdd.addEventListener("click", function () { fInput.click(); });
+    if (fInput) fInput.addEventListener("change", function () {
+      var files = Array.prototype.slice.call(fInput.files || []);
+      if (!files.length) return;
+      if (fBusy) return;
+      fBusy = true;
+      var i = 0, added = 0, skipped = 0;
+      function next() {
+        if (i >= files.length) {
+          fBusy = false;
+          try { fInput.value = ""; } catch (e) {}
+          IDB.fileAll(function (all) {
+            paintFiles((all || []).filter(function (f) { return f && f.case === id; }));
+          });
+          toast(added ? "Прикреплено файлов: " + added + (skipped ? ", пропущено: " + skipped : "") : "Файлы не добавлены");
+          return;
+        }
+        var file = files[i++];
+        if (file.size > CASE_FILE_MAX) { skipped++; next(); return; }
+        IDB.fileAll(function (all) {
+          var total = (all || []).reduce(function (s, f) { return s + (Number(f.size) || 0); }, 0);
+          if (total + file.size > CASE_FILE_TOTAL) { skipped++; next(); return; }
+          IDB.filePut({
+            id: "f" + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36),
+            case: id, name: file.name, type: file.type || "",
+            size: file.size, blob: file, created: Date.now()
+          }, function () { added++; next(); });
+        });
+      }
+      next();
     });
   }
 
@@ -7340,7 +7734,7 @@
         "",
         "Источник: " + d.url].filter(function (l) { return l !== ""; }).join("\n");
     });
-    return "ПОДБОРКА НОРМ\n" + fmtDate(new Date()) + "\n\n" + blocks.join("\n\n" + "-".repeat(60) + "\n\n") + "\n";
+    return "ПОДБОРКА НОРМ: " + colName() + "\n" + fmtDate(new Date()) + "\n\n" + blocks.join("\n\n" + "-".repeat(60) + "\n\n") + "\n";
   }
 
   function colTextHtml(items) {
@@ -7355,13 +7749,13 @@
   }
 
   function colDocHtml(items) {
-    return '<html><head><meta charset="utf-8"><title>Подборка норм</title><style>' +
+    return '<html><head><meta charset="utf-8"><title>' + esc(colName()) + "</title><style>" +
       "body{font:14px/1.6 Georgia,serif;margin:32px;color:#111}" +
       "h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 8px}" +
       "pre{font:13.5px/1.6 Georgia,serif;white-space:pre-wrap;margin:0 0 8px}" +
       ".m{color:#666;font-size:12px;margin:0 0 10px}.nt{background:#f2f4f7;padding:8px 10px;border-left:3px solid #888;margin:0 0 10px}" +
       "hr{border:0;border-top:1px solid #ccc;margin:18px 0}" +
-      "</style></head><body><h1>Подборка норм</h1>" +
+      "</style></head><body><h1>" + esc(colName()) + "</h1>" +
       '<p class="m">' + esc(fmtDate(new Date())) + " · " + items.length + " " +
       plural(items.length, ["статья", "статьи", "статей"]) + "</p><hr>" + colTextHtml(items) + "</body></html>";
   }
@@ -7439,7 +7833,39 @@
     });
     var pr = $("#colPrint");
     if (pr) pr.addEventListener("click", function () {
-      collectDocs(function (items) { printDoc("Подборка норм", colTextHtml(items)); });
+      collectDocs(function (items) { printDoc(colName(), colTextHtml(items)); });
+    });
+
+    var ti = $("#colTitle");
+    if (ti) ti.addEventListener("input", function () { colTitleSet(ti.value); });
+
+    /* Подборка → дело: нормы переносятся позициями, а сам список — заметкой
+       с названием. Так подборка не теряется, а нормы становятся частью дела. */
+    var tc = $("#colToCase");
+    if (tc) tc.addEventListener("click", function () {
+      var sel = document.createElement("div");
+      sel.className = "suit-casepick";
+      sel.innerHTML = state.cases.map(function (c) {
+        return '<button class="btn" data-col-case="' + esc(c.id) + '">' + esc(c.title) + "</button>";
+      }).join("");
+      tc.parentNode.insertBefore(sel, tc.nextSibling);
+      sel.querySelectorAll("[data-col-case]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var c = caseById(b.getAttribute("data-col-case"));
+          if (!c) return;
+          var n = 0;
+          colItems().forEach(function (x) {
+            if (caseAddItem(c.id, x.a.id)) {
+              var i = caseItemIdx(c, x.a.id);
+              if (i !== -1 && x.e.note) c.items[i].note = x.e.note;
+              n++;
+            }
+          });
+          caseSave();
+          if (sel.parentNode) sel.parentNode.removeChild(sel);
+          toast(n ? "В дело добавлено норм: " + n + " — «" + c.title + "»" : "Все нормы уже есть в этом деле");
+        });
+      });
     });
   }
 
@@ -8709,7 +9135,8 @@
     var db = null, failed = false, name = "rflaws";
     var S_OV = "overrides";   // id -> текущая локально обновлённая редакция
     var S_VER = "versions";   // id|redaction -> снимок прежней редакции
-    var VER = 2;
+    var S_FILE = "files";     // вложения дел: id -> {id, case, name, type, size, blob}
+    var VER = 3;
 
     function open(cb) {
       if (failed || typeof indexedDB === "undefined") { cb(null); return; }
@@ -8722,6 +9149,10 @@
         if (!d.objectStoreNames.contains(S_VER)) {
           var vs = d.createObjectStore(S_VER, { keyPath: "vid" });
           vs.createIndex("doc", "id", { unique: false });
+        }
+        if (!d.objectStoreNames.contains(S_FILE)) {
+          var fs = d.createObjectStore(S_FILE, { keyPath: "id" });
+          fs.createIndex("case", "case", { unique: false });
         }
       };
       req.onsuccess = function () { db = req.result; cb(db); };
@@ -8753,7 +9184,13 @@
       },
       verPut: function (v, cb) { run(S_VER, "readwrite", function (s) { return s.put(v); }, function () { cb(true); }); },
       verDel: function (vid, cb) { run(S_VER, "readwrite", function (s) { return s.delete(vid); }, function () { cb(true); }); },
-      verClear: function (cb) { run(S_VER, "readwrite", function (s) { return s.clear(); }, function () { cb(true); }); }
+      verClear: function (cb) { run(S_VER, "readwrite", function (s) { return s.clear(); }, function () { cb(true); }); },
+
+      /* вложения дел */
+      filePut: function (v, cb) { run(S_FILE, "readwrite", function (s) { return s.put(v); }, function () { cb(true); }); },
+      fileAll: function (cb) { run(S_FILE, "readonly", function (s) { return s.getAll(); }, function (r) { cb(r || []); }); },
+      fileGet: function (id, cb) { run(S_FILE, "readonly", function (s) { return s.get(id); }, function (r) { cb(r || null); }); },
+      fileDel: function (id, cb) { run(S_FILE, "readwrite", function (s) { return s.delete(id); }, function () { cb(true); }); }
     };
   })();
 
@@ -8955,7 +9392,7 @@
 
   /* --- вид «Сравнение редакций» --- */
 
-  var diffState = { loading: false, error: "", result: null, mode: "", from: "", to: "" };
+  var diffState = { loading: false, error: "", result: null, filter: "changed", from: "", to: "" };
 
   /* Текущий (рабочий) набор строк источника: обновлённый, если есть обновление */
   function currentRows(id) {
@@ -9020,6 +9457,10 @@
       '<p class="lead">Приложение сохраняет прежнюю редакцию документа перед каждым обновлением. Здесь видно, ' +
       "что именно изменилось: добавленные, исключённые и переписанные статьи — построчно.</p>" +
       body +
+      '<div class="info-box"><b>Зачем это нужно.</b> Набор данных периодически пересобирается: в новых редакциях ' +
+      "статьи переписывают, добавляют и исключают. Раздел показывает, что именно изменилось с прошлой сохранённой " +
+      "редакции, — обычно это выясняют вручную, сравнивая два текста. Сравнить можно и с онлайн-версией источника, " +
+      "не дожидаясь сохранённой копии. Внутри сравнения есть фильтр по виду изменения и переход к статье.</div>" +
       '<div class="disclaimer">Сравнение строится по текстам, полученным из открытого набора данных; ' +
       "для юридически значимых выводов сверяйтесь с официальной публикацией.</div>";
   }
@@ -9071,7 +9512,6 @@
   }
 
   function diffResultHtml(res, c) {
-    var showAll = diffState.mode === "all";
     var head = '<div class="grid grid-4" style="margin:16px 0">' +
       stat(res.arts.length, "статей сопоставлено") +
       stat(res.changed, "изменилось") +
@@ -9084,7 +9524,35 @@
       return head + '<div class="info-box"><b>Различий нет.</b> Редакции совпадают по тексту и названиям статей.</div>';
     }
 
-    var list = showAll ? res.arts : interesting;
+    /* Фильтр по виду изменения: в большой редакции нужны то добавленные
+       статьи, то исключённые, а не весь список подряд. */
+    var filt = diffState.filter || "changed";
+    var chip = function (k, t, n) {
+      return '<div class="chip' + (filt === k ? " active" : "") + '" data-diff-filter="' + k + '">' +
+        t + " <b>" + n + "</b></div>";
+    };
+    var chips = '<div class="chips diff-filter">' +
+      chip("changed", "Изменённые", res.changed) +
+      chip("added", "Добавленные", res.added) +
+      chip("removed", "Исключённые", res.removed) +
+      chip("all", "Все статьи", res.arts.length) + "</div>";
+
+    var list = res.arts.filter(function (a) {
+      if (filt === "all") return true;
+      if (filt === "added") return a.status === "added";
+      if (filt === "removed") return a.status === "removed";
+      return a.status !== "same";
+    });
+    if (!list.length) {
+      return head + chips + '<div class="info-box">В этой редакции таких изменений нет. Выберите другой фильтр.</div>';
+    }
+
+    /* Ссылка на статью: сравнение показывает, что изменилось, а открыть
+       действующую редакцию приходится отдельно — это лишний поиск. */
+    var openLink = function (n) {
+      return '<span class="lnk diff-open" data-go="#/article/' + encodeURIComponent(c.id + "-" + n) + '">открыть статью</span>';
+    };
+
     var rows = list.map(function (a) {
       if (a.status === "same") {
         return '<details class="diff-art diff-same"><summary><span class="diff-num">ст. ' + esc(a.n) +
@@ -9092,11 +9560,11 @@
       }
       if (a.status === "added") {
         return '<div class="diff-art diff-added"><div class="diff-head"><span class="diff-num">ст. ' + esc(a.n) +
-          '</span><span class="st st-ok">добавлена</span></div><div class="diff-title">' + esc(a.t2) + "</div></div>";
+          '</span><span class="st st-ok">добавлена</span>' + openLink(a.n) + '</div><div class="diff-title">' + esc(a.t2) + "</div></div>";
       }
       if (a.status === "removed") {
         return '<div class="diff-art diff-removed"><div class="diff-head"><span class="diff-num">ст. ' + esc(a.n) +
-          '</span><span class="st st-warn">исключена</span></div><div class="diff-title">' + esc(a.t1) + "</div></div>";
+          '</span><span class="st st-warn">исключена</span>' + openLink(a.n) + '</div><div class="diff-title">' + esc(a.t1) + "</div></div>";
       }
       var t1 = esc(a.t1 || ""), t2 = esc(a.t2 || "");
       var titleLine = t1 === t2
@@ -9112,14 +9580,16 @@
         (a.red1 || a.red2 ? ' <span class="small muted">' + esc(fmtRed(a.red1 || "")) + " → " + esc(fmtRed(a.red2 || "")) + "</span>" : "") + "</div>";
       return '<details class="diff-art diff-changed" open><summary><span class="diff-num">ст. ' + esc(a.n) +
         '</span><span class="st st-warn">изменена</span>' + ctx + "</summary>" +
-        titleLine + '<div class="diff-body">' + body + "</div></details>";
+        titleLine + '<div class="diff-body">' + body + "</div>" +
+        '<div class="diff-foot">' + openLink(a.n) + "</div></details>";
     }).join("");
 
-    var toggle = '<div class="small muted" style="margin:10px 0">Показано: ' +
-      (showAll ? "все статьи" : "только изменённые (" + interesting.length + ")") +
-      ' · <a href="#" id="diffToggle" class="lnk">' + (showAll ? "скрыть неизменённые" : "показать все статьи") + "</a></div>";
+    var shown = filt === "all" ? "все статьи" : filt === "added" ? "только добавленные" :
+      filt === "removed" ? "только исключённые" : "только изменённые";
 
-    return head + toggle + '<div class="diff-list">' + rows + "</div>";
+    return head + chips +
+      '<div class="small muted" style="margin:10px 0">Показано: ' + shown + " (" + list.length + ")</div>" +
+      '<div class="diff-list">' + rows + "</div>";
   }
 
   function diffPlain(res) {
@@ -9148,16 +9618,14 @@
         runDiff(id, f, t);
       });
     }
-    var tog = $("#diffToggle");
-    if (tog) {
-      tog.addEventListener("click", function (e) {
-        e.preventDefault();
-        diffState.mode = diffState.mode === "all" ? "changed" : "all";
+    $$("#view [data-diff-filter]").forEach(function (ch) {
+      ch.addEventListener("click", function () {
+        diffState.filter = ch.getAttribute("data-diff-filter") || "changed";
         var v = $("#view");
         v.innerHTML = viewDiff(id);
         bindDiff(id);
       });
-    }
+    });
     var dx = $("#diffDocx");
     if (dx) dx.addEventListener("click", function () {
       var c = CO[id] || {};
@@ -9400,7 +9868,7 @@
   }
 
   function runDiff(id, from, to) {
-    diffState = { loading: true, error: "", result: null, mode: diffState.mode || "changed", from: from, to: to };
+    diffState = { loading: true, error: "", result: null, filter: diffState.filter || "changed", from: from, to: to };
     var v = $("#view");
     if (v) { v.innerHTML = viewDiff(id); bindDiff(id); }
     resolveSide(id, from, function (e1, a) {

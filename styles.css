@@ -1597,6 +1597,12 @@ details.refs-block[open] > summary { margin-bottom: 12px; }
 .diff-added .diff-head, .diff-removed .diff-head { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
 .diff-same { opacity: .62; }
 
+/* фильтр по виду изменения и переход к статье */
+.diff-filter { margin: 0 0 4px; }
+.diff-open { font-size: var(--fs-2); white-space: nowrap; }
+.diff-added .diff-head .diff-open, .diff-removed .diff-head .diff-open { margin-left: auto; }
+.diff-foot { padding: 0 12px 10px; }
+
 .diff-body {
   padding: 8px 12px 12px; border-top: 1px solid var(--line);
   font-family: var(--mono); font-size: var(--fs-4); line-height: 1.6;
@@ -2048,9 +2054,10 @@ body::-webkit-scrollbar-track { background: transparent; }
   .update-bar.show { transform: translateY(0); }
   .update-bar .ub-note { display: none; }
   body.has-update .toast { bottom: 96px; }
-  /* выбор дела для «В дело» — кнопки в несколько строк, чтобы не выходили
-     за край экрана на телефоне */
-  .suit-casepick { display: flex; flex-wrap: wrap; gap: 6px; }
+  /* выбор дела в документе — поле и кнопки в несколько строк, чтобы не
+     выходили за край экрана на телефоне */
+  .doc-casepick { display: flex; flex-wrap: wrap; gap: 6px; }
+  .doc-casepick .select { flex: 1 1 100%; min-width: 0; }
 }
 
 /* --------------------------------------------- исковые заявления */
@@ -2058,8 +2065,23 @@ body::-webkit-scrollbar-track { background: transparent; }
 .suit-steps li { margin: 0 0 6px; font-size: var(--fs-2); line-height: 1.45; }
 .suit-att { margin: 0; padding-left: 1.2em; }
 .suit-att li { margin: 0 0 5px; font-size: var(--fs-2); }
-.suit-casepick { margin-top: 10px; }
-.suit-casepick .btn { margin: 0; }
+
+/* ------------------------------------- документ и дело: связка в шаблонах */
+.doc-casepick { margin: 10px 0 4px; align-items: center; }
+.doc-casepick .select { flex: 0 1 260px; }
+.doc-casepick .btn { margin: 0; }
+
+/* готовые документы внутри дела */
+.case-docs { display: flex; flex-direction: column; gap: 10px; }
+.case-doc { border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 10px; }
+.case-doc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.case-doc-title { font-weight: 600; }
+.case-doc .textarea { margin: 0; }
+
+/* вложения дела */
+.case-files { display: flex; flex-direction: column; gap: 4px; }
+.case-file { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.case-file-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* --------------------------------------------------- глоссарий (термины) */
 

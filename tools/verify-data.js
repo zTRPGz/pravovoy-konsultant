@@ -2140,6 +2140,58 @@ check("иски охватывают гражданский, арбитражн�
   Object.keys(suitStats.groups).some((x) => /административ/i.test(x)),
   Object.keys(suitStats.groups).length + " судов: " + Object.keys(suitStats.groups).join(", "));
 
+/* ------------------------------------------ 17. дело: документы, вложения, профиль */
+/* Дело — это папка юриста: нормы, заметки, готовые документы, реквизиты сторон и
+   вложения. Проверяем, что все части на месте и связаны между собой: без индекса
+   по делу вложения читались бы перебором, без общего списка реквизитов поля формы
+   и подстановка разошлись бы, а без ограничения размера браузер забился бы. */
+console.log("\n17. Дело: документы, вложения и «взять из дела»");
+{
+  const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+
+  check("модель дела хранит нормы, заметки, документы и реквизиты сторон",
+    /items:\s*\[\]/.test(app) && /notes:\s*\[\]/.test(app) &&
+    /docs:\s*\[\]/.test(app) && /prof:\s*\{\}/.test(app),
+    "items / notes / docs / prof");
+
+  check("вложения дел лежат в отдельном хранилище, а не в localStorage",
+    /S_FILE\s*=\s*"files"/.test(app) && /filePut:/.test(app) && /fileAll:/.test(app),
+    "IndexedDB rflaws → files");
+
+  check("хранилище вложений проиндексировано по делу — иначе список вложений читался бы перебором всех файлов",
+    /createIndex\(\s*"case"\s*,\s*"case"/.test(app), "индекс case");
+
+  check("версия базы поднята под новое хранилище — иначе upgrade не сработал бы у прежних читателей",
+    /var VER\s*=\s*3/.test(app), "VER = 3");
+
+  check("вложения ограничены по размеру — иначе браузер забился бы до отказа",
+    /CASE_FILE_MAX\s*=\s*\d+\s*\*\s*1024\s*\*\s*1024/.test(app) &&
+    /CASE_FILE_TOTAL\s*=\s*\d+\s*\*\s*1024\s*\*\s*1024/.test(app),
+    "на файл и на все дела сразу");
+
+  check("имя вложения безопасно для файловой системы — кириллица и пробелы транслитерируются",
+    /TRANSLIT\s*=\s*\{/.test(app) && /function slug\(/.test(app), "TRANSLIT + slug()");
+
+  check("документ дела выгружается в .docx, .txt и копируется в буфер — «собрать дело целиком»",
+    /data-case-doc-txt/.test(app) && /data-case-doc-copy/.test(app) &&
+    /saveDocx\(/.test(app) && /caseDocHtml\(/.test(app),
+    "txt / копия / docx / печатная форма");
+
+  check("дело выгружается одним файлом со всеми документами и реквизитами",
+    /caseExportJson/.test(app) && /caseTextPlain\(/.test(app), "JSON + текстовый слепок");
+
+  check("шаблон и иск кладутся в дело одним и тем же механизмом — иначе логика разошлась бы",
+    /function casePickBar\(/.test(app) && /function bindCasePick\(/.test(app) &&
+    /bindCasePick\("data-tf"/.test(app) && /bindCasePick\("data-sf"/.test(app),
+    "общий casePickBar для data-tf и data-sf");
+
+  check("из дела заполняются поля документа реквизитами сторон",
+    /caseProfVals\(/.test(app) && /docCaseFill/.test(app), "«Заполнить из дела»");
+
+  check("реквизиты сторон перечислены одним списком — иначе форма и подстановка разошлись бы",
+    /CASE_PROF_FIELDS\s*=\s*\[/.test(app) && /data-case-prof/.test(app), "CASE_PROF_FIELDS");
+}
+
 console.log("\n" + "=".repeat(60));
 console.log("Статей в базе: " + idx.length + " · источников с полным текстом: " + codes.length +
   " · справочных аннотаций: " + Object.keys(annot).length + " · терминов: " + terms.length);

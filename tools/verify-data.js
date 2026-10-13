@@ -47,13 +47,14 @@ function loadGlobals(files) {
 
 const W = loadGlobals([
   "data/registry.js", "data/index.js", "data/annotations.js",
-  "data/40-reference.js", "data/freshness.js", "data/status.js"
+  "data/40-reference.js", "data/terms.js", "data/freshness.js", "data/status.js"
 ]);
 const codes = W.RF_CODES || [];
 const idx = W.RF_IDX || [];
 const annot = W.RF_ANNOT || {};
 const extra = W.RF_EXTRA || { codes: [], articles: [] };
 const ref = W.RF_REF || {};
+const terms = W.RF_TERMS || [];
 const fresh = W.RF_FRESH || {};
 const freshDocs = fresh.docs || {};
 const STATUS = W.RF_STATUS || {};
@@ -1109,9 +1110,29 @@ check("калькуляторы: роут, вкладки и обработчи�
   /name:\s*"calc"/.test(appSrc) &&
   /function viewCalc\(/.test(appSrc) && /function bindCalc\(/.test(appSrc) &&
   CALC_BASED.every((n) => calcArr(n).length > 0) &&
-  (calcArr("CALC_TABS").match(/\{ k: "/g) || []).length === 5 &&
+  (calcArr("CALC_TABS").match(/\{ k: "/g) || []).length === 6 &&
   /tabStrip\(CALC_TABS/.test(appSrc) && /#\/calc/.test(appSrc),
-  "parseHash('calc'), viewCalc/bindCalc, 5 вкладок, tabStrip, ссылки в меню");
+  "parseHash('calc'), viewCalc/bindCalc, 6 вкладок, tabStrip, ссылки в меню");
+
+check("вкладка «Цена иска»: роут, тело и обработчики на месте",
+  /function calcClaimTab\(/.test(appSrc) &&
+  /k === "claim" \? calcClaimTab\(\)/.test(appSrc) &&
+  /\{ k: "claim",/.test(calcArr("CALC_TABS")) &&
+  /if \(k === "claim"\) \{/.test(appSrc) &&
+  /CALC_DUTY_APK/.test(appSrc) && /CALC_FEE_GROUNDS/.test(appSrc) &&
+  /CALC_CLAIM_RULES/.test(appSrc),
+  "calcClaimTab, ветка в bindCalc, шкала АПК, льготы ст. 333.36, правила ст. 91 ГПК");
+
+check("шкала госпошлины арбитража взята из ст. 333.21 НК РФ и ограничена сверху",
+  (calcArr("CALC_DUTY_APK").match(/\{ up:/g) || []).length === 5 &&
+  /cap: 10000000/.test(calcArr("CALC_DUTY_APK")) &&
+  /ст\. 333\.21 НК РФ/.test(appSrc),
+  "5 ступеней шкалы АПК, предельный размер 10 000 000 ₽");
+
+check("льготы пошлины: полное освобождение, порог 1 000 000 ₽ и скидка 70 %",
+  /"full"/.test(appSrc) && /1 000 000/.test(calcArr("CALC_FEE_GROUNDS")) &&
+  /"cap"/.test(appSrc) && /"p70"/.test(appSrc) && /подп\. 23 п\. 1 ст\. 333\.36/.test(appSrc),
+  "ст. 333.36 НК РФ учтена в калькуляторе");
 
 /* Обычный калькулятор: плоский счёт «5 + 5». Считается собственным разбором
    выражения (× и ÷ раньше + и −), без eval — поэтому проверяем и наличие
@@ -1825,8 +1846,9 @@ check("метка версии подставляется только когд�
   /\[\?&\]v=/.test(htmlSrc) && /encodeURIComponent\(decodeURIComponent/.test(htmlSrc),
   "первый заход и file:// должны работать как раньше");
 check("все данные верхнего уровня перечислены в загрузчике",
-  htmlDataFiles.length === 11 && htmlDataFiles.indexOf("data/registry.js") >= 0 &&
-  htmlDataFiles.indexOf("data/freshness.js") >= 0 && htmlDataFiles.indexOf("data/ft/meta.js") >= 0,
+  htmlDataFiles.length === 12 && htmlDataFiles.indexOf("data/registry.js") >= 0 &&
+  htmlDataFiles.indexOf("data/freshness.js") >= 0 && htmlDataFiles.indexOf("data/ft/meta.js") >= 0 &&
+  htmlDataFiles.indexOf("data/terms.js") >= 0,
   htmlDataFiles.length + " файлов");
 check("метка сборки загруженных данных сравнивается с серверной",
   /function loadedBuiltAt\(\)/.test(appSrc) && /RF_FRESH/.test(appSrc) &&
@@ -1852,9 +1874,110 @@ check("экран подсказывает, что можно нажать в л
   /\.intro-hint/.test(cssSrc) && /\.intro \{[\s\S]{0,700}cursor: pointer/.test(cssSrc),
   "весь экран выглядит нажимаемым");
 
+/* -------------------------------------------------- 12. словарь терминов */
+/* Термин без ссылки на норму — это утверждение без источника: проверить его
+   читателю нечем. Поэтому связь «термин → статьи» проверяется как данные, а
+   не как оформление. */
+console.log("\n12. Словарь терминов");
+check("словарь терминов собран (data/terms.js)", terms.length >= 100,
+  terms.length + " терминов");
+check("словарь подключён загрузчиком данных",
+  htmlDataFiles.indexOf("data/terms.js") >= 0,
+  "иначе раздел «Термины» открывался бы пустым");
+
+const termIds = {}, termTitles = {}, termDupIds = [], termDupTitles = [];
+const termBadRefs = [], termNoRefs = [], termBadFields = [];
+const knownArts = {};
+idx.forEach(function (r) { knownArts[r[0] + "-" + r[1]] = 1; });
+const knownCodes = {};
+codes.forEach(function (c) { knownCodes[c.id] = 1; });
+
+terms.forEach(function (t) {
+  if (!t.id || !t.t || !t.b || !t.d) termBadFields.push(t.id || "(без id)");
+  if (termIds[t.id]) termDupIds.push(t.id);
+  termIds[t.id] = 1;
+  var key = strip(t.t).toLowerCase();
+  if (termTitles[key]) termDupTitles.push(t.t);
+  termTitles[key] = 1;
+  if (!/^[a-z0-9-]+$/.test(t.id || "")) termBadFields.push((t.id || "?") + " — адрес не латиницей");
+  var arts = t.articles || [];
+  if (!arts.length) termNoRefs.push(t.id);
+  arts.forEach(function (a) {
+    var i = a.lastIndexOf("-");
+    var c = a.slice(0, i), n = a.slice(i + 1);
+    if (!knownCodes[c]) termBadRefs.push(t.id + " → " + a + " (нет источника)");
+    else if (!knownArts[a]) termBadRefs.push(t.id + " → " + a + " (нет статьи)");
+  });
+});
+check("у каждого термина заполнены id, название, отрасль и определение",
+  termBadFields.length === 0,
+  termBadFields.length ? termBadFields.slice(0, 5).join(", ") : terms.length + " терминов проверено");
+check("адреса терминов уникальны", termDupIds.length === 0,
+  termDupIds.length ? termDupIds.slice(0, 5).join(", ") : "повторов нет");
+check("названия терминов не повторяются", termDupTitles.length === 0,
+  termDupTitles.length ? termDupTitles.slice(0, 5).join(", ") : "повторов нет");
+check("у каждого термина есть норма-основание", termNoRefs.length === 0,
+  termNoRefs.length ? termNoRefs.slice(0, 6).join(", ") : "определение всегда можно проверить по статье");
+check("все ссылки словаря ведут на статьи, которые есть в базе",
+  termBadRefs.length === 0,
+  termBadRefs.length ? termBadRefs.slice(0, 6).join(" · ") : "битых ссылок нет");
+check("словарь покрывает все крупные отрасли",
+  ["Уголовное право", "Уголовный процесс", "Административное право", "Гражданское право",
+    "Гражданский процесс", "Трудовое право", "Семейное право"].every(function (b) {
+    return terms.some(function (t) { return t.b === b; });
+  }),
+  "иначе раздел отвечал бы только по одной отрасли");
+check("у терминов есть синонимы для поиска",
+  terms.filter(function (t) { return (t.a || []).length > 1; }).length >= terms.length * 0.9,
+  terms.filter(function (t) { return (t.a || []).length > 1; }).length + " из " + terms.length +
+  " ищутся не только по точному названию");
+
+check("раздел «Термины» есть в маршрутах и видах",
+  /name === "terms"/.test(appSrc) && /name === "term"/.test(appSrc) &&
+  /function viewTerms\(/.test(appSrc) && /function viewTerm\(/.test(appSrc) &&
+  /function bindTerms\(/.test(appSrc),
+  "без разбора адреса раздел не открылся бы");
+check("определение показывается над результатами поиска",
+  /var def = termCard\(q\);/.test(appSrc) && /head \+ def \+/.test(appSrc),
+  "словарь отвечает на «что это значит», поиск — на «где это написано»");
+check("словарь есть в боковом меню и в быстром переходе",
+  /data-nav="terms"/.test(htmlSrc) && /#\/terms/.test(appSrc) && /termFind\(q, 3\)/.test(appSrc),
+  "иначе раздел было бы не найти");
+check("определения честно названы справочными",
+  /не заменяет текст нормы/.test(appSrc) && /справочного слоя, не официальный текст/.test(appSrc),
+  "определение — не официальный текст акта, и это сказано словами");
+
+/* ------------------------------------------ 13. перемещение по разделам */
+/* Переходы идут через историю браузера, поэтому «Назад» возвращает на
+   предыдущий раздел, а не уводит с сайта. Обратная сторона — история растёт,
+   поэтому глубина ограничена; и нужен запасной путь для окружений, где
+   history API запрещён (часть режимов file://). */
+console.log("\n13. Перемещение по разделам");
+check("переходы пишутся в историю браузера",
+  /history\.pushState/.test(appSrc) && /history\.replaceState/.test(appSrc),
+  "иначе кнопка «Назад» браузера уводила бы с сайта");
+check("кнопка «Назад» браузера обрабатывается",
+  /addEventListener\("popstate"/.test(appSrc) &&
+  /navStack\.indexOf\(h\)/.test(appSrc),
+  "popstate ставит указатель своего стека на то же место");
+check("глубина истории ограничена",
+  /var NAV_MAX = \d+/.test(appSrc) && /navStack\.length < NAV_MAX/.test(appSrc) &&
+  /navStack\[NAV_MAX - 1\] = navHashNow/.test(appSrc),
+  "иначе после долгой работы «назад» пришлось бы жать сотни раз");
+check("кнопки панели и кнопки браузера двигают одну историю",
+  /if \(histOk\) \{[\s\S]{0,120}history\.go\(delta\)/.test(appSrc),
+  "иначе они разошлись бы и «Вперёд» прыгала бы не туда");
+check("есть запасной путь, когда history API запрещён",
+  /histOk = false;/.test(appSrc) && /try \{[\s\S]{0,200}history\.replaceState\(\{ nav: 0 \}/.test(appSrc) &&
+  /location\.replace\(h\)/.test(appSrc),
+  "на части режимов file:// pushState бросает SecurityError");
+check("мини-окно статьи закрывается при переходе по истории",
+  /addEventListener\("popstate"[\s\S]{0,300}modal-open/.test(appSrc),
+  "иначе окно осталось бы висеть поверх нового раздела");
+
 /* итог */
 console.log("\n" + "=".repeat(60));
 console.log("Статей в базе: " + idx.length + " · источников с полным текстом: " + codes.length +
-  " · справочных аннотаций: " + Object.keys(annot).length);
+  " · справочных аннотаций: " + Object.keys(annot).length + " · терминов: " + terms.length);
 console.log(failures === 0 ? "Все проверки пройдены." : "Проверок с замечаниями: " + failures);
 process.exit(failures === 0 ? 0 : 1);

@@ -86,6 +86,9 @@
         <div class="nav-item" data-nav="search" data-href="#/search/">
           <span class="ico" data-ico="search"></span><span class="lbl">Поиск статей</span>
         </div>
+        <div class="nav-item" data-nav="terms" data-href="#/terms">
+          <span class="ico" data-ico="book"></span><span class="lbl">Термины</span>
+        </div>
       </div>
 
       <div class="nav-group">
@@ -165,9 +168,9 @@
     <div class="topbar">
       <button class="icon-btn burger" id="burgerBtn" type="button"
               aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false"><span class="ico" data-ico="menu"></span></button>
-      <!-- Перемещение по разделам внутри страницы. Это не браузерная история:
-           свой стек адресов в памяти, переход через replaceState, поэтому
-           записей в истории браузера не появляется. -->
+      <!-- Перемещение по разделам внутри страницы. Ходят по истории браузера
+           (history.go), поэтому «Назад» браузера и эти кнопки ведут себя
+           одинаково. Глубина истории ограничена в app.js (NAV_MAX). -->
       <div class="nav-ctl">
         <button class="icon-btn nav-btn nav-back" id="navBack" type="button"
                 aria-label="Назад по разделам" title="Назад" disabled><span class="ico" data-ico="arrow"></span></button>
@@ -285,6 +288,7 @@
     "data/index.js",        /* поисковый индекс всех статей */
     "data/annotations.js",  /* справочные аннотации */
     "data/40-reference.js", /* справочный слой */
+    "data/terms.js",        /* глоссарий терминов */
     "data/freshness.js",    /* манифесты актуальности и метка сборки */
     "data/status.js",       /* статусы норм: утрата силы, приостановление */
     "data/changelog.js",    /* лента изменений для вкладки «Новое» */

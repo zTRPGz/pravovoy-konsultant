@@ -182,6 +182,7 @@
   var EXTRA = window.RF_EXTRA || { codes: [], articles: [] };
   var ANNOT = window.RF_ANNOT || {};
   var REF = window.RF_REF || {};
+  var TERMS = window.RF_TERMS || [];
   var IDX = window.RF_IDX || [];
   var FRESH = window.RF_FRESH || null;
   var PARSE = window.RF_PARSE || null;
@@ -1971,35 +1972,74 @@
 
   /* Переход по разделам приложения.
 
-     Один сайт — одна запись в истории. go() обновляет URL через
-     history.replaceState, поэтому переходы между вкладками НЕ копят историю
-     браузера: кнопка «Назад» уводит на предыдущую внешнюю страницу, а не
-     перебирает разделы. Ссылку на текущий раздел по-прежнему можно скопировать
-     из адресной строки.
+     Переходы идут через history.pushState, поэтому кнопка «Назад» браузера
+     работает так, как её и ожидают: возвращает на предыдущий раздел сайта.
+     Раньше здесь стоял replaceState — сайт оставался одной записью в истории,
+     но «Назад» уводила с сайта целиком. Для справочника это неудобно: человек
+     листает статьи, проваливается вглубь и хочет вернуться на шаг.
 
-     Мини-окно Помощника устроено так же (см. openArticleModal): адрес
-     подменяется replaceState, поэтому просмотренные статьи тоже не
-     откладываются в истории.
+     Обратная сторона pushState — история растёт. Поэтому глубина ограничена:
+     после NAV_MAX переходов новое место заменяет вершину, а не удлиняет
+     историю. Дальше вглубь неё не прокрутить, но и «назад на тридцать шагов»
+     тоже не станет.
 
-     Hash-маршрутизация сохранена сознательно: она работает и с file://, и на
-     любом статическом хостинге без SPA-перенаправлений. */
+     Свой стек navStack идёт с историей браузера шаг в шаг, поэтому кнопки в
+     верхней панели и кнопки браузера ведут себя одинаково.
+
+     Мини-окно Помощника по-прежнему подменяет адрес через replaceState: это
+     не переход, а просмотр поверх раздела — откладывать его в истории
+     незачем (см. openArticleModal). */
   function go(hash) {
     /* Закрываем мини-окно Помощника, если оно открыто, и забываем адрес
        возврата — иначе окно «вернуло» бы адрес уже покинутого раздела. */
     var m = $("#artModal");
     if (m && !m.hidden) { m.hidden = true; document.body.classList.remove("modal-open"); }
     modalReturnUrl = null;
+    var h = hash || "#/home";
+    var same = navStack[navPos] === h;
     try {
-      var url = location.pathname + location.search + (hash || "");
-      history.replaceState({ modal: false }, "", url);
-      /* hashchange при replaceState не срабатывает, поэтому раздел
-         перерисовываем вручную: render() сам разбирает новый адрес.
+      var url = location.pathname + location.search + h;
+      if (same) {
+        /* Тот же раздел (обновили фильтр, сменили роль) — записи не плодим. */
+        history.replaceState(history.state, "", url);
+      } else if (navStack.length < NAV_MAX) {
+        navStack.length = navPos + 1;   /* новый путь обрезает «вперёд» */
+        navStack.push(h);
+        navPos = navStack.length - 1;
+        history.pushState({ nav: navPos }, "", url);
+      } else {
+        /* Предел глубины: заменяем вершину, а не удлиняем историю. */
+        navStack[navPos] = h;
+        history.replaceState({ nav: navPos }, "", url);
+      }
+      /* hashchange при pushState и replaceState не срабатывает, поэтому
+         раздел перерисовываем вручную: render() сам разбирает новый адрес.
          (parseHash() здесь был ошибкой — он только читает адрес и ничего
          не рисует, из-за чего переходы меняли URL, но не экран.) */
       render();
     }
-    catch (e) { try { location.replace(hash); } catch (e2) {} }
+    catch (e) {
+      /* pushState недоступен (некоторые режимы file:// и приватные окна):
+         откатываемся на прежнее поведение — адрес без записи в истории. */
+      histOk = false;
+      try { location.replace(h); } catch (e2) {}
+    }
   }
+
+  /* Браузерная «Назад»/«Вперёд»: адрес уже изменён, остаётся показать
+     раздел и поставить указатель своего стека на то же место — иначе
+     следующая кнопка в панели прыгнула бы не туда. Мини-окно статьи могло
+     быть открыто поверх раздела: переход по истории его закрывает, а адрес
+     возврата забываем — он относится к записи, которую мы покинули. */
+  window.addEventListener("popstate", function () {
+    var m = $("#artModal");
+    if (m && !m.hidden) { m.hidden = true; document.body.classList.remove("modal-open"); }
+    modalReturnUrl = null;
+    var h = location.hash || "#/home";
+    var at = navStack.indexOf(h);
+    if (at !== -1) navPos = at;
+    render();
+  });
 
   /* Разбор адреса вызывается и при загрузке страницы, и по hashchange — то
      есть вне try/catch. А decodeURIComponent бросает URIError на битом
@@ -2020,6 +2060,8 @@
     var name = parts[0] || "home";
     if (name === "article") return { name: "article", arg: dec(parts[1] || "") };
     if (name === "search") return { name: "search", q: dec(parts.slice(1).join("/") || "") };
+    if (name === "terms") return { name: "terms", q: dec(parts.slice(1).join("/") || "") };
+    if (name === "term") return { name: "term", arg: dec(parts[1] || "") };
     if (name === "repealed") return { name: "repealed", q: dec(parts.slice(1).join("/") || "") };
     if (name === "timeline") return { name: "timeline", arg: parts[1] ? dec(parts[1]) : null };
     if (name === "graph") return { name: "graph", arg: parts[1] || null };
@@ -2040,6 +2082,7 @@
   function routeHash(r) {
     if (!r || !r.name) return "#/home";
     if (r.name === "search") return "#/search/" + encodeURIComponent(r.q || "");
+    if (r.name === "terms") return "#/terms" + (r.q ? "/" + encodeURIComponent(r.q) : "");
     if (r.name === "repealed") return "#/repealed" + (r.q ? "/" + encodeURIComponent(r.q) : "");
     if (r.name === "diff") return "#/diff/" + (r.arg || "") + "/" + encodeURIComponent(r.q || "");
     if (r.name === "compare") return "#/compare/" + encodeURIComponent(r.a || "") + "/" + encodeURIComponent(r.b || "");
@@ -2064,15 +2107,21 @@
       deadlines: "Процессуальные сроки", freshness: "Проверка актуальности", repealed: "Утратившие силу",
       diff: "Сравнение редакций", compare: "Две статьи бок о бок", favorites: "Избранное",
       collection: "Подборка норм", cases: "Дела", timeline: "Лента изменений", stats: "Аналитика",
-      graph: "Связи источников", help: "Как пользоваться", search: "Поиск"
+      graph: "Связи источников", help: "Как пользоваться", search: "Поиск",
+      terms: "Термины", term: "Термин"
     }[r.name];
     if (t !== undefined) {
       if (r.name === "search") return "Поиск" + (r.q ? ": " + r.q : "");
+      if (r.name === "terms") return "Термины" + (r.q ? ": " + r.q : "");
       return t || "";
     }
     if (r.name === "article") {
       var a = byId[r.arg];
       return a ? "ст. " + a.dn + " " + a.t : "Статья";
+    }
+    if (r.name === "term") {
+      var tm = termById(r.arg);
+      return tm ? tm.t : "Термин";
     }
     if (r.name === "code") {
       var c = codeById(r.arg);
@@ -2084,13 +2133,21 @@
   var lastViewName = null;
 
   /* ------------------------------------------------- перемещение по разделам
-     Кнопки «Назад»/«Вперёд» в верхней панели ходят по СВОЕМУ стеку адресов
-     раздела. Браузерную историю они не трогают вовсе: go() пишет адрес через
-     replaceState, поэтому записей в истории браузера не появляется и сайт
-     остаётся «одной страницей». По этой же причине здесь нельзя звать
-     history.back(): запись в истории одна, и он увёл бы посетителя с сайта. */
+     Кнопки «Назад»/«Вперёд» в верхней панели ходят по истории браузера — той
+     же, что и кнопки браузера. Раньше это был отдельный список в памяти, а
+     адрес писался через replaceState; теперь история общая (см. go), поэтому
+     здесь достаточно history.go: адрес сменится, придёт popstate, и render()
+     покажет раздел. Стек navStack остаётся, чтобы знать, куда встал указатель
+     и можно ли идти назад или вперёд. */
   var navStack = [], navPos = -1;
   var NAV_MAX = 60;
+
+  /* Умеет ли окружение работать с историей. На http(s) — умеет, и тогда
+     кнопки в панели ходят через history.go, оставаясь заодно с кнопками
+     браузера. На части режимов file:// pushState запрещён (SecurityError):
+     там история не наша, и history.go(-1) увёл бы посетителя с сайта.
+     Признак выставляется один раз при запуске (см. init). */
+  var histOk = false;
 
   function syncNavBtns() {
     var b = $("#navBack"), f = $("#navFwd");
@@ -2109,10 +2166,15 @@
   function navStep(delta) {
     var to = navPos + delta;
     if (to < 0 || to >= navStack.length) return;
+    /* История своя — идём по ней: тогда кнопки панели и кнопки браузера
+       двигают одно и то же. Иначе (file://) просто переставляем указатель
+       своего стека: history.go там увела бы с сайта. */
+    if (histOk) {
+      try { history.go(delta); syncNavBtns(); return; }
+      catch (e) { /* ниже — обычный путь */ }
+    }
     navPos = to;
-    var hash = navStack[to];
-    /* go() видит, что маршрут совпал с вершиной стека, и повторов не делает */
-    go(hash);
+    go(navStack[to]);
     syncNavBtns();
   }
 
@@ -2123,17 +2185,22 @@
 
     state.route = parseHash();
     setDocTitle(routeTitle(state.route));
-    /* Стек перемещений внутри страницы. Это НЕ история браузера: свой список
-       в памяти, а переход идёт через go() на replaceState, поэтому записей в
-       истории не прибавляется и «одна страница» сохраняется. Новое место
-       добавляется, только если маршрут отличается от текущей вершины, — иначе
-       каждая перерисовка того же раздела (поиск, роль, фильтры) засоряла бы
-       стек повторами. */
+    /* Стек перемещений. Идёт шаг в шаг с историей браузера: место в него
+       добавляет go(), а popstate только переставляет указатель. Здесь —
+       подстраховка на случай, когда адрес сменили в обход go(): правка
+       строки адреса вручную, ссылка с хешем внутри страницы. Новое место
+       добавляется, только если маршрут отличается от текущей вершины, —
+       иначе каждая перерисовка того же раздела (поиск, роль, фильтры)
+       засоряла бы стек повторами. */
     var navHashNow = routeHash(state.route);
     if (navStack[navPos] !== navHashNow) {
-      navStack.length = navPos + 1;          /* новый путь обрезает «вперёд» */
-      navStack.push(navHashNow);
-      if (navStack.length > NAV_MAX) navStack.shift();
+      if (navStack.length < NAV_MAX) {
+        navStack.length = navPos + 1;          /* новый путь обрезает «вперёд» */
+        navStack.push(navHashNow);
+      } else {
+        navStack.length = NAV_MAX;
+        navStack[NAV_MAX - 1] = navHashNow;    /* предел: заменяем вершину */
+      }
       navPos = navStack.length - 1;
     }
     var v = $("#view");
@@ -2143,6 +2210,8 @@
     toggleRoleMenu(false);
     if (r.name === "home") v.innerHTML = viewHome();
     else if (r.name === "search") { v.innerHTML = viewSearch(r.q); afterSearch(r.q); }
+    else if (r.name === "terms") { v.innerHTML = viewTerms(r.q); bindTerms(); }
+    else if (r.name === "term") { v.innerHTML = viewTerm(r.arg); }
     else if (r.name === "article") { v.innerHTML = viewArticle(r.arg); afterArticle(r.arg); }
     else if (r.name === "code") { v.innerHTML = viewCode(r.arg); afterCode(r.arg); }
     else if (r.name === "assistant") v.innerHTML = viewAssistant();
@@ -2241,6 +2310,7 @@
     $$(".nav-item[data-nav]").forEach(function (el) {
       var k = el.getAttribute("data-nav");
       var on = (k === n) || (k === "code" && n === "code") || (k === "checklists" && n === "checklist") ||
+        (k === "terms" && (n === "terms" || n === "term")) ||
         (k === "templates" && n === "template") || (k === "cases" && n === "case") ||
         (k === "scenarios" && (n === "scenarios" || n === "scenario")) ||
         (k === "diff" && (n === "diff" || n === "compare")) ||
@@ -2396,6 +2466,7 @@
 
       '<div class="grid grid-3" style="margin-top:16px">' +
         quickCard("search", "Поиск статей", "По номеру, названию или ключевому слову", "#/search/", "blue") +
+        quickCard("book", "Термины", TERMS.length + " " + plural(TERMS.length, ["определение", "определения", "определений"]) + " со ссылками на нормы", "#/terms", "green") +
         quickCard("compass", "Помощник", "Опишите ситуацию или вопрос — разберём состав, квалификацию и порядок действий", "#/assistant", "violet") +
         quickCard("clip", "Подборка норм", colCount() ? "В подборке " + colCount() + " " + plural(colCount(), ["статья", "статьи", "статей"]) : "Рабочий набор статей по делу с выгрузкой", "#/collection", "teal") +
         quickCard("folder", "Дела", state.cases.length ? "Дел заведено: " + state.cases.length + " — нормы, заметки, журнал" : "Папки по делам: нормы с заметками и журнал по делу", "#/cases", "amber") +
@@ -2545,8 +2616,13 @@
       (p.syn.length ? '<p class="small muted">Поиск расширен близкими по смыслу словами: ' + esc(p.syn.slice(0, 8).join(", ")) + "</p>" : "") +
       tools;
 
+    /* Словарь отвечает на другой вопрос, чем поиск: не «где это написано», а
+       «что это значит». Поэтому определение стоит над списком статей, а не
+       вместо него. */
+    var def = termCard(q);
+
     if (!res.length) {
-      return head + '<div class="empty" id="metaEmpty"><div class="ico">' + ic("search") + '</div>' +
+      return head + def + '<div class="empty" id="metaEmpty"><div class="ico">' + ic("search") + '</div>' +
         '<div>' + (searchOpts.src || searchOpts.skipRepealed
           ? "Под выбранные фильтры совпадений нет. Снимите фильтр или измените запрос."
           : "По названиям и аннотациям совпадений нет. Ищем по полным текстам статей…") + "</div></div>" +
@@ -2575,7 +2651,7 @@
     var hint = res.length > 150
       ? '<p class="small muted" style="margin-top:14px">Показаны первые 150. Уточните запрос — добавьте отрасль, номер статьи или характерный признак.</p>'
       : "";
-    return head + items + hint + roleBlock(q, res) + '<div id="ftBlock"></div>';
+    return head + def + items + hint + roleBlock(q, res) + '<div id="ftBlock"></div>';
   }
 
   /* ------------------------------------------------------------------ блок роли
@@ -2721,6 +2797,281 @@
   /* --- статья --- */
 
   /* Список дел: добавляет статью в выбранное дело */
+  /* ------------------------------------------------------------ глоссарий
+
+     Определения терминов лежат отдельным слоем (data/terms.js). Здесь —
+     поиск по нему, список по отраслям и страница одного термина. Та же
+     подборка показывается над результатами обычного поиска и в Помощнике:
+     человек, который ищет слово, чаще всего хочет сначала узнать, что оно
+     значит, а уже потом — где оно встречается.
+
+     Почему отдельный раздел, а не приписка к поиску. Поиск отвечает на
+     вопрос «где это написано»; словарь — на вопрос «что это значит». Это
+     разные задачи, и смешивать их в одной выдаче значит топить одно в
+     другом. Поэтому раздел свой, но связан с поиском в обе стороны. */
+
+  var TERM_MAP = null;
+  function termIndex() {
+    if (TERM_MAP) return TERM_MAP;
+    TERM_MAP = {};
+    for (var i = 0; i < TERMS.length; i++) TERM_MAP[TERMS[i].id] = TERMS[i];
+    return TERM_MAP;
+  }
+  function termById(id) { return termIndex()[id] || null; }
+
+  function cmpRu(a, b) {
+    try { return String(a).localeCompare(String(b), "ru"); }
+    catch (e) { return a < b ? -1 : (a > b ? 1 : 0); }
+  }
+
+  /* «ст. 14 УК РФ» собирается из реестра, а не хранится в данных: иначе
+     номер статьи и сокращение источника пришлось бы править в двух местах,
+     и подпись однажды разошлась бы с реестром. */
+  function termRefLabel(aid) {
+    var a = byId[aid];
+    if (!a) return aid;
+    var c = codeById(a.c);
+    return "ст. " + a.dn + " " + (c ? c.abbr : a.c);
+  }
+
+  function termRefs(t, asList) {
+    var out = (t.articles || []).map(function (aid) {
+      var a = byId[aid];
+      if (!a) return '<span class="term-ref">' + esc(termRefLabel(aid)) + "</span>";
+      return '<span class="term-ref" data-go="#/article/' + encodeURIComponent(aid) + '" ' +
+        'title="' + esc(a.t) + '">' + esc(termRefLabel(aid)) + "</span>";
+    }).join("");
+    return out ? '<div class="term-refs">' + out + "</div>" : "";
+  }
+
+  function termNorm(s) {
+    return String(s == null ? "" : s).toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+  }
+
+  /* Поиск по словарю. Порядок значимости: точное совпадение названия или
+     синонима, затем начало слова, затем вхождение, затем все слова запроса
+     внутри определения. Синонимы важны не меньше названия: «умышленно» —
+     это тот же термин, что «умысел», а «дубинка» — что «специальные
+     средства». */
+  function termFind(q, limit) {
+    var nq = termNorm(q);
+    if (!nq) return [];
+    var scored = [];
+    var words = nq.split(" ").filter(function (w) { return w.length > 2; });
+    for (var i = 0; i < TERMS.length; i++) {
+      var t = TERMS[i], best = 0;
+      var keys = [t.t].concat(t.a || []);
+      for (var j = 0; j < keys.length; j++) {
+        var k = termNorm(keys[j]);
+        if (!k) continue;
+        if (k === nq) best = Math.max(best, 100);
+        else if (k.indexOf(nq) === 0) best = Math.max(best, 70 - Math.min(20, k.length - nq.length));
+        else if (k.indexOf(nq) !== -1) best = Math.max(best, 40 - Math.min(20, k.length - nq.length));
+      }
+      if (!best && words.length) {
+        var hay = termNorm(t.t + " " + (t.a || []).join(" ") + " " + t.d);
+        var hit = 0;
+        for (var w = 0; w < words.length; w++) if (hay.indexOf(words[w]) !== -1) hit++;
+        if (hit === words.length) best = 25;
+      }
+      if (best) scored.push({ t: t, s: best });
+    }
+    scored.sort(function (a, b) { return b.s - a.s || cmpRu(a.t.t, b.t.t); });
+    return scored.slice(0, limit || scored.length).map(function (x) { return x.t; });
+  }
+
+  function termShort(s, n) {
+    s = String(s || "");
+    if (s.length <= n) return s;
+    var cut = s.slice(0, n);
+    var sp = cut.lastIndexOf(" ");
+    if (sp > n * 0.6) cut = cut.slice(0, sp);
+    return cut.replace(/[,;:\s]+$/, "") + "…";
+  }
+
+  /* Карточка определения над результатами поиска. Показываем её только при
+     внятном совпадении: подсказка «вот что это значит» уместна, а случайное
+     слово из определения в роли термина — нет. */
+  function termCard(q) {
+    var hits = termFind(q, 3);
+    if (!hits.length) return "";
+    var main = hits[0];
+    var rest = hits.slice(1);
+    return '<div class="term-card">' +
+      '<div class="term-card-h">' + ic("book") + "<span>Что это значит</span>" +
+        '<span class="small muted">определение из справочного слоя, не официальный текст</span></div>' +
+      '<div class="term-hit-t" data-go="#/term/' + esc(main.id) + '">' + esc(main.t) + "</div>" +
+      '<div class="term-hit-d">' + esc(termShort(main.d, 420)) + "</div>" +
+      termRefs(main) +
+      (rest.length ? '<div class="term-card-more">Ещё по запросу: ' + rest.map(function (t) {
+        return '<span class="term-pill" data-go="#/term/' + esc(t.id) + '">' + esc(t.t) + "</span>";
+      }).join("") + "</div>" : "") +
+      "</div>";
+  }
+
+  /* ------------------------------------------------- список терминов */
+
+  function viewTerms(q) {
+    q = (q || "").trim();
+    var all = TERMS.slice().sort(function (a, b) { return cmpRu(a.t, b.t); });
+    var branches = [];
+    var map = {};
+    all.forEach(function (t) {
+      var b = t.b || "Прочее";
+      if (!map[b]) { map[b] = { b: b, items: [] }; branches.push(map[b]); }
+      map[b].items.push(t);
+    });
+
+    var head = "<h1>Термины</h1>" +
+      '<p class="lead">' + all.length + " " + plural(all.length, ["термин", "термина", "терминов"]) +
+      " с определениями и ссылками на нормы. Поиск понимает синонимы: «умышленно» найдёт «умысел», " +
+      "«дубинка» — «специальные средства», «развод» — «расторжение брака».</p>";
+
+    var bar = '<div class="tpl-bar">' +
+      '<input class="input" id="termFind" type="search" autocomplete="off" value="' + esc(q) + '" ' +
+        'placeholder="Термин или слово из определения: преступление, алименты, обыск…" aria-label="Поиск по терминам">' +
+      '<div class="chips tpl-nav">' + branches.map(function (gr) {
+        return '<span class="chip" data-term-jump="' + esc(gr.b) + '">' + esc(gr.b) + " <b>" + gr.items.length + "</b></span>";
+      }).join("") + "</div></div>";
+
+    var cards = branches.map(function (gr) {
+      return '<section class="term-group" data-branch="' + esc(gr.b) + '">' +
+        "<h2>" + esc(gr.b) + '<span class="small muted">' + gr.items.length + "</span></h2>" +
+        '<div class="grid grid-2">' + gr.items.map(function (t) {
+          var key = termNorm(t.t + " " + (t.a || []).join(" "));
+          var hay = termNorm(t.t + " " + (t.a || []).join(" ") + " " + t.d);
+          return '<div class="card term-item" data-go="#/term/' + esc(t.id) + '" data-term-key="' + esc(key) + '" data-term-hay="' + esc(hay) + '">' +
+            '<div class="term-item-t">' + esc(t.t) + "</div>" +
+            '<div class="term-item-d">' + esc(termShort(t.d, 190)) + "</div>" +
+            termRefs(t) +
+            "</div>";
+        }).join("") + "</div></section>";
+    }).join("");
+
+    var popular = ["преступление", "необходимая оборона", "исковая давность", "обыск", "алименты",
+      "моральный вред", "административное правонарушение", "прогул", "госпошлина", "задержание"];
+
+    return head + bar + '<div class="small muted" id="termNote" hidden></div>' + cards +
+      '<div class="empty" id="termEmpty" hidden><div class="ico">' + ic("search") + '</div>' +
+        "<div>Такого термина нет. Возможно, он называется иначе — попробуйте поиск по словам из определения.</div></div>" +
+      '<div class="disclaimer">Определения даны для ориентира и не заменяют текст нормы. ' +
+      "У каждого термина есть ссылка на статью — спорную формулировку проверяйте по ней.</div>" +
+      '<div class="chips" style="margin-top:14px">' + popular.map(function (x) {
+        return '<span class="chip" data-go="#/terms/' + encodeURIComponent(x) + '">' + esc(x) + "</span>";
+      }).join("") + "</div>";
+  }
+
+  function bindTerms() {
+    var find = $("#termFind");
+    if (!find) return;
+    /* Отсев в два прохода. Сначала по названию и синонимам — это то, что
+       человек имеет в виду. Только если по названиям пусто, ищем внутри
+       определений: иначе запрос «преступление» показал бы «мелкое
+       хулиганство» (оно упоминает преступление в тексте) в одном списке с
+       самим определением преступления. */
+    var apply = function (push) {
+      var q = termNorm(find.value);
+      var cards = $$("#view .term-item");
+      var byName = [];
+      cards.forEach(function (card) {
+        if (!q || (card.getAttribute("data-term-key") || "").indexOf(q) !== -1) byName.push(card);
+      });
+      var mode = "name";
+      if (q && !byName.length) {
+        mode = "text";
+        cards.forEach(function (card) {
+          if ((card.getAttribute("data-term-hay") || "").indexOf(q) !== -1) byName.push(card);
+        });
+      }
+      var keep = {};
+      byName.forEach(function (c) { keep[c.getAttribute("data-go")] = 1; });
+      var shown = 0;
+      $$("#view .term-group").forEach(function (sec) {
+        var n = 0;
+        $$(".term-item", sec).forEach(function (card) {
+          var hit = !q || keep[card.getAttribute("data-go")];
+          card.hidden = !hit;
+          if (hit) n++;
+        });
+        sec.hidden = n === 0;
+        shown += n;
+      });
+      var empty = $("#termEmpty");
+      if (empty) empty.hidden = shown !== 0;
+      var note = $("#termNote");
+      if (note) {
+        note.hidden = !q;
+        note.textContent = mode === "text"
+          ? "В названиях совпадений нет — показаны термины, где эти слова есть в определении."
+          : "Найдено: " + shown + ".";
+      }
+      /* Строку адреса обновляем через replaceState: иначе набор в поле
+         откладывал бы по записи в истории на каждую букву. */
+      if (push) {
+        try {
+          history.replaceState(history.state, "", "#/terms" + (find.value.trim() ? "/" + encodeURIComponent(find.value.trim()) : ""));
+        } catch (e) {}
+      }
+    };
+    find.addEventListener("input", function () { apply(true); });
+    find.addEventListener("search", function () { apply(true); });
+    find.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && find.value) { find.value = ""; apply(true); }
+    });
+    $$("#view [data-term-jump]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        var b = el.getAttribute("data-term-jump");
+        var sec = $$("#view .term-group").filter(function (s) { return s.getAttribute("data-branch") === b; })[0];
+        if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+    /* Пришли по ссылке #/terms/<слово> — сразу отсеиваем список. */
+    if (find.value.trim()) apply(false);
+  }
+
+  /* -------------------------------------------------- один термин */
+
+  function viewTerm(id) {
+    var t = termById(id);
+    if (!t) {
+      return '<div class="empty"><div class="ico">' + ic("book") + '</div>' +
+        "<div>Такого термина нет. Возможно, ссылка устарела.</div></div>" +
+        '<div class="chips"><span class="chip" data-go="#/terms">К списку терминов</span></div>';
+    }
+    var same = TERMS.filter(function (x) { return x.b === t.b && x.id !== t.id; })
+      .sort(function (a, b) { return cmpRu(a.t, b.t); }).slice(0, 8);
+
+    var norms = (t.articles || []).map(function (aid) {
+      var a = byId[aid];
+      if (!a) return "";
+      var c = codeById(a.c) || { short: a.c, color: "#888" };
+      return '<div class="term-norm" data-go="#/article/' + encodeURIComponent(aid) + '">' +
+        '<span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + "</span>" +
+        '<span class="result-num">ст. ' + esc(a.dn) + "</span>" +
+        '<span class="result-title">' + esc(a.t) + "</span></div>";
+    }).join("");
+
+    return '<div class="article-head">' +
+        '<div class="article-cite">Термин · ' + esc(t.b || "Прочее") + "</div>" +
+        '<div class="article-title">' + ic("book") + " " + esc(t.t) + "</div>" +
+        '<div class="result-meta"><span>' + (t.a || []).length + " " +
+          plural((t.a || []).length, ["написание", "написания", "написаний"]) + " в поиске</span></div>" +
+      "</div>" +
+      '<div class="term-body">' + esc(t.d) + "</div>" +
+      termRefs(t) +
+      (norms ? '<h2 style="margin-top:22px">Нормы-основания</h2>' + norms : "") +
+      (same.length ? '<h2 style="margin-top:22px">Ещё по разделу «' + esc(t.b || "Прочее") + '»</h2>' +
+        '<div class="chips">' + same.map(function (x) {
+          return '<span class="chip" data-go="#/term/' + esc(x.id) + '">' + esc(x.t) + "</span>";
+        }).join("") + "</div>" : "") +
+      '<div class="actions-row" style="margin-top:20px">' +
+        '<span class="btn" data-go="#/terms">Все термины</span>' +
+        '<span class="btn" data-go="#/search/' + encodeURIComponent(t.t) + '">Найти в текстах актов</span>' +
+      "</div>" +
+      '<div class="disclaimer">Определение дано для ориентира и не заменяет текст нормы. ' +
+      "Формулировку спорного вопроса проверяйте по статье, ссылка на неё выше.</div>";
+  }
+
   function casePicker(id) {
     if (!state.cases.length) return '<a class="btn" href="#/cases">' + ic("folder") + " Создать дело</a>";
     return '<select class="input" id="casePick" title="Добавить статью в дело" style="max-width:250px">' +
@@ -4247,6 +4598,7 @@
     { k: "base",    t: "Процессуальные сроки", h: "#/calc",         ico: "clock" },
     { k: "limit",   t: "Давность и зачёт",     h: "#/calc/limit",   ico: "ban" },
     { k: "money",   t: "Пошлины и проценты",   h: "#/calc/money",   ico: "scales" },
+    { k: "claim",   t: "Цена иска",            h: "#/calc/claim",   ico: "scales" },
     { k: "custody", t: "Под стражей",          h: "#/calc/custody", ico: "lock" },
     { k: "simple",  t: "Калькулятор",          h: "#/calc/simple",  ico: "calculator" }
   ];
@@ -4342,6 +4694,93 @@
       b: "подп. 14 п. 1 ст. 333.19 НК РФ" },
     { k: "injunction", t: "Заявление об обеспечении иска", v: 10000,
       b: "подп. 15 п. 1 ст. 333.19 НК РФ" }
+  ];
+
+  /* Госпошлина по имущественному иску в арбитражном суде — подп. 1 п. 1
+     ст. 333.21 НК РФ (в редакции Федерального закона от 08.08.2024
+     № 259-ФЗ). Шкала устроена так же, как в ст. 333.19 НК РФ, но
+     начинается с 10 000 рублей и упирается в 10 000 000 рублей. */
+  var CALC_DUTY_APK = [
+    { up: 100000,    base: 10000,  pct: 0,   from: 0 },
+    { up: 1000000,   base: 10000,  pct: 5,   from: 100000 },
+    { up: 10000000,  base: 55000,  pct: 3,   from: 1000000 },
+    { up: 50000000,  base: 325000, pct: 1,   from: 10000000 },
+    { up: Infinity,  base: 725000, pct: 0.5, from: 50000000, cap: 10000000 }
+  ];
+
+  /* Фиксированные размеры пошлины в арбитражном суде — подп. 4 п. 1
+     ст. 333.21 НК РФ. */
+  var CALC_DUTY_APK_FIXED = [
+    { k: "nonprop-fl",  t: "Иск неимущественного характера, не подлежащий оценке — физлицо", v: 15000,
+      b: "подп. 4 п. 1 ст. 333.21 НК РФ" },
+    { k: "nonprop-org", t: "Иск неимущественного характера, не подлежащий оценке — организация", v: 50000,
+      b: "подп. 4 п. 1 ст. 333.21 НК РФ" },
+    { k: "review",      t: "Пересмотр судебного акта по новым или вновь открывшимся обстоятельствам", v: 30000,
+      b: "подп. 16 п. 1 ст. 333.21 НК РФ" },
+    { k: "injunction",  t: "Заявление об обеспечении иска", v: 30000,
+      b: "подп. 17 п. 1 ст. 333.21 НК РФ" },
+    { k: "facts",       t: "Заявление об установлении фактов, имеющих юридическое значение", v: 30000,
+      b: "подп. 10 п. 1 ст. 333.21 НК РФ" }
+  ];
+
+  /* Типовые слагаемые цены иска. Нужны как подсказки при наборе: неустойку,
+     проценты и убытки в цену иска включают, но при подсчёте «на глаз» о них
+     забывают (ч. 2 п. 1 ст. 103 АПК РФ, подп. 10 п. 1 ст. 91 ГПК РФ). */
+  var CALC_CLAIM_PARTS = [
+    { t: "Основной долг", b: "подп. 1 п. 1 ст. 91 ГПК РФ",
+      n: "сумма, которую истец просит взыскать" },
+    { t: "Неустойка (штраф, пени)", b: "ч. 2 п. 1 ст. 103 АПК РФ",
+      n: "включается в цену иска" },
+    { t: "Проценты по ст. 395 ГК РФ", b: "ч. 2 п. 1 ст. 103 АПК РФ",
+      n: "включаются в цену иска" },
+    { t: "Убытки", b: "подп. 1 п. 1 ст. 91 ГПК РФ",
+      n: "реальный ущерб и упущенная выгода" },
+    { t: "Стоимость истребуемого имущества", b: "подп. 2 п. 1 ст. 91 ГПК РФ",
+      n: "по искам об истребовании имущества" },
+    { t: "Платежи по договору за период", b: "подп. 4 п. 1 ст. 91 ГПК РФ",
+      n: "по срочным платежам — не более чем за три года" }
+  ];
+
+  /* Льготы по ст. 333.36 НК РФ. m — как считать: none — считать как обычно,
+     full — не платить вовсе, cap — освобождение при цене иска до 1 000 000 ₽
+     (свыше — уменьшение на пошлину, исчисленную для этой суммы), p70 —
+     уменьшение на 70 процентов. */
+  var CALC_FEE_GROUNDS = [
+    { k: "none", t: "Льготы нет", m: "none", b: "" },
+    { k: "full", t: "Полное освобождение — п. 1 ст. 333.36 НК РФ", m: "full",
+      b: "п. 1 ст. 333.36 НК РФ",
+      n: "заработная плата и иные трудовые требования, пособия, алименты, вред здоровью, вред от преступления, усыновление, защита прав ребёнка, реабилитация" },
+    { k: "cap", t: "Освобождение до 1 000 000 ₽ — п. 2 ст. 333.36 НК РФ", m: "cap",
+      b: "п. 2, п. 3 ст. 333.36 НК РФ",
+      n: "инвалиды I и II группы, дети-инвалиды, потребители, ветераны боевых действий, пенсионеры по пенсионным искам к СФР и НПФ" },
+    { k: "p70", t: "Единственное жильё — пошлина уменьшается на 70 %", m: "p70",
+      b: "подп. 23 п. 1 ст. 333.36 НК РФ",
+      n: "истцы по искам о защите прав на жилое помещение, единственно пригодное для постоянного проживания" }
+  ];
+
+  /* Как определяется цена иска — п. 1 ст. 91 ГПК РФ (в арбитражном процессе
+     те же по существу правила даёт ст. 103 АПК РФ). */
+  var CALC_CLAIM_RULES = [
+    { t: "Взыскание денежных средств", d: "исходя из взыскиваемой денежной суммы",
+      b: "подп. 1 п. 1 ст. 91 ГПК РФ" },
+    { t: "Истребование имущества", d: "исходя из стоимости истребуемого имущества",
+      b: "подп. 2 п. 1 ст. 91 ГПК РФ" },
+    { t: "Взыскание алиментов", d: "исходя из совокупности платежей за год",
+      b: "подп. 3 п. 1 ст. 91 ГПК РФ" },
+    { t: "Срочные платежи и выдачи", d: "совокупность всех платежей и выдач, но не более чем за три года",
+      b: "подп. 4 п. 1 ст. 91 ГПК РФ" },
+    { t: "Бессрочные и пожизненные платежи", d: "совокупность платежей и выдач за три года",
+      b: "подп. 5 п. 1 ст. 91 ГПК РФ" },
+    { t: "Уменьшение или увеличение платежей", d: "сумма, на которую платежи меняются, но не более чем за год",
+      b: "подп. 6 п. 1 ст. 91 ГПК РФ" },
+    { t: "Прекращение платежей и выдач", d: "совокупность оставшихся платежей, но не более чем за год",
+      b: "подп. 7 п. 1 ст. 91 ГПК РФ" },
+    { t: "Досрочное расторжение договора найма", d: "платежи за пользование имуществом за оставшийся срок, но не более чем за три года",
+      b: "подп. 8 п. 1 ст. 91 ГПК РФ" },
+    { t: "Право собственности на недвижимость", d: "стоимость объекта, но не ниже инвентаризационной (для граждан) или балансовой (для организаций) оценки",
+      b: "подп. 9 п. 1 ст. 91 ГПК РФ" },
+    { t: "Несколько самостоятельных требований", d: "исходя из каждого требования в отдельности",
+      b: "подп. 10 п. 1 ст. 91 ГПК РФ" }
   ];
 
   /* Давность привлечения к уголовной ответственности — ч. 1 ст. 78 УК РФ. */
@@ -4521,6 +4960,36 @@
 
   /* --- вкладка: пошлины и проценты ------------------------------------ */
 
+  /* Госпошлина по ступенчатой шкале: фиксированная часть ступени плюс
+     процент от суммы сверх её нижней границы. Предельный размер ступени
+     (cap) применяется уже к результату — так, как это записано в норме:
+     «но не более 900 000 рублей». */
+  function calcDutySum(tiers, price) {
+    var t = tiers.filter(function (x) { return price <= x.up; })[0] || tiers[tiers.length - 1];
+    var sum = t.base + (price > t.from ? (price - t.from) * t.pct / 100 : 0);
+    if (t.cap) sum = Math.min(sum, t.cap);
+    return { sum: sum, tier: t };
+  }
+
+  /* Сумма без копеек и с разделителем разрядов — для границ шкалы пошлины,
+     где копейки не значат ничего, а читаемость важна. */
+  function calcRub(n) {
+    return Math.round(n).toLocaleString("ru-RU");
+  }
+
+  /* Денежная сумма с копейками и знаком рубля — для итогов расчёта. */
+  function calcMoney(n) {
+    return n.toLocaleString("ru-RU", { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + " ₽";
+  }
+
+  /* Ступень шкалы словами — для пояснения к расчёту. */
+  function calcDutyBand(tier, tiers) {
+    var i = tiers.indexOf(tier);
+    var lo = i > 0 ? tiers[i - 1].up + 1 : 0;
+    if (!isFinite(tier.up)) return "свыше " + calcRub(tier.from) + " ₽";
+    return "от " + calcRub(lo) + " до " + calcRub(tier.up) + " ₽";
+  }
+
   function calcMoneyTab() {
     return '<div class="split calc-split">' +
       '<div class="card">' +
@@ -4566,6 +5035,90 @@
       '<div id="pOut" style="margin-top:14px"></div>' +
       '<div class="note-box" style="margin-top:12px">Если договором предусмотрена неустойка за то же нарушение, проценты по ст. 395 ГК РФ не взыскиваются (п. 4 ст. 395 ГК РФ). Суд вправе уменьшить неустойку при её явной несоразмерности (ст. 333 ГК РФ).</div>' +
     "</div>";
+  }
+
+  /* --- вкладка: цена иска и госпошлина --------------------------------- */
+
+  function calcClaimTab() {
+    var rules = '<table class="tbl"><thead><tr><th>Категория иска</th><th>Как определяется цена</th><th>Основание</th></tr></thead><tbody>' +
+      CALC_CLAIM_RULES.map(function (r) {
+        return "<tr><td>" + esc(r.t) + "</td><td>" + esc(r.d) +
+          '</td><td class="small muted">' + esc(r.b) + "</td></tr>";
+      }).join("") + "</tbody></table>";
+    var fixedOpts = CALC_DUTY_FIXED.concat(CALC_DUTY_APK_FIXED).map(function (f) {
+      return '<option value="' + f.k + '">' + esc(f.t) + " — " + calcMoney(f.v) + "</option>";
+    }).join("");
+    return '<div class="card">' +
+        '<h3 style="margin-top:0">Состав требований</h3>' +
+        '<p class="small muted">Цена иска — сумма всех заявленных денежных требований. В неё входят и неустойка, и проценты (ч. 2 п. 1 ст. 103 АПК РФ); при нескольких самостоятельных требованиях цена определяется их суммой (подп. 10 п. 1 ст. 91 ГПК РФ).</p>' +
+        '<div id="qRows"></div>' +
+        '<div class="actions-row">' +
+          '<button class="btn" id="qAdd" type="button">' + ic("plus") + " Добавить требование</button>" +
+          '<button class="btn" id="qClear" type="button">' + ic("close") + " Очистить</button>" +
+        "</div>" +
+        '<div class="chips calc-presets" id="qPresets">' +
+          CALC_CLAIM_PARTS.map(function (p) {
+            return '<div class="chip" data-q-part="' + esc(p.t) + '" title="' + esc(p.b + " — " + p.n) + '">' + esc(p.t) + "</div>";
+          }).join("") +
+        "</div>" +
+        '<div id="qTotal" class="claim-total"></div>' +
+        '<div class="note-box" style="margin-top:4px">Стоимость истребуемого имущества подтверждается оценкой или договором; по недвижимости — не ниже инвентаризационной (для граждан) или балансовой (для организаций) оценки. Если указанная цена явно не соответствует действительной стоимости, цену иска определяет судья (п. 2 ст. 91 ГПК РФ, п. 3 ст. 103 АПК РФ).</div>' +
+      "</div>" +
+      '<h2>Государственная пошлина</h2>' +
+      '<div class="split calc-split">' +
+        '<div class="card">' +
+          '<div class="field"><label>Суд</label><select class="select" id="qCourt">' +
+            '<option value="gpk">Суд общей юрисдикции, мировой судья — ст. 333.19 НК РФ</option>' +
+            '<option value="apk">Арбитражный суд — ст. 333.21 НК РФ</option>' +
+          "</select></div>" +
+          '<div class="field"><label>Плательщик</label><select class="select" id="qWho">' +
+            '<option value="fl">физическое лицо</option>' +
+            '<option value="org">организация</option>' +
+          "</select></div>" +
+          '<div class="field"><label>Льгота</label><select class="select" id="qBenefit">' +
+            CALC_FEE_GROUNDS.map(function (g) { return '<option value="' + g.k + '">' + esc(g.t) + "</option>"; }).join("") +
+          "</select></div>" +
+          '<label class="calc-check"><input type="checkbox" id="qOrder"> заявление о вынесении судебного приказа</label>' +
+          '<label class="calc-check"><input type="checkbox" id="qNonProp"> в иске есть требование неимущественного характера</label>' +
+          '<button class="btn btn-primary" id="qRun" style="width:100%">Рассчитать пошлину</button>' +
+          '<div id="qOut" style="margin-top:14px"></div>' +
+        "</div>" +
+        '<div class="card">' +
+          '<h3 style="margin-top:0">Что ещё влияет на пошлину</h3>' +
+          '<ul class="list">' +
+            '<li>Если иск содержит и имущественное, и неимущественное требование, пошлина уплачивается за каждое из них отдельно (подп. 1 п. 1 ст. 333.20 НК РФ).</li>' +
+            '<li>По судебному приказу — 50 % пошлины по имущественному иску (подп. 2 п. 1 ст. 333.19 и подп. 3 п. 1 ст. 333.21 НК РФ). В арбитраже приказ дешевле не бывает: минимум 8 000 ₽.</li>' +
+            '<li>При увеличении цены иска недостающая сумма доплачивается, при уменьшении излишек возвращается (подп. 10 п. 1 ст. 333.20 НК РФ).</li>' +
+            '<li>Суд вправе уменьшить пошлину или рассрочить её уплату исходя из имущественного положения (п. 2 ст. 333.20 НК РФ).</li>' +
+          "</ul>" +
+          '<div class="note-box" style="margin-top:10px"><b>Неимущественное требование</b> — самостоятельный размер пошлины. Рассчитать его отдельно можно здесь:' +
+            '<div class="field" style="margin-top:10px"><label>Категория неимущественного требования</label><select class="select" id="qFixed">' +
+              '<option value="">— выбрать —</option>' + fixedOpts +
+            "</select></div>" +
+            '<div id="qFixedOut" style="margin-top:8px"></div>' +
+          "</div>" +
+        "</div>" +
+      "</div>" +
+      '<h2>Доплата при увеличении цены иска</h2>' +
+      '<div class="card">' +
+        '<p class="small muted">При увеличении истцом размера исковых требований недостающая сумма пошлины доплачивается по увеличенной цене (подп. 10 п. 1 ст. 333.20 НК РФ). Ниже — разница между пошлиной по новой и прежней цене.</p>' +
+        '<div class="form-row">' +
+          '<div class="field"><label>Цена иска была, ₽</label><input type="number" class="input" id="dWas" min="0" step="1000" value="500000"></div>' +
+          '<div class="field"><label>Цена иска стала, ₽</label><input type="number" class="input" id="dBec" min="0" step="1000" value="1200000"></div>' +
+        "</div>" +
+        '<div class="field"><label>Суд</label><select class="select" id="dCourt">' +
+          '<option value="gpk">Суд общей юрисдикции / мировой судья</option>' +
+          '<option value="apk">Арбитражный суд</option>' +
+        "</select></div>" +
+        '<button class="btn btn-primary" id="dRun" style="width:100%">Рассчитать доплату</button>' +
+        '<div id="dOut" style="margin-top:14px"></div>' +
+      "</div>" +
+      '<h2>Как определяется цена иска</h2>' +
+      '<div class="card">' +
+        '<p class="small muted">П. 1 ст. 91 ГПК РФ и ст. 103 АПК РФ. По искам о взыскании денежных средств цена равна взыскиваемой сумме; в неё включаются неустойка, штраф, пени и проценты.</p>' +
+        rules +
+        '<div class="note-box" style="margin-top:12px">По срочным и бессрочным платежам в цену иска берётся совокупность платежей <b>не более чем за три года</b> (подп. 4, 5 п. 1 ст. 91 ГПК РФ). Цену указывает истец, при явном несоответствии её определяет судья.</div>' +
+      "</div>";
   }
 
   /* --- вкладка: под стражей ------------------------------------------- */
@@ -4907,6 +5460,7 @@
     var k = calcTab(tab);
     var body = k === "limit" ? calcLimitTab()
       : k === "money" ? calcMoneyTab()
+      : k === "claim" ? calcClaimTab()
       : k === "custody" ? calcCustodyTab()
       : k === "simple" ? calcSimpleTab()
       : calcBaseTab();
@@ -4914,6 +5468,7 @@
       base: "Дата окончания срока по правилам ст. 128 УПК РФ и контрольные точки по делу и по задержанию.",
       limit: "Сроки давности по УК, КоАП и ГК, а также зачёт времени содержания под стражей.",
       money: "Госпошлина по ст. 333.19 НК РФ, проценты по ст. 395 ГК РФ, неустойка и индексация.",
+      claim: "Цена иска собирается из заявленных требований (ст. 91 ГПК РФ, ст. 103 АПК РФ), а пошлина считается по ст. 333.19 / 333.21 НК РФ с учётом льгот ст. 333.36 НК РФ.",
       custody: "Сроки содержания под стражей, домашнего ареста и продлений — от момента задержания.",
       simple: "Обычный калькулятор: сложение, вычитание, умножение, деление, проценты и смена знака. Считает прямо в браузере, работает и с клавиатуры."
     }[k];
@@ -4951,6 +5506,133 @@
       });
       scReset();
       scRender();
+      return;
+    }
+
+    if (k === "claim") {
+      var tiersFor = function () { return $("#qCourt").value === "apk" ? CALC_DUTY_APK : CALC_DUTY_TIERS; };
+
+      /* Строка требования: название + сумма + кнопка удаления. */
+      var addPart = function (name, val) {
+        var row = document.createElement("div");
+        row.className = "form-row claim-row";
+        row.innerHTML =
+          '<input type="text" class="input" data-q-name placeholder="Наименование требования" value="' + esc(name || "") + '">' +
+          '<input type="number" class="input" data-q-amt min="0" step="1000" placeholder="сумма, ₽" value="' + (val != null ? val : "") + '">' +
+          '<button class="btn" data-q-del type="button" aria-label="Удалить требование">' + ic("close") + "</button>";
+        row.querySelector("[data-q-amt]").addEventListener("input", refreshTotal);
+        $("#qRows").appendChild(row);
+        refreshTotal();
+      };
+      var refreshTotal = function () {
+        var total = 0, rows = $$("#qRows .claim-row");
+        rows.forEach(function (r) {
+          total += Math.max(0, parseFloat(r.querySelector("[data-q-amt]").value) || 0);
+        });
+        var el = $("#qTotal");
+        if (!el) return;
+        el.innerHTML = '<div><div class="small muted">Цена иска</div><b>' + calcMoney(total) + "</b></div>" +
+          '<div class="small muted">из ' + rows.length + " " + plural(rows.length, ["требования", "требований", "требований"]) + "</div>";
+        return total;
+      };
+
+      $("#qAdd").addEventListener("click", function () { addPart("", null); });
+      $("#qClear").addEventListener("click", function () {
+        $("#qRows").innerHTML = ""; refreshTotal();
+      });
+      $("#qRows").addEventListener("click", function (e) {
+        var d = e.target.closest("[data-q-del]");
+        if (d) { d.parentNode.remove(); refreshTotal(); }
+      });
+      $("#qPresets").addEventListener("click", function (e) {
+        var p = e.target.closest("[data-q-part]");
+        if (!p) return;
+        var part = CALC_CLAIM_PARTS.filter(function (x) { return x.t === p.getAttribute("data-q-part"); })[0];
+        addPart(part ? part.t : p.getAttribute("data-q-part"), null);
+      });
+
+      $("#qRun").addEventListener("click", function () {
+        var price = refreshTotal() || 0;
+        var tiers = tiersFor();
+        var who = $("#qWho").value;
+        var gr = CALC_FEE_GROUNDS.filter(function (g) { return g.k === $("#qBenefit").value; })[0] || CALC_FEE_GROUNDS[0];
+        var order = $("#qOrder").checked;
+        var d = calcDutySum(tiers, price);
+        var fee = d.sum;
+        var basis = "подп. 1 п. 1 ст. " + ($("#qCourt").value === "apk" ? "333.21" : "333.19") + " НК РФ";
+        var note = "";
+
+        if (gr.m === "full") { fee = 0; note = "Полное освобождение от пошлины — " + esc(gr.b) + "."; }
+        else if (gr.m === "cap") {
+          if (price <= 1000000) { fee = 0; note = "Цена иска не превышает 1 000 000 ₽ — освобождение (" + esc(gr.b) + ")."; }
+          else {
+            var cut = calcDutySum(tiers, 1000000).sum;
+            fee = Math.max(0, fee - cut);
+            note = "Цена иска свыше 1 000 000 ₽: пошлина уменьшается на пошлину для 1 000 000 ₽ (" + esc(gr.b) + ").";
+          }
+        }
+        else if (gr.m === "p70") { fee = fee * 0.3; note = "Пошлина уменьшена на 70 % — " + esc(gr.b) + "."; }
+
+        if (order && fee > 0) {
+          var ordMin = ($("#qCourt").value === "apk") ? 8000 : 0;
+          var red = Math.max(ordMin, fee / 2);
+          note += (note ? " " : "") + "Судебный приказ — 50 % пошлины" + (ordMin ? " (но не менее " + calcMoney(ordMin) + ")" : "") + ".";
+          fee = red; basis = "подп. 2 п. 1 ст. " + ($("#qCourt").value === "apk" ? "333.21" : "333.19") + " НК РФ";
+        }
+
+        var bandTxt = calcDutyBand(d.tier, tiers);
+        var html = '<div class="info-box">' +
+          '<div class="small muted">Государственная пошлина</div><b style="font-size:19px">' + calcMoney(fee) + "</b>" +
+          '<div class="small muted" style="margin-top:8px">При цене иска ' + calcMoney(price) + "</div>" +
+          '<div class="small muted">Ступень шкалы: ' + esc(bandTxt) + "</div>" +
+          '<div class="small muted" style="margin-top:8px">Основание: ' + esc(basis) + "</div>" +
+          (fee === 0 && gr.m !== "none" ? '<div class="small muted" style="margin-top:8px">Пошлину платит ответчик, если он не освобождён (п. 8 ст. 333.20 НК РФ).</div>' : "") +
+          "</div>";
+        if (note) html += '<div class="warn-box" style="margin-top:10px">' + esc(note) + "</div>";
+
+        if ($("#qNonProp").checked) {
+          var fk = who === "org" ? "nonprop-org" : "nonprop-fl";
+          var fv = ($("#qCourt").value === "apk")
+            ? (who === "org" ? 50000 : 15000)
+            : (who === "org" ? 20000 : 3000);
+          var fb = ($("#qCourt").value === "apk") ? "подп. 4 п. 1 ст. 333.21 НК РФ" : "подп. 3 п. 1 ст. 333.19 НК РФ";
+          html += '<div class="info-box" style="margin-top:10px"><div class="small muted">Плюс пошлина за неимущественное требование</div><b style="font-size:16px">' + calcMoney(fv) + "</b>" +
+            '<div class="small muted" style="margin-top:8px">' + esc(fb) + ' — обе пошлины платятся вместе (подп. 1 п. 1 ст. 333.20 НК РФ).</div></div>';
+        }
+        html += '<div class="small muted" style="margin-top:8px">Суд вправе уменьшить пошлину или рассрочить её из-за имущественного положения (п. 2 ст. 333.20 НК РФ). <a class="lnk" data-go="#/article/nk2-333.19">ст. 333.19 НК РФ</a></div>';
+        $("#qOut").innerHTML = html;
+      });
+
+      $("#qFixed").addEventListener("change", function () {
+        var k = $("#qFixed").value;
+        var el = $("#qFixedOut");
+        if (!k) { el.innerHTML = ""; return; }
+        var f = (CALC_DUTY_FIXED.concat(CALC_DUTY_APK_FIXED)).filter(function (x) { return x.k === k; })[0];
+        if (!f) { el.innerHTML = ""; return; }
+        el.innerHTML = '<div class="info-box"><div class="small muted">' + esc(f.t) + '</div><b style="font-size:16px">' + calcMoney(f.v) +
+          '</b><div class="small muted" style="margin-top:8px">' + esc(f.b) + "</div></div>";
+      });
+
+      $("#dRun").addEventListener("click", function () {
+        var was = Math.max(0, parseFloat($("#dWas").value) || 0);
+        var bec = Math.max(0, parseFloat($("#dBec").value) || 0);
+        var tiers = $("#dCourt").value === "apk" ? CALC_DUTY_APK : CALC_DUTY_TIERS;
+        var fw = calcDutySum(tiers, was).sum, fb = calcDutySum(tiers, bec).sum;
+        var diff = fb - fw;
+        $("#dOut").innerHTML = '<div class="info-box">' +
+          '<div class="small muted">Пошлина была (цена ' + calcMoney(was) + ")</div><b>" + calcMoney(fw) + "</b>" +
+          '<div class="small muted" style="margin-top:6px">Пошлина стала (цена ' + calcMoney(bec) + ")</div><b style=\"font-size:18px\">" + calcMoney(fb) + "</b>" +
+          '<div class="small muted" style="margin-top:8px">' +
+          (diff > 0 ? "Доплата к пошлине: <b>" + calcMoney(diff) + "</b>" :
+           diff < 0 ? "Излишне уплаченная пошлина к возврату: <b>" + calcMoney(-diff) + "</b>" :
+           "Цена не изменилась — доплата не требуется.") +
+          "</div>" +
+          '<div class="small muted" style="margin-top:8px">Основание: подп. 10 п. 1 ст. 333.20 НК РФ. <a class="lnk" data-go="#/article/nk2-333.20">ст. 333.20 НК РФ</a></div>' +
+          "</div>";
+      });
+
+      /* предзаполнение: одно пустое требование, чтобы было с чего начать */
+      addPart("", null);
       return;
     }
 
@@ -7117,6 +7799,7 @@
     };
     var start = '<div class="tiles help-start">' +
       quickCard("search", "Найти статью", "Номер, название или слова из текста — например «обыск в жилище»", "#/home", "blue") +
+      quickCard("book", "Что значит термин", "Словарь определений со ссылками на нормы: преступление, обыск, алименты", "#/terms", "green") +
       quickCard("compass", "Разбор ситуации", "Опишите вопрос обычным языком — помощник покажет нормы и что делать", "#/assistant", "violet") +
       quickCard("calculator", "Калькуляторы", "Обычный счёт, процессуальные сроки, давность, пошлина, неустойка, сроки под стражей", "#/calc", "amber") +
       quickCard("activity", "Что нового", "Лента изменений по дням: новые статьи, редакции, утрата силы", "#/new", "rose") +
@@ -7135,7 +7818,8 @@
         "<p>Номер статьи — <b>ст 105 ук</b>, <b>статья 91 УПК</b>, <b>упк 182</b>. Подстатьи — <b>159.1 УК</b>, <b>19.7.10-1 КоАП</b>. Слова — <b>обыск в жилище</b>, <b>получение взятки</b>.</p>" +
         "<p>Ищется и внутри полного текста статей: совпадения выводятся блоком «Найдено в текстах статей» с подсветкой. Слова приводятся к основе, поэтому «алименты» найдёт и «алиментов».</p>" +
         "<p>Запрос расширяется близкими по смыслу словами: по «кража» находятся и нормы о хищении, по «взятке» — о подкупе. Точные слова запроса всегда выше, расширение указано под строкой результатов.</p>" +
-        "<p>Быстрый переход и поиск с клавиатуры — <b>Ctrl + K</b> (или <b>/</b>): статьи, разделы и источники без мыши.</p>") +
+        "<p>Быстрый переход и поиск с клавиатуры — <b>Ctrl + K</b> (или <b>/</b>): статьи, разделы и источники без мыши. Термины ищутся там же — наберите слово, и первым делом появится его определение.</p>" +
+        "<p>Не знаете, как называется нужное? Раздел <b>«Термины»</b> — " + TERMS.length + " определений с синонимами: «умышленно» находит «умысел», «дубинка» — «специальные средства», «развод» — «расторжение брака». У каждого термина — ссылки на нормы, из которых взято определение. То же определение показывается над результатами обычного поиска, когда запрос совпал с термином.</p>") +
 
       sec("Помощник и памятки", "compass",
         "<p>Опишите ситуацию обычным языком — помощник определит отрасль, вероятный состав, объект и предмет, покажет квалификацию, санкцию, что нужно установить и что сделать, и уточнит детали вопросами.</p>" +
@@ -8757,6 +9441,7 @@
     var navs = [
       { t: "Навигатор", h: "#/home", k: "главная начало" },
       { t: "Помощник", h: "#/assistant", k: "помощник разбор ситуации анализ консультант вопрос" },
+      { t: "Термины", h: "#/terms", k: "термин определение словарь глоссарий что такое значит понятие" },
       { t: "Памятки", h: "#/scenarios", k: "памятка сценарий оперативник орм что делать порядок действий досмотр доставление кусп" },
       { t: "Калькуляторы", h: "#/calc", k: "калькулятор рассчитать посчитать арифметика сложить умножить разделить обычный счёт 5+5 срок давность пошлина неустойка проценты 395 госпошлина 333.19 зачёт стража задержание" },
       { t: "Процессуальные сроки", h: "#/deadlines", k: "сроки калькулятор" },
@@ -8786,6 +9471,13 @@
     CODES.forEach(function (c) {
       if (nq && (norm(c.short + " " + c.full).indexOf(nq) !== -1)) items.push({ type: "code", title: c.short, sub: c.full, go: "#/code/" + c.id });
     });
+    /* Словарь — до статей: если человек набрал «преступление», определение
+       нужнее, чем сто статей, где слово встречается. */
+    if (nq.length >= 3) {
+      termFind(q, 3).forEach(function (t) {
+        items.push({ type: "term", title: t.t, sub: "термин · " + (t.b || ""), go: "#/term/" + t.id });
+      });
+    }
     if (nq.length >= 1) {
       search(q).slice(0, 12).forEach(function (x) {
         var cc = codeById(x.a.c) || { short: x.a.c };
@@ -8811,7 +9503,7 @@
     list.innerHTML = pal.items.map(function (it, i) {
       return '<div class="palette-item' + (i === pal.sel ? " sel" : "") + '" data-i="' + i + '">' +
         (it.type === "art" ? '<span class="pi-num">ст. ' + esc(it.num) + "</span>" :
-          '<span class="pi-num" style="color:var(--muted)">' + (it.type === "nav" ? "→" : it.type === "scen" ? "◈" : "§") + "</span>") +
+          '<span class="pi-num" style="color:var(--muted)">' + (it.type === "nav" ? "→" : it.type === "scen" ? "◈" : it.type === "term" ? "❖" : "§") + "</span>") +
         '<span class="pi-t">' + esc(it.title) + '</span><span class="pi-c">' + esc(it.sub) + "</span></div>";
     }).join("");
   }
@@ -8861,10 +9553,10 @@
       "</div>";
     box.hidden = false;
     document.body.classList.add("modal-open");
-    /* Адрес подменяется через replaceState: новой записи в истории не
-       появляется, поэтому сайт остаётся «одной страницей», а «Назад» уводит
-       с сайта, а не листает просмотренные статьи. Прежний адрес запоминаем,
-       чтобы вернуть его при закрытии окна. */
+    /* Адрес подменяется через replaceState: мини-окно — это просмотр поверх
+       раздела, а не переход. Запиши мы его в историю — «Назад» после
+       закрытия окна возвращала бы на статью, которую человек уже прочитал и
+       закрыл. Прежний адрес запоминаем, чтобы вернуть его при закрытии. */
     try {
       modalReturnUrl = location.pathname + location.search + location.hash;
       history.replaceState({ modal: true, artId: artId }, "", "#/article/" + encodeURIComponent(artId));
@@ -9340,7 +10032,19 @@
     });
 
     bindGlobal();
-    if (!location.hash) location.hash = "#/home";
+    /* Адрес начальной записи приводим к каноническому виду и помечаем её
+       нулевой точкой стека: дальше go() добавляет записи, и «Назад» браузера
+       идёт ровно по ним. Через replaceState, а не присваиванием location.hash:
+       присваивание добавило бы лишнюю запись, и первое же «Назад» вернуло бы
+       на тот же экран. Заодно это проба: на части режимов file:// history
+       API запрещён, и тогда кнопки панели работают по своему стеку. */
+    try {
+      history.replaceState({ nav: 0 }, "", location.pathname + location.search + (location.hash || "#/home"));
+      histOk = true;
+    } catch (e) {
+      histOk = false;
+      if (!location.hash) location.hash = "#/home";
+    }
     render();
 
     /* при возврате в браузер (bfcache) меню не должно оставаться открытым */
@@ -9538,6 +10242,13 @@
     setCode: function (v) { BUILD_CODE = String(v || ""); },
     state: function () { return buildInfo; },
     key: BUILD_KEY,
-    url: BUILD_URL
+    url: BUILD_URL,
+    /* Тест-швы перемещения по разделам: умеет ли окружение работать с
+       историей браузера и какова её предельная глубина. Нужны стенду
+       .workbuddy-ai/verify-history.js — в jsdom на file:// history API
+       запрещён, и проверить это поведение можно только живьём. */
+    histOk: function () { return histOk; },
+    navMax: function () { return NAV_MAX; },
+    navState: function () { return { stack: navStack.slice(), pos: navPos }; }
   };
 })();

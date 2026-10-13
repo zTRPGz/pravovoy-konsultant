@@ -914,6 +914,19 @@ table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; 
 .calc-row { grid-template-columns: 1fr 1fr 1fr auto; margin-bottom: 8px; }
 .calc-row .btn { padding: 9px 11px; }
 
+/* Строка требования при сборе цены иска: название, сумма, удаление. */
+.claim-row { grid-template-columns: 1fr 170px auto; margin-bottom: 8px; }
+.claim-row .btn { padding: 9px 11px; }
+
+/* Итог по цене иска: крупная сумма и подпись под ней. */
+.claim-total {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin: 14px 0 4px; padding: 12px 14px;
+  background: var(--bg-3); border: 1px solid var(--border-2); border-radius: var(--radius);
+}
+.claim-total b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.claim-total .small { margin: 0; }
+
 /* Чекбокс «не переносить с нерабочего дня» — обычная подпись, не поле. */
 .calc-check {
   display: flex; align-items: center; gap: 8px; margin: 2px 0 14px;
@@ -1995,6 +2008,68 @@ body::-webkit-scrollbar-track { background: transparent; }
   .update-bar .ub-note { display: none; }
   body.has-update .toast { bottom: 96px; }
 }
+
+/* --------------------------------------------------- глоссарий (термины) */
+
+/* Список терминов устроен как список шаблонов: те же группы, поиск и
+   переходы. Правила свои, а не общий класс, — потому что карточка термина
+   показывает выдержку определения, а не набор полей. */
+.term-group { margin: 0 0 4px; }
+.term-group h2 { display: flex; align-items: baseline; gap: 8px; }
+.term-group[hidden],
+.term-group .card[hidden] { display: none; }
+
+.term-item { cursor: pointer; }
+.term-item-t { font-weight: 620; }
+.term-item-d { margin-top: 6px; font-size: var(--fs-3); color: var(--text-2); line-height: 1.5; }
+
+/* Ссылки на нормы подчёркнуты точками, а не линией: их бывает по пять
+   подряд, и сплошное подчёркивание превратило бы строку в забор. */
+.term-refs { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 9px; }
+.term-ref {
+  font-size: var(--fs-2); color: var(--accent); cursor: pointer; white-space: nowrap;
+  border-bottom: 1px dotted color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.term-ref:hover { color: var(--text); border-bottom-color: var(--text); }
+
+/* Определение над результатами поиска: отвечает на «что это значит», пока
+   список статей отвечает на «где это написано». */
+.term-card {
+  margin: 0 0 16px; padding: 13px 15px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, var(--accent-bg), transparent 60%), var(--bg-2);
+}
+.term-card-h {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 9px; font-size: var(--fs-2); font-weight: 650;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+}
+.term-card-h .ic { width: 15px; height: 15px; color: var(--accent); }
+.term-hit-t { font-size: var(--fs-5); font-weight: 680; color: var(--text); cursor: pointer; }
+.term-hit-t:hover { color: var(--accent); }
+.term-hit-d { margin-top: 7px; font-size: var(--fs-3); line-height: 1.6; color: var(--text-2); }
+.term-card-more {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin-top: 11px; font-size: var(--fs-2); color: var(--muted);
+}
+.term-pill {
+  padding: 2px 9px; border-radius: var(--r-pill); cursor: pointer;
+  border: 1px solid var(--border-2); background: var(--bg-3); color: var(--text-2);
+}
+.term-pill:hover { color: var(--text); border-color: var(--accent); }
+
+/* Страница одного термина */
+.term-body { font-size: var(--fs-5); line-height: 1.7; color: var(--text); }
+.term-norm {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 9px 11px; border-radius: var(--r-sm); cursor: pointer;
+  font-size: var(--fs-3);
+}
+.term-norm + .term-norm { border-top: 1px solid var(--line); }
+.term-norm:hover { background: var(--bg-3); }
+.term-norm .result-title { flex: 1; min-width: 0; }
 
 /* печать подборки: печатается только временный блок #printArea */
 #printArea { display: none; }

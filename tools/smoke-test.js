@@ -634,9 +634,14 @@ server.listen(0, "127.0.0.1", async () => {
     (T("#asOut .concl-p") || "").slice(-70));
 
   section = "6c. Перемещение по разделам кнопками"; console.log("\n" + section);
-  /* Кнопки ходят по собственному стеку адресов и НЕ трогают историю браузера:
-     запись в истории одна, поэтому браузерная «Назад» увела бы посетителя с
-     сайта — вместо неё и сделаны эти кнопки. */
+  /* Кнопки в панели и кнопка «Назад» браузера ходят по одной и той же истории
+     (go() пишет адрес через pushState, navStep — через history.go), а глубина
+     истории ограничена, чтобы она не росла без предела. Здесь проверяется то,
+     что видно и в jsdom: шаг назад возвращает раздел, шаг вперёд — обратно,
+     новый переход сбрасывает «вперёд», а адрес следует за кнопками.
+     (jsdom на file:// запрещает history API, поэтому приложение само
+     переключается на свой стек — см. histOk в app.js. Поведение самой
+     истории проверяется в настоящем браузере: .workbuddy-ai/verify-history.js) */
   const navBackBtn = $("#navBack"), navFwdBtn = $("#navFwd");
   ok("кнопки «Назад»/«Вперёд» есть в верхней панели", !!navBackBtn && !!navFwdBtn);
   await nav("#/favorites");
@@ -646,10 +651,13 @@ server.listen(0, "127.0.0.1", async () => {
   ok("«Назад» активна после переходов", navBackBtn.disabled === false);
   ok("«Вперёд» пока неактивна", navFwdBtn.disabled === true);
   const beforeBack = T("#view h1");
+  const hashBeforeBack = w.location.hash;
   navBackBtn.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
   await wait(250);
   ok("«Назад» вернула на предыдущий раздел", T("#view h1") !== beforeBack,
     beforeBack + " → " + T("#view h1"));
+  ok("«Назад» меняет и адрес, а не только экран", w.location.hash !== hashBeforeBack,
+    hashBeforeBack + " → " + w.location.hash);
   ok("«Назад» не добавила записи в историю браузера", w.history.length === hLen,
     hLen + " → " + w.history.length);
   ok("«Вперёд» стала активной после шага назад", navFwdBtn.disabled === false);

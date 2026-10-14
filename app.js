@@ -1433,7 +1433,6 @@
     fav: LS.get("fav", []),
     col: LS.get("col", []),        // подборка: [{ id, note }]
     cases: LS.get("cases", []),    // дела: [{ id, title, desc, created, updated, items:[{id,note}], notes:[{id,text,created}] }]
-    hist: LS.get("hist", []),
     theme: LS.get("theme", "dark"),
     read: LS.get("read", { fs: 15, lh: 1.65, w: 0 }),  // настройки чтения текста
     role: LS.get("role", ""),       // роль: "" | sle || adv | gos
@@ -1973,13 +1972,6 @@
       }
     });
   }
-  function pushHist(q) {
-    q = String(q || "").trim();
-    if (q.length < 2) return;
-    state.hist = [q].concat(state.hist.filter(function (x) { return x !== q; })).slice(0, 25);
-    LS.set("hist", state.hist);
-  }
-
   /* ------------------------------------------------------------------ уведомления */
 
   var toastEl = null, toastTimer = null;
@@ -2561,12 +2553,6 @@
   }
 
   function viewHome() {
-    var hist = state.hist.length
-      ? '<h2>Недавние запросы</h2><div class="chips">' + state.hist.slice(0, 12).map(function (q) {
-          return '<div class="chip" data-go="#/search/' + encodeURIComponent(q) + '">' + esc(q) + "</div>";
-        }).join("") + "</div>"
-      : "";
-
     var withText = CODES.filter(function (c) { return !c.note; });
     var nCodes = CODES.filter(function (c) { return (c.kind || "code") === "code"; }).length;
     var nLaws = CODES.filter(function (c) { return c.kind === "law"; }).length;
@@ -2634,8 +2620,6 @@
           '<summary class="kind-title">' + esc(g.title) + '<span class="cnt">' + g.items.length + "</span></summary>" +
           '<div class="grid grid-3">' + g.items.map(codeCard).join("") + "</div></details>";
       }).join("") +
-
-      hist +
 
       '<div class="disclaimer">' +
         "<b>О статусе текстов.</b> Полные тексты получены из открытого набора данных на основе официального портала опубликования правовых актов actual.pravo.gov.ru, а также напрямую с этого портала. " +
@@ -4572,9 +4556,19 @@
 
      Отрицание учитывается: «тяжкого вреда не наступило» и «без вреда здоровью»
      описывают как раз ОТСУТСТВИЕ тяжкого вреда, и без этой проверки движок
-     уверенно выбирал бы самую строгую статью. */
-  function autoQualPicks(low) {
-    var t = String(low || "");
+     уверенно выбирал бы самую строгую статью.
+
+     Знаки препинания здесь НУЖНЫ, поэтому текст приводится к нижнему регистру
+     на месте, а не общим norm(): norm() вырезает «, ; ! ?», и границы
+     придаточного исчезали — «нанёс побои, причинив лёгкий вред здоровью, ранее
+     не судим» превращалось в одну фразу, слово «не» из «не судим» попадало в
+     одно придаточное с «лёгкий вред» и снимало лёгкий вред. */
+  function autoQualPicks(text) {
+    var t = String(text == null ? "" : text).toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[«»"'`„“”]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
     /* Отрицание проверяем ОКНОМ вокруг признака, а не только перед ним:
        «не наступило тяжкого вреда» и «тяжкого вреда не наступило» — одно и то
        же по смыслу, а различаются порядком слов. Односторонняя проверка на
@@ -4744,12 +4738,41 @@
     return { intro: intro, rows: rows };
   }
 
+  /* Вопросы, поставленные в самом описании. Фабулы задач и учебных примеров
+     почти всегда заканчиваются одними и теми же вопросами — есть ли состав,
+     какова общественная опасность, есть ли смягчающие и отягчающие
+     обстоятельства, возможно ли соучастие. Раньше Помощник отвечал только на
+     первый: он подбирал нормы по последствиям и молчал про остальные. Здесь —
+     короткие ответы по существу, и только если вопрос задан словами описания.
+     Если разбор уже отвечает на такой вопрос своей строкой характеристики,
+     второй раз он не выводится. */
+  function askedQuestions(low, help) {
+    var t = String(low || ""), rows = [];
+    var have = {};
+    ((help && help.length ? help[0].h.char : []) || []).forEach(function (r) { have[String(r[0]).toLowerCase()] = 1; });
+    function dup(label) { return !!have[String(label).toLowerCase()]; }
+
+    if (/общественн[а-я]*\s+опасност|степен[а-я]*\s+опасност/.test(t) && !dup("Общественная опасность")) {
+      rows.push(["Общественная опасность",
+        linkify("Общественная опасность — свойство деяния причинять существенный вред охраняемым отношениям (ст. 14 УК РФ). Характер и степень общественной опасности определяются объектом посягательства, тяжестью последствий, способом, обстановкой, формой вины и ролью лица и учитываются при назначении наказания (ст. 6, 60 УК РФ); от них же зависит категория преступления (ст. 15 УК РФ).")]);
+    }
+    if (/смягчающ|отягчающ|вид и размер наказан|повлиять на наказан|назначени[а-я]* наказан/.test(t) && !dup("Смягчающие и отягчающие обстоятельства")) {
+      rows.push(["Смягчающие и отягчающие обстоятельства",
+        linkify("Смягчающие обстоятельства — ст. 61 УК РФ (оказание помощи потерпевшему, добровольное возмещение вреда, явка с повинной, активное способствование раскрытию преступления). Отягчающие — ст. 63 УК РФ (наступление тяжких последствий, совершение в составе группы, особо активная роль); их перечень исчерпывающий. Обстоятельства, относящиеся к признакам состава, повторно как отягчающие не учитываются (ч. 2 ст. 63 УК РФ).")]);
+    }
+    if (/соучаст/.test(t) && !dup("Соучастие")) {
+      rows.push(["Соучастие",
+        linkify("Соучастие (ст. 32 УК РФ) — совместное участие в умышленном преступлении; умысел общий для всех соучастников. При неосторожной вине к последствиям (ст. 264, 266, 109, 118 УК РФ) соучастия не образуется: каждый отвечает самостоятельно — это неосторожное сопричинение. Для умышленного состава (например, ст. 238 УК РФ) соучастие возможно, требует доказанного сговора, и действия каждого квалифицируются самостоятельно (ст. 34 УК РФ).")]);
+    }
+    return rows;
+  }
+
   /* «Вывод по запросу» — профессиональная сводка ответа в начале разбора:
      отрасль, вероятная квалификация, нормы для проверки (кликабельные) и что
      установить. Собирается только из данных сайта и идёт первым, чтобы ответ
      читался с вывода. Заголовок намеренно не <h2>: первый h2 остаётся за
      самим развёрнутым разбором. */
-  function conclusionBox(help, scored, res, conf, qStems, keyArts, practice, auto, sc, fc) {
+  function conclusionBox(help, scored, res, conf, qStems, keyArts, practice, auto, sc, fc, low) {
     /* Ответы на уточняющие вопросы и подсказка из самого описания — разные
        вещи. Если человек ответил на вопрос «Какая тяжесть вреда установлена?»,
        его выбор перекрывает догадку движка: у вопроса один вариант, а не два. */
@@ -4872,6 +4895,10 @@
       }
     }
     if (prove.length) rows.push(["Что установить (доказать)", "<ul class=\"list\">" + prove.map(function (s) { return "<li>" + linkify(s) + "</li>"; }).join("") + "</ul>"]);
+    /* Ответы на вопросы, поставленные в самом описании (общественная
+       опасность, смягчающие и отягчающие, соучастие) — если разбор их не
+       разобрал своими строками характеристики. */
+    askedQuestions(low, help).forEach(function (r) { rows.push(r); });
     if (acts.length) rows.push(["Что сделать", "<ol class=\"steps\">" + acts.map(function (s) { return "<li>" + linkify(s) + "</li>"; }).join("") + "</ol>"]);
 
     /* Короткий ответ — первым, до пояснений. Раньше квалификация стояла
@@ -4884,6 +4911,11 @@
       if (area) meta.push(esc(area));
       if (conf) meta.push("надёжность: " + esc(conf.label));
       if (autoUsed) meta.push("выбрано по названным последствиям");
+      /* Квалификация, выбранная по названным последствиям, — догадка движка, а
+         не вывод человека. При неполной надёжности говорим об этом прямо:
+         иначе строка про тяжкий вред читается как готовый ответ, хотя состав
+         определяется не последствием, а субъектом и формой вины. */
+      if (autoUsed && conf && conf.cls !== "high") meta.push("предварительно — проверьте субъект и форму вины");
       if (hasPicked) meta.push("с учётом ваших уточнений");
       if (fc) meta.push("применение силы — проверьте правомерность");
       answer = '<div class="concl-answer">' +
@@ -5042,11 +5074,27 @@
     var practice = sc.length ? [] : search(practiceQ, { need: 1, cut: 0.5, kind: "plenum" })
       .filter(function (x) { return x.cov >= 2; })
       .slice(0, 3);
+    /* Разбор может назвать «свои» постановления Пленума (h.plenums) — их пункты
+       идут первыми. Без этого на разбор о выпуске неисправного транспорта
+       первым подтягивался Пленум о военных машинах: совпадали общие слова
+       «нарушение правил эксплуатации» и «тяжкий вред», а нужные пункты о
+       ст. 266 УК РФ оставались за пределами трёх строк. */
+    if (!sc.length && help.length && (help[0].h.plenums || []).length) {
+      var pref = search(practiceQ, { need: 1, cut: 0.5, kind: "plenum", scope: help[0].h.plenums.join(",") })
+        .filter(function (x) { return x.cov >= 2; })
+        .slice(0, 2);
+      var seenP = {};
+      practice = pref.concat(practice).filter(function (x) {
+        if (seenP[x.a.id]) return false;
+        seenP[x.a.id] = 1;
+        return true;
+      }).slice(0, 3);
+    }
 
     /* Основы для дословных цитат: цитируем текст нормы по тем словам, которые
        действительно сработали в разборе, а не по всему описанию. */
     var qStems = FT ? FT.stems((hitWords.length ? hitWords.join(" ") : low)) : [];
-    var html = conclusionBox(help, scored, res, f.confidence, qStems, keyArts, practice, autoQualPicks(low), sc, fc);
+    var html = conclusionBox(help, scored, res, f.confidence, qStems, keyArts, practice, autoQualPicks(text), sc, fc, low);
 
     if (help.length) {
       html += '<div class="ground-box"><span class="ico">' + ic("shield") + "</span>" +
@@ -8943,7 +8991,7 @@
 
       sec("Сравнение редакций и изменения статьи", "swap",
         "<p><b>«Сравнение» → «Редакции источника»</b> показывает построчно, что изменилось в документе. Приложение сохраняет прежнюю редакцию перед каждым обновлением, поэтому видно добавленные, исключённые и переписанные статьи; есть фильтр по виду изменения и переход к статье. Сравнить можно и с онлайн-версией источника, не дожидаясь сохранённой копии.</p>" +
-        "<p><b>«Две статьи»</b> — сопоставить любые две нормы бок о бок: удобно развести близкие составы (кража и грабёж) или сверить одну статью из разных источников.</p>" +
+        "<p><b>«Две статьи»</b> — сопоставить любые две нормы бок о бок: удобно развести близкие составы (кража и грабёж) или сверить одну статью из разных источников. Поиск в колонке можно <b>ограничить одним актом</b>: тогда в подсказки попадают только его статьи, а без запроса показывается оглавление выбранного акта — так статью можно выбрать, не угадывая формулировку.</p>" +
         "<p>На странице статьи кнопка <b>«Что изменилось»</b> открывает историю именно этой статьи: даты из ленты изменений и построчное сравнение «было → стало» с сохранённой или онлайн-редакцией источника. Если прежнего текста ещё нет, приложение предложит <b>запомнить текущую редакцию</b> — тогда следующее изменение будет с чем сравнить.</p>" +
         "<p>Отсюда же видно, какие именно пункты правили: например, по ст. 105 УК РФ страница покажет и дату правки в ленте, и построчный разбор текста, если прежняя редакция сохранена.</p>") +
 
@@ -9835,6 +9883,24 @@
 
   /* --- вид «Сравнение двух статей» --- */
 
+  /* Выбранный источник в каждой из двух колонок сравнения. Живёт в памяти
+     вкладки, как и настройки поиска: адрес сравнения несёт только две статьи,
+     и ссылка, отправленная коллеге, не должна открываться с чужим фильтром. */
+  var cmpSrc = { a: "", b: "" };
+
+  /* Список источников для фильтра. Полный текст есть у каждого акта реестра
+     (data/full/*.js), поэтому список не урезаем — группируем по видам, как в
+     сайдбаре: 330 источников без группировки в списке не найти. */
+  function cmpSrcOptions(side) {
+    var cur = cmpSrc[side] || "";
+    return '<option value=""' + (cur ? "" : " selected") + '>Все источники</option>' +
+      docGroups().map(function (g) {
+        return '<optgroup label="' + esc(g.title) + '">' + g.items.map(function (c) {
+          return '<option value="' + esc(c.id) + '"' + (cur === c.id ? " selected" : "") + ">" + esc(c.short) + "</option>";
+        }).join("") + "</optgroup>";
+      }).join("");
+  }
+
   function viewCompare(aId, bId) {
     aId = aId || ""; bId = bId || "";
     var a = aId ? byId[aId] : null;
@@ -9856,6 +9922,8 @@
       var cap = side === "a" ? "А" : "Б";
       return '<div class="cmp-slot cmp-empty">' +
         '<label class="cmp-label" for="cmp' + side.toUpperCase() + 'Input">Статья ' + cap + '</label>' +
+        '<select class="input cmp-src" id="cmp' + side.toUpperCase() + 'Src" ' +
+          'aria-label="Ограничить поиск статьи ' + cap + ' одним источником">' + cmpSrcOptions(side) + '</select>' +
         '<input class="input" id="cmp' + side.toUpperCase() + 'Input" placeholder="Номер, название или слова из текста — напр. «ст 105 УК»" autocomplete="off">' +
         '<div class="cmp-results" id="cmp' + side.toUpperCase() + 'Results"></div>' +
         '</div>';
@@ -9869,7 +9937,9 @@
     return '<h1>Сравнение двух статей</h1>' +
       tabStrip(CMP_TABS, "compare") +
       '<p class="lead">Выберите две статьи — приложение покажет, чем отличаются их тексты построчно. ' +
-        'Удобно сопоставить близкие составы (кража и грабёж) или разные редакции одной статьи из разных источников.</p>' +
+        'Удобно сопоставить близкие составы (кража и грабёж) или разные редакции одной статьи из разных источников. ' +
+        'Поиск в колонке можно ограничить одним актом — тогда в выдачу попадут только его статьи, ' +
+        'а без запроса покажется оглавление выбранного акта.</p>' +
       '<div class="cmp-grid">' +
         '<div class="cmp-col">' + slot("a", a) + '</div>' +
         '<div class="cmp-col">' + slot("b", b) + '</div>' +
@@ -9977,6 +10047,41 @@
     toast("Файл .docx сохранён");
   }
 
+  /* Выдача подсказок в колонке сравнения. Две особенности против обычного
+     поиска: (1) выбранный источник ограничивает поиск ДО отсечки «хвоста» —
+     иначе нужная статья выпадала бы из подсказок, потому что в общем списке
+     её перебивали статьи других кодексов; (2) без запроса показывается
+     оглавление выбранного акта, чтобы статью можно было выбрать глазами. */
+  function cmpSuggest(side) {
+    var S = side.toUpperCase();
+    var inp = $("#cmp" + S + "Input"), box = $("#cmp" + S + "Results");
+    if (!inp || !box) return;
+    var q = inp.value.trim(), src = cmpSrc[side] || "";
+    var arts, note = "";
+    if (q.length < 2) {
+      if (!src) { box.innerHTML = ""; return; }
+      var all = (byCode[src] || []).slice().sort(cmpArticles);
+      arts = all.slice(0, 40);
+      note = all.length > 40 ? "Показаны первые 40 из " + all.length + " — уточните запрос." : "Статей в источнике: " + all.length + ".";
+    } else {
+      var res = search(q, { scope: src, cut: src ? 1 : 0.4 });
+      arts = res.slice(0, 40).map(function (x) { return x.a; });
+      note = res.length > 40 ? "Показаны первые 40 из " + res.length + " — уточните запрос." : "";
+    }
+    if (!arts.length) {
+      box.innerHTML = '<div class="small muted" style="padding:6px 2px">Ничего не найдено' +
+        (src && q.length >= 2 ? " в выбранном источнике — снимите фильтр или измените запрос." : ".") + "</div>";
+      return;
+    }
+    box.innerHTML = arts.map(function (art) {
+      var cc = codeById(art.c) || { short: art.c, color: "#888" };
+      return '<div class="cmp-res" data-cmp-pick="' + side + '" data-art="' + esc(art.id) + '">' +
+        '<span class="badge" style="border-color:' + (cc.color || "#888") + '44;color:' + (cc.color || "#888") + '">' + esc(cc.short) + "</span>" +
+        '<span class="cmp-res-num">ст. ' + esc(art.dn) + "</span>" +
+        '<span class="cmp-res-title">' + esc(art.t) + "</span></div>";
+    }).join("") + (note ? '<div class="small muted" style="padding:4px 2px">' + esc(note) + "</div>" : "");
+  }
+
   function bindCompare() {
     var r = state.route;
     if (!r || r.name !== "compare") return;
@@ -9986,25 +10091,25 @@
     var setup = function (side) {
       var inp = $("#cmp" + side.toUpperCase() + "Input");
       if (!inp) return;
-      var box = $("#cmp" + side.toUpperCase() + "Results");
+      var src = $("#cmp" + side.toUpperCase() + "Src");
       var t;
       inp.addEventListener("input", function () {
         clearTimeout(t);
-        var q = inp.value.trim();
-        t = setTimeout(function () {
-          if (q.length < 2) { box.innerHTML = ""; return; }
-          var res = search(q).slice(0, 10).map(function (x) {
-            var art = x.a;
-            var cc = codeById(art.c) || { short: art.c, color: "#888" };
-            return '<div class="cmp-res" data-cmp-pick="' + side + '" data-art="' + esc(art.id) + '">' +
-              '<span class="badge" style="border-color:' + (cc.color || "#888") + '44;color:' + (cc.color || "#888") + '">' + esc(cc.short) + '</span>' +
-              '<span class="cmp-res-num">ст. ' + esc(art.dn) + '</span>' +
-              '<span class="cmp-res-title">' + esc(art.t) + '</span></div>';
-          }).join("");
-          box.innerHTML = res || '<div class="small muted" style="padding:6px 2px">Ничего не найдено.</div>';
-        }, 140);
+        t = setTimeout(function () { cmpSuggest(side); }, 140);
       });
-      inp.addEventListener("blur", function () { setTimeout(function () { box.innerHTML = ""; }, 150); });
+      inp.addEventListener("blur", function () {
+        setTimeout(function () {
+          var box = $("#cmp" + side.toUpperCase() + "Results");
+          if (box) box.innerHTML = "";
+        }, 150);
+      });
+      /* Смена фильтра пересчитывает подсказки: и запрос, и оглавление источника
+         зависят от выбранного акта. */
+      if (src) src.addEventListener("change", function () {
+        cmpSrc[side] = src.value;
+        inp.focus();
+        cmpSuggest(side);
+      });
     };
     setup("a");
     setup("b");
@@ -10458,7 +10563,6 @@
   function viewFreshness() {
     var withText = CODES.filter(function (c) { return !c.note; });
     var noArts = withText.filter(function (c) { return !(byCode[c.id] || []).length; });
-    var repealed = arts.filter(function (a) { return a.t === "Утратила силу"; }).length;
     var nUpd = Object.keys(updates).length;
     var nOv = Object.keys(overrides).length;
 
@@ -10533,17 +10637,18 @@
         '<div style="margin-top:12px">' + statusHtml + "</div>" +
       "</div>" +
 
-      '<h2>Локальная проверка целостности</h2>' +
+      '<h2>Полнота базы и статусы норм</h2>' +
       '<div class="grid grid-4" style="margin-bottom:16px">' +
         stat(noArts.length, "источников без статей") +
-        stat(repealed, "статей утратили силу") +
-        stat(docGroups().length, "видов актов") +
-        stat(FRESH && FRESH.docs ? Object.keys(FRESH.docs).length : 0, "в снимке редакций") +
+        stat(STATUS_META.repealed || 0, "норм утратили силу") +
+        stat(STATUS_META.suspended || 0, "норм приостановлено") +
+        stat(STATUS_META.void || 0, "норм недействующих") +
       "</div>" +
       (noArts.length
         ? '<div class="warn-box">В этих источниках не разобрано ни одной статьи: ' +
           noArts.map(function (c) { return esc(c.short); }).join(", ") + "</div>"
-        : '<div class="info-box">Все источники содержат разобранные статьи. Расхождений в структуре не обнаружено.</div>') +
+        : '<div class="info-box">Все источники содержат разобранные статьи — структура базы не повреждена. ' +
+          'Нормы с изменённым статусом собраны в разделе <b>«Утратившие силу»</b>.</div>') +
 
       '<h2>Источники и их редакции</h2>' +
       '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll"><table class="tbl tbl-fresh"><thead><tr>' +
@@ -11314,7 +11419,7 @@
     si.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
         var q = si.value.trim();
-        if (q) { pushHist(q); go("#/search/" + encodeURIComponent(q)); }
+        if (q) go("#/search/" + encodeURIComponent(q));
       }
     });
 

@@ -1650,6 +1650,9 @@ details.refs-block[open] > summary { margin-bottom: 12px; }
 .cmp-slot-num { font-weight: 600; }
 .cmp-slot-title { color: var(--text-2); }
 .cmp-label { font-size: var(--fs-2); color: var(--muted); }
+/* Фильтр по источнику в колонке сравнения: в списке 330 актов, поэтому держим
+   компактную высоту — иначе колонка вырастает на пол-экрана до поля запроса. */
+.cmp-src { font-size: var(--fs-2); padding: 7px 9px; }
 .cmp-results { display: flex; flex-direction: column; gap: 4px; }
 .cmp-res { display: flex; align-items: baseline; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-3); cursor: pointer; }
 .cmp-res:hover, .cmp-res:focus { border-color: var(--accent); }

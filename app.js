@@ -12307,7 +12307,11 @@
     /* Горячие клавиши ← / → на странице статьи — шаг по смежным статьям
        того же источника. Не срабатывают в полях ввода и при модификаторах. */
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && state.read.zen) {
+      /* Esc выходит из режима чтения, но не когда фокус в поле ввода —
+         там Esc работает штатно (снятие фокуса, закрытие списка). */
+      var tEsc = e.target;
+      var escInField = tEsc && (tEsc.tagName === "INPUT" || tEsc.tagName === "TEXTAREA" || tEsc.isContentEditable);
+      if (e.key === "Escape" && state.read.zen && !escInField) {
         state.read.zen = false;
         LS.set("read", state.read);
         applyRead();

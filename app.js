@@ -3266,6 +3266,11 @@
       casePicker(id) +
       '<a class="btn" href="' + officialUrl(a) + '" target="_blank" rel="noopener">Официальный источник ↗</a>' +
       '<a class="btn" href="' + webUrl(a) + '" target="_blank" rel="noopener">Поиск в сети ↗</a>' +
+      '<button class="btn" data-search-src="' + esc(a.c) + '" title="Искать только в этом источнике">Искать в «' + esc(c.short) + '»</button>' +
+      '<button class="btn" data-art-nav="-1" title="Предыдущая статья (←)">←</button>' +
+      '<button class="btn" data-art-nav="1" title="Следующая статья (→)">→</button>' +
+      '<button class="btn" data-fs-dec title="Уменьшить шрифт статьи">А−</button>' +
+      '<button class="btn" data-fs-inc title="Увеличить шрифт статьи">А+</button>' +
       "</div>";
 
     var inCases = casesWith(id);
@@ -3274,6 +3279,7 @@
       head +
       statusBox(id) +
       (annot ? '<div class="article-body"><div class="section-label">Справочная аннотация</div>' + annot + "</div>" : "") +
+      articleChronoHtml(id) +
       '<div class="section-label" style="margin-top:22px">Официальный текст статьи</div>' +
       '<div class="article-body" id="artText"><div class="loading">Загрузка полного текста…</div></div>' +
       actions +
@@ -4119,7 +4125,12 @@
           }).join("") +
         "</div>" +
       "</div>" +
-      '<div id="asOut"></div>';
+      '<div id="asOut"></div>' +
+      '<div class="as-export">' +
+        '<button class="btn btn-sm" data-export-txt>' + ic("file") + " .txt</button>" +
+        '<button class="btn btn-sm" data-export-docx>' + ic("save") + " .docx</button>" +
+        '<span class="small muted">вывод опирается только на материалы сайта</span>' +
+      "</div>";
   }
 
   function bindAssistant() {
@@ -10361,6 +10372,63 @@
       "</div></div>";
   }
 
+  /* Компактная история изменений статьи прямо на её странице: каждое
+     событие из ленты с датой и характером (добавлена / изменена / утратила
+     силу…). Дополняет баннер — он показывает только последнее событие,
+     здесь видна вся хронология и ведёт к построчному сравнению. */
+  function articleChronoHtml(id) {
+    var ev = articleChangeEvents(id);
+    if (!ev.length) return "";
+    var items = ev.map(function (e) {
+      return '<div class="chg-item">' +
+        '<span class="chg-date">' + esc(fmtDateLong(e.d)) + "</span>" +
+        e.hits.map(function (h) { return '<span class="st ' + h.cls + '">' + esc(h.t) + "</span>"; }).join(" ") +
+        (e.red ? ' <span class="small muted">ред. ' + esc(fmtRed(e.red)) + "</span>" : "") +
+        "</div>";
+    }).join("");
+    return '<div class="article-chrono">' +
+      '<div class="section-label">История изменений статьи</div>' +
+      '<div class="chg-list">' + items + "</div>" +
+      '<a class="lnk" href="#/changed/' + encodeURIComponent(id) + '">Старая редакция и сравнение что изменилось →</a>' +
+      "</div>";
+  }
+
+  /* Переход к соседней по номеру статье того же источника. dir = -1 — к
+     предыдущей, +1 — к следующей. Источник упорядочен в byCode, поэтому
+     индекс текущей статьи даёт и соседей. */
+  function artNavStep(dir) {
+    if (!dir) return;
+    var id = state.route.arg;
+    var a = byId[id];
+    if (!a) return;
+    var list = byCode[a.c] || [];
+    var idx = -1;
+    for (var i = 0; i < list.length; i++) { if (list[i].id === a.id) { idx = i; break; } }
+    if (idx < 0) return;
+    var ni = idx + dir;
+    if (ni < 0) { toast("Это первая статья в источнике"); return; }
+    if (ni >= list.length) { toast("Это последняя статья в источнике"); return; }
+    go("#/article/" + encodeURIComponent(list[ni].id));
+  }
+
+  /* Сохранение вывода Помощника в файл. Берём готовый DOM вывода (#asOut):
+     для .txt — видимый текст, для .docx — тот же HTML в обёртке Word. */
+  function exportAssistant(kind) {
+    var out = $("#asOut");
+    if (!out || !out.textContent.trim()) { toast("Сначала разберите ситуацию в Помощнике"); return; }
+    var q = ($("#asInput") && $("#asInput").value || "").trim();
+    var title = q ? q.slice(0, 80) : "Помощник — вывод";
+    var safe = "pomoshnik-" + (new Date()).toISOString().slice(0, 10);
+    if (kind === "txt") {
+      download(safe + ".txt", "Помощник. " + title + "\n\n" + out.innerText, "text/plain");
+      toast("Вывод сохранён в .txt");
+    } else {
+      var inner = "<h1>Помощник</h1><p class=\"m\">Запрос: " + esc(title) + "</p><hr>" + out.innerHTML;
+      saveDocx(safe + ".docx", "Помощник — вывод", inner);
+      toast("Вывод сохранён в .docx");
+    }
+  }
+
   function findRow(rows, num) {
     for (var i = 0; i < (rows || []).length; i++) {
       if (String(rows[i][0]) === num) return rows[i];
@@ -11571,6 +11639,39 @@
         return;
       }
 
+      /* «Искать в этом источнике» со страницы статьи: ограничиваем поиск
+         выбранным актом и открываем поиск. Фильтр виден в строке-инструменте
+         страницы поиска, снять его можно чипом «Сбросить фильтры». */
+      var ssEl = e.target.closest("[data-search-src]");
+      if (ssEl) {
+        e.preventDefault();
+        var ssid = ssEl.getAttribute("data-search-src") || "";
+        searchOpts.src = ssid;
+        var sc2 = codeById(ssid);
+        go("#/search");
+        toast(sc2 ? "Поиск ограничен источником «" + sc2.short + "»" : "Поиск по всем источникам");
+        return;
+      }
+
+      /* Шаг по смежным статьям источника (кнопки ← → на странице статьи
+         и горячие клавиши). */
+      var navBtn = e.target.closest("[data-art-nav]");
+      if (navBtn) {
+        e.preventDefault();
+        artNavStep(parseInt(navBtn.getAttribute("data-art-nav"), 10) || 0);
+        return;
+      }
+
+      /* Быстрое увеличение/уменьшение шрифта текста статьи. Использует
+         общие настройки чтения — они уже накладываются на .law-text /
+         .article-body через --read-fs. */
+      if (e.target.closest("[data-fs-dec]")) { e.preventDefault(); setRead("fs", -1); return; }
+      if (e.target.closest("[data-fs-inc]")) { e.preventDefault(); setRead("fs", 1); return; }
+
+      /* Экспорт вывода Помощника в текст или Word. */
+      if (e.target.closest("[data-export-txt]")) { e.preventDefault(); exportAssistant("txt"); return; }
+      if (e.target.closest("[data-export-docx]")) { e.preventDefault(); exportAssistant("docx"); return; }
+
       var goEl = e.target.closest("[data-go]");
       if (goEl) {
         /* внутри результата есть кнопки — не переходим при клике по ним.
@@ -11692,6 +11793,18 @@
         var q = si.value.trim();
         if (q) go("#/search/" + encodeURIComponent(q));
       }
+    });
+
+    /* Горячие клавиши ← / → на странице статьи — шаг по смежным статьям
+       того же источника. Не срабатывают в полях ввода и при модификаторах. */
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (state.route.name !== "article") return;
+      var t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      e.preventDefault();
+      artNavStep(e.key === "ArrowRight" ? 1 : -1);
     });
 
     $("#themeBtn").addEventListener("click", function () {

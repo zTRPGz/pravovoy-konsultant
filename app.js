@@ -3677,6 +3677,124 @@
     return out;
   }
 
+  /* Справочные термины в тексте ответа Помощника. Формулировки ответа
+     («субъект», «форма вины», «необходимая оборона») понятны не всем читателям:
+     термин-ссылка ведёт на определение в справочнике (#/term/<id>). Берём
+     первые вхождения названий и их поисковых написаний; односложные и общие
+     слова отсечены (не короче 6 знаков), иначе ссылки сыпались бы на каждом
+     шагу. Совпадение только на границах слова — «вина» внутри «равнина»
+     ссылкой не станет. Падежные формы ловим основами слов (тем же стеммером,
+     что и поиск): «необходимая оборона» найдётся и в «необходимой обороны»,
+     но «преступная группа» термином «преступление» не станет. */
+  var TERM_MARKS = null;
+  function termMarks(s) {
+    if (!TERMS.length || !s) return [];
+    if (TERM_MARKS === null) {
+      TERM_MARKS = [];
+      var seen = {};
+      TERMS.forEach(function (t) {
+        [t.t].concat(t.a || []).forEach(function (k0) {
+          if (!k0) return;
+          var k = termNorm(k0);
+          if (k.length < 6 || seen[k]) return;
+          seen[k] = 1;
+          var re;
+          try {
+            /* каждое слово — по его основе с «хвостом» окончания */
+            re = String(k0).split(/\s+/).filter(Boolean).map(function (w) {
+              var e = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              var st = FT ? String(FT.stem(w) || "").toLowerCase() : "";
+              if (st && e.toLowerCase().indexOf(st) === 0 && st.length >= 3) {
+                return st.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[а-яёa-z]*";
+              }
+              return e;
+            }).join("\\s+");
+          } catch (e) { return; }
+          TERM_MARKS.push({ k: k, k0: String(k0), re: re, id: t.id });
+        });
+      });
+      /* длинные первыми: «злостное уклонение» важнее «уклонение» */
+      TERM_MARKS.sort(function (a, b) { return b.k.length - a.k.length; });
+    }
+    var out = [];
+    TERM_MARKS.forEach(function (m) {
+      var re;
+      try { re = new RegExp(m.re, "i"); } catch (e) { return; }
+      var mm, tries = 0;
+      while ((mm = re.exec(s)) !== null && tries < 4) {
+        tries++;
+        var i = mm.index, len = mm[0].length;
+        /* написание совпало точно или падежной формой — иначе это другое
+           слово: те же основы плюс правка не больше двух знаков на слово.
+           Так «преступное деяние» не совпадёт с «преступность деяния»:
+           одна основа, но разные части речи. */
+        var ok = termNorm(mm[0]) === m.k;
+        if (!ok && FT) {
+          var aw = mm[0].toLowerCase().split(/\s+/),
+              bw = m.k0.toLowerCase().split(/\s+/);
+          ok = aw.length === bw.length;
+          for (var w = 0; ok && w < aw.length; w++) {
+            if (termNorm(aw[w]) === termNorm(bw[w])) continue;
+            var aws = FT.stems(aw[w])[0] || aw[w], bws = FT.stems(bw[w])[0] || bw[w];
+            if (aws !== bws || editDist2(aw[w], bw[w], 2) > 2) ok = false;
+          }
+        }
+        if (ok) {
+          var b1 = i > 0 ? s[i - 1] : "", e1 = s[i + len] || "";
+          if (!/[а-яёa-z0-9]/i.test(b1) && !/[а-яёa-z0-9]/i.test(e1)) {
+            out.push({ i: i, len: len, id: m.id });
+            return;                                  /* первого вхождения достаточно */
+          }
+        }
+        re.lastIndex = i + 1;                        /* ищем дальше по строке */
+      }
+    });
+    return out;
+  }
+
+  /* Текст ответа Помощника: упоминания норм + термины справочника одной
+     сборкой меток, чтобы ссылки разных видов не перекрывались. В остальном —
+     как linkify. */
+  function assistText(s, ctx) {
+    if (!s) return "";
+    if (!ctx) ctx = { doc: "__none__", num: "" };
+    var marks = [];
+    if (XREF) {
+      XREF.scan(s, ctx).forEach(function (r) {
+        marks.push({
+          i: r.i, len: r.len,
+          href: "#/article/" + encodeURIComponent(r.doc + "-" + r.num),
+          title: (codeById(r.doc) || { short: r.doc }).short + " ст. " + r.num,
+          cls: "xref" + (r.doc === ctx.doc ? " xref-own" : "")
+        });
+      });
+    }
+    plenumLinks(s).forEach(function (p) {
+      marks.push({ i: p.i, len: p.len, href: p.href, title: p.title, cls: p.cls || "xref" });
+    });
+    termMarks(s).forEach(function (m) {
+      marks.push({
+        i: m.i, len: m.len,
+        href: "#/term/" + encodeURIComponent(m.id),
+        title: "Термин справочника — что это значит",
+        cls: "term-xref"
+      });
+    });
+    if (!marks.length) return esc(s);
+    /* сортируем по позиции; более длинные — первыми при совпадении начала */
+    marks.sort(function (a, b) { return a.i - b.i || (b.len - a.len); });
+    var out = "", pos = 0, last = -1;
+    marks.forEach(function (M) {
+      if (M.i < last || M.i < pos) return;
+      out += esc(s.slice(pos, M.i));
+      out += '<a class="' + M.cls + '" href="' + esc(M.href) + '" title="' + esc(M.title) + '">' +
+        esc(s.slice(M.i, M.i + M.len)) + "</a>";
+      pos = M.i + M.len; last = pos;
+    });
+    out += esc(s.slice(pos));
+    return out;
+  }
+
   /* --- кодекс --- */
 
   function viewCode(id) {
@@ -4552,12 +4670,12 @@
 
     if (h.prove && h.prove.length) {
       html += '<div class="section-label">Что нужно установить (доказать)</div><ul class="list">' +
-        h.prove.map(function (s) { return "<li>" + linkify(s) + "</li>"; }).join("") + "</ul>";
+        h.prove.map(function (s) { return "<li>" + assistText(s) + "</li>"; }).join("") + "</ul>";
     }
 
     if (h.steps && h.steps.length) {
       html += '<div class="section-label">Что сделать</div><ol class="steps">' +
-        h.steps.map(function (s) { return "<li>" + linkify(s) + "</li>"; }).join("") + "</ol>";
+        h.steps.map(function (s) { return "<li>" + assistText(s) + "</li>"; }).join("") + "</ol>";
     }
 
     var arts = (h.articles || []).map(function (id) { return byId[id]; }).filter(Boolean);
@@ -4582,7 +4700,7 @@
 
     if (h.notes && h.notes.length) {
       html += '<div class="section-label">Правовые позиции и нюансы</div>' +
-        h.notes.map(function (s) { return '<div class="help-note">' + linkify(s) + "</div>"; }).join("");
+        h.notes.map(function (s) { return '<div class="help-note">' + assistText(s) + "</div>"; }).join("");
     }
 
     html += '<div class="actions-row">' +
@@ -4925,15 +5043,15 @@
 
     if (/общественн[а-я]*\s+опасност|степен[а-я]*\s+опасност/.test(t) && !dup("Общественная опасность")) {
       rows.push(["Общественная опасность",
-        linkify("Общественная опасность — свойство деяния причинять существенный вред охраняемым отношениям (ст. 14 УК РФ). Характер и степень общественной опасности определяются объектом посягательства, тяжестью последствий, способом, обстановкой, формой вины и ролью лица и учитываются при назначении наказания (ст. 6, 60 УК РФ); от них же зависит категория преступления (ст. 15 УК РФ).")]);
+        assistText("Общественная опасность — свойство деяния причинять существенный вред охраняемым отношениям (ст. 14 УК РФ). Характер и степень общественной опасности определяются объектом посягательства, тяжестью последствий, способом, обстановкой, формой вины и ролью лица и учитываются при назначении наказания (ст. 6, 60 УК РФ); от них же зависит категория преступления (ст. 15 УК РФ).")]);
     }
     if (/смягчающ|отягчающ|вид и размер наказан|повлиять на наказан|назначени[а-я]* наказан/.test(t) && !dup("Смягчающие и отягчающие обстоятельства")) {
       rows.push(["Смягчающие и отягчающие обстоятельства",
-        linkify("Смягчающие обстоятельства — ст. 61 УК РФ (оказание помощи потерпевшему, добровольное возмещение вреда, явка с повинной, активное способствование раскрытию преступления). Отягчающие — ст. 63 УК РФ (наступление тяжких последствий, совершение в составе группы, особо активная роль); их перечень исчерпывающий. Обстоятельства, относящиеся к признакам состава, повторно как отягчающие не учитываются (ч. 2 ст. 63 УК РФ).")]);
+        assistText("Смягчающие обстоятельства — ст. 61 УК РФ (оказание помощи потерпевшему, добровольное возмещение вреда, явка с повинной, активное способствование раскрытию преступления). Отягчающие — ст. 63 УК РФ (наступление тяжких последствий, совершение в составе группы, особо активная роль); их перечень исчерпывающий. Обстоятельства, относящиеся к признакам состава, повторно как отягчающие не учитываются (ч. 2 ст. 63 УК РФ).")]);
     }
     if (/соучаст/.test(t) && !dup("Соучастие")) {
       rows.push(["Соучастие",
-        linkify("Соучастие (ст. 32 УК РФ) — совместное участие в умышленном преступлении; умысел общий для всех соучастников. При неосторожной вине к последствиям (ст. 264, 266, 109, 118 УК РФ) соучастия не образуется: каждый отвечает самостоятельно — это неосторожное сопричинение. Для умышленного состава (например, ст. 238 УК РФ) соучастие возможно, требует доказанного сговора, и действия каждого квалифицируются самостоятельно (ст. 34 УК РФ).")]);
+        assistText("Соучастие (ст. 32 УК РФ) — совместное участие в умышленном преступлении; умысел общий для всех соучастников. При неосторожной вине к последствиям (ст. 264, 266, 109, 118 УК РФ) соучастия не образуется: каждый отвечает самостоятельно — это неосторожное сопричинение. Для умышленного состава (например, ст. 238 УК РФ) соучастие возможно, требует доказанного сговора, и действия каждого квалифицируются самостоятельно (ст. 34 УК РФ).")]);
     }
     return rows;
   }
@@ -5093,12 +5211,12 @@
           '<span class="muted small">загрузка текста статьи…</span></div>';
       }).join("")]);
     }
-    if (prove.length) rows.push(["Что установить (доказать)", "<ul class=\"list\">" + prove.map(function (s) { return "<li>" + linkify(s) + "</li>"; }).join("") + "</ul>"]);
+    if (prove.length) rows.push(["Что установить (доказать)", "<ul class=\"list\">" + prove.map(function (s) { return "<li>" + assistText(s) + "</li>"; }).join("") + "</ul>"]);
     /* Ответы на вопросы, поставленные в самом описании (общественная
        опасность, смягчающие и отягчающие, соучастие) — если разбор их не
        разобрал своими строками характеристики. */
     askedQuestions(low, help).forEach(function (r) { rows.push(r); });
-    if (acts.length) rows.push(["Что сделать", "<ol class=\"steps\">" + acts.map(function (s) { return "<li>" + linkify(s) + "</li>"; }).join("") + "</ol>"]);
+    if (acts.length) rows.push(["Что сделать", "<ol class=\"steps\">" + acts.map(function (s) { return "<li>" + assistText(s) + "</li>"; }).join("") + "</ol>"]);
 
     /* Короткий ответ — первым, до пояснений. Раньше квалификация стояла
        третьей строкой после абзаца о том, что будет ниже, и читатель видел
@@ -5131,8 +5249,11 @@
     var fa = forceAnalysis(fc && (!sc.length || sc.indexOf("uk") !== -1 || sc.indexOf("fz3pol") !== -1 || sc.indexOf("koap") !== -1) ? fc : null);
     if (fa) {
       lead = lead + " " + fa.intro;
-      if (rows.length) rows = rows.slice(0, 1).concat(fa.rows, rows.slice(1));
-      else rows = fa.rows.slice();
+      /* Тексты блоков про силу тоже пропускаем через assistText: ссылки на
+         нормы и термины справочника нужны и здесь. */
+      var faRows = fa.rows.map(function (r) { return [r[0], assistText(r[1])]; });
+      if (rows.length) rows = rows.slice(0, 1).concat(faRows, rows.slice(1));
+      else rows = faRows;
     }
 
     /* Явная метка режима одного источника: пользователь должен понимать, что
@@ -5148,7 +5269,7 @@
         ". Нормы других актов и общая судебная практика в вывод не включены — " +
         "снять ограничение можно переключателем над полем ввода.</div>" : "") +
       answer +
-      '<p class="concl-p">' + esc(lead) + "</p>" +
+      '<p class="concl-p">' + assistText(lead) + "</p>" +
       (rows.length ? '<div class="concl-rows">' + rows.map(function (r) {
         return '<div class="concl-row"><div class="concl-k">' + r[0] + "</div>" +
           '<div class="concl-v">' + r[1] + "</div></div>";
@@ -5327,7 +5448,7 @@
             x.hits.map(function (k) { return esc(k); }).join(", ") + "</div>" +
           /* статьи правила перечислены в общем перечне норм вывода — здесь
              только порядок действий и контрольные сроки, без повтора списка */
-          (it.actions && it.actions.length ? '<div class="section-label">Что нужно сделать</div><ol class="steps">' + it.actions.map(function (s) { return "<li>" + linkify(s) + "</li>"; }).join("") + "</ol>" : "") +
+          (it.actions && it.actions.length ? '<div class="section-label">Что нужно сделать</div><ol class="steps">' + it.actions.map(function (s) { return "<li>" + assistText(s) + "</li>"; }).join("") + "</ol>" : "") +
           (it.terms && it.terms.length ? '<div class="section-label">Контрольные сроки</div><div class="chips">' + it.terms.map(function (s) { return '<span class="badge">' + esc(s) + "</span>"; }).join("") + "</div>" : "") +
           '<div class="actions-row">' +
             '<button class="btn" data-col-batch="' + esc(it.articles.join(",")) + '">' + ic("clip") + " Все статьи блока в подборку</button>" +

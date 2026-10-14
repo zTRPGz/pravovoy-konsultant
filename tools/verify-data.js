@@ -2183,7 +2183,7 @@ check("различаются административный проступо�
 check("в выводе есть блок обстоятельств, исключающих преступность",
   appSrc.indexOf("Обстоятельства, исключающие преступность деяния") !== -1 &&
   appSrc.indexOf("var fa = forceAnalysis(fc") !== -1 &&
-  /rows = rows\.slice\(0, 1\)\.concat\(fa\.rows/.test(appSrc),
+  /rows = rows\.slice\(0, 1\)\.concat\(fa/.test(appSrc),
   "иначе разбор не показывает ст. 37/38/39 УК при применении силы");
 check("нормы переставляются: спец-, не общие составы",
   appSrc.indexOf("function forceReorder(keyArts, fc)") !== -1 &&

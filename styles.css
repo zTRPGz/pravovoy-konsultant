@@ -1322,6 +1322,18 @@ body.has-crash .toast { bottom: 104px; }
 .article-chrono .chg-list { margin-top: 6px; }
 .article-chrono .lnk { display: inline-block; margin-top: 8px; font-size: var(--fs-4); }
 
+/* входящие перекрёстные ссылки «На эту статью ссылаются» */
+.incoming { margin: 16px 0 4px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-2); }
+.incoming > summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: 7px;
+  padding: 9px 12px; font-size: var(--fs-4); font-weight: 600; color: var(--text-2);
+}
+.incoming > summary::-webkit-details-marker { display: none; }
+.incoming > summary .ic { width: 1em; height: 1em; }
+.incoming[open] > summary { border-bottom: 1px solid var(--border); }
+.incoming-body { padding: 10px 12px; display: grid; gap: 6px; }
+.incoming-src { margin-top: 4px; }
+
 /* ---------- помощник: разбор ситуации ---------- */
 .help-card { border-color: color-mix(in srgb, var(--accent) 26%, var(--border)); }
 .help-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }

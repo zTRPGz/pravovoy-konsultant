@@ -3304,6 +3304,7 @@
       statusBox(id) +
       (annot ? '<div class="article-body"><div class="section-label">Справочная аннотация</div>' + annot + "</div>" : "") +
       articleChronoHtml(id) +
+      incomingRefsPanel(id) +
       '<div class="section-label" style="margin-top:22px">Официальный текст статьи</div>' +
       '<div class="article-body" id="artText"><div class="loading">Загрузка полного текста…</div></div>' +
       actions +
@@ -3340,6 +3341,13 @@
       if (caseAddItem(cid, id)) toast("Добавлено в дело «" + (c ? c.title : "") + "»");
       else toast("Эта статья уже есть в деле");
       render();
+    });
+
+    /* «На эту статью ссылаются» — считаем при раскрытии (не при загрузке
+       страницы), чтобы не грузить лишние тексты заранее. */
+    var inc = $(".incoming[data-incoming]");
+    if (inc) inc.addEventListener("toggle", function () {
+      if (inc.open && inc.getAttribute("data-incoming") === id) incomingCompute(id);
     });
 
     if (a.note) {
@@ -10608,6 +10616,90 @@
       saveDocx(safe + ".docx", "Помощник — вывод", inner);
       toast("Вывод сохранён в .docx");
     }
+  }
+
+  /* --- входящие перекрёстные ссылки («кто ссылается на эту статью») ---
+
+     Обратного индекса в данных нет, поэтому считаем на ходу, но дёшево:
+     кандидатов берём из актового графа RF_GRAPH — только те акты, которые
+     сами ссылаются на источник этой статьи, — лениво подгружаем их полные
+     тексты и сканируем через XREF_LIB.scan на упоминание номера нашей
+     статьи. Результат кэшируется: повторное раскрытие мгновенное. */
+  var INCOMING_CACHE = {};
+
+  function incomingCandidateActs(src) {
+    var G = window.RF_GRAPH || null;
+    if (!G || !G.edges) return [];
+    var agg = {};
+    G.edges.forEach(function (e) {
+      if (e[1] === src && e[0] !== src) agg[e[0]] = (agg[e[0]] || 0) + (e[2] || 1);
+    });
+    return Object.keys(agg).sort(function (x, y) { return agg[y] - agg[x]; }).slice(0, 12);
+  }
+
+  function incomingRefsPanel(id) {
+    return '<details class="incoming" data-incoming="' + esc(id) + '">' +
+      '<summary>' + ic("share") + " На эту статью ссылаются</summary>" +
+      '<div class="incoming-body"><span class="small muted">Раскрыть, чтобы найти перекрёстные ссылки из других актов…</span></div>' +
+      "</details>";
+  }
+
+  function paintIncoming(body, list) {
+    if (!body) return;
+    if (!list.length) {
+      body.innerHTML = '<span class="small muted">Прямых ссылок на эту статью из других актов базы не найдено.</span>';
+      return;
+    }
+    var byDoc = {};
+    list.forEach(function (r) { (byDoc[r.doc] = byDoc[r.doc] || []).push(r); });
+    body.innerHTML = Object.keys(byDoc).map(function (d) {
+      var c = codeById(d) || { short: d, color: "#888" };
+      return '<div class="incoming-src"><span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + "</span></div>" +
+        '<div class="chips">' + byDoc[d].map(function (r) {
+          var tt = r.title ? (r.title.length > 42 ? r.title.slice(0, 40) + "…" : r.title) : "";
+          return '<a class="chip" href="#/article/' + encodeURIComponent(d + "-" + r.num) + '" title="' + esc(r.title || "") + '">ст. ' + esc(r.num) + (tt ? " · " + esc(tt) : "") + "</a>";
+        }).join("") + "</div>";
+    }).join("") + '<div class="small muted" style="margin-top:6px">Ссылок найдено: ' + list.length + " — откройте норму кликом, чтобы увидеть контекст.</div>";
+  }
+
+  function incomingCompute(id) {
+    var body = $(".incoming[data-incoming] .incoming-body");
+    var holder = $(".incoming[data-incoming]");
+    if (holder && holder.getAttribute("data-incoming") !== id) return; // ушли со статьи
+    var a = byId[id];
+    if (!a) return;
+    if (INCOMING_CACHE[id] !== undefined) { paintIncoming(body, INCOMING_CACHE[id]); return; }
+    if (XREF === null || XREF === undefined) { if (body) body.innerHTML = '<span class="small muted">Данные перекрёстных ссылок недоступны.</span>'; return; }
+    var acts = incomingCandidateActs(a.c);
+    if (!acts.length) { INCOMING_CACHE[id] = []; paintIncoming(body, []); return; }
+    if (body) body.innerHTML = '<span class="small muted"><span class="loading">Проверяем ссылки в ' + acts.length + " " + plural(acts.length, ["акте", "актах", "актах"]) + "…</span></span>";
+    var found = {}, pending = acts.length;
+    acts.forEach(function (d) {
+      loadFull(d, function (err) {
+        if (!err) {
+          var rows = currentRows(d) || [];
+          for (var k = 0; k < rows.length; k++) {
+            var row = rows[k];
+            var refs = XREF.scan(row[4] || "", { doc: d, num: String(row[0]) });
+            for (var i = 0; i < refs.length; i++) {
+              if (refs[i].doc === a.c && String(refs[i].num) === String(a.n)) {
+                found[d + "-" + row[0]] = { doc: d, num: row[0], title: row[1] || "" };
+              }
+            }
+          }
+        }
+        if (--pending === 0) {
+          var list = Object.keys(found).map(function (k) { return found[k]; })
+            .sort(function (x, y) {
+              if (x.doc !== y.doc) return x.doc < y.doc ? -1 : 1;
+              return (parseFloat(x.num) || 0) - (parseFloat(y.num) || 0);
+            }).slice(0, 40);
+          INCOMING_CACHE[id] = list;
+          var body2 = $(".incoming[data-incoming] .incoming-body");
+          if ($(".incoming[data-incoming]") && $(".incoming[data-incoming]").getAttribute("data-incoming") === id) paintIncoming(body2, list);
+        }
+      });
+    });
   }
 
   function findRow(rows, num) {

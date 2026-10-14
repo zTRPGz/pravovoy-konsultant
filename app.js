@@ -7441,6 +7441,10 @@
         '<div class="chips" style="margin-top:14px">' +
         ["ст 105 УК", "статья 91 УПК", "19.7 КоАП", "обыск в жилище", "получение взятки"]
           .map(function (x) { return '<div class="chip" data-go="#/search/' + encodeURIComponent(x) + '">' + esc(x) + "</div>"; }).join("") +
+        "</div>" +
+        '<div class="actions-row" style="margin-top:14px">' +
+        '<button class="btn" id="colImportBtn">Загрузить подборку из файла (.json)</button>' +
+        '<input type="file" id="colImportFile" accept=".json,application/json" hidden>' +
         "</div>";
     }
 
@@ -7478,6 +7482,9 @@
         '<button class="btn btn-primary" id="colExportDoc">Скачать .doc</button>' +
         '<button class="btn" id="colExportTxt">Скачать .txt</button>' +
         '<button class="btn" id="colCopy">Скопировать текстом</button>' +
+        '<button class="btn" id="colExportJson">Выгрузить в файл (.json)</button>' +
+        '<button class="btn" id="colImportBtn">Загрузить из файла</button>' +
+        '<input type="file" id="colImportFile" accept=".json,application/json" hidden>' +
         '<button class="btn" id="colPrint">Печать / PDF</button>' +
         (state.cases.length ? '<button class="btn" id="colToCase">' + ic("folder") + " В дело</button>" : "") +
         '<button class="btn" id="colClear">Очистить подборку</button>' +
@@ -7506,7 +7513,11 @@
     if (!state.cases.length) {
       return head + form +
         '<div class="empty"><div class="ico">' + ic("folder") + '</div><div>Дел пока нет. Создайте первое — ' +
-        "потом добавляйте в него нормы прямо со страницы статьи.</div></div>";
+        "потом добавляйте в него нормы прямо со страницы статьи.</div></div>" +
+        '<div class="actions-row" style="margin-top:14px">' +
+        '<button class="btn" id="caseImportBtn">Загрузить дела из файла (.json)</button>' +
+        '<input type="file" id="caseImportFile" accept=".json,application/json" hidden>' +
+        "</div>";
     }
 
     var cards = state.cases.map(function (c) {
@@ -8183,6 +8194,54 @@
         toast("Файл .txt сохранён");
       });
     });
+
+    /* Выгрузка подборки в JSON — чтобы перенести её на другое устройство или
+       передать коллеге вместе с заметками; формат симметричен делам. */
+    var ej = $("#colExportJson");
+    if (ej) ej.addEventListener("click", function () {
+      download("podborka-norm.json", JSON.stringify({
+        app: "pravovoy-konsultant", kind: "collection", exported: new Date().toISOString(),
+        title: colTitle(), col: state.col
+      }, null, 1), "application/json");
+      toast("Подборка выгружена в файл");
+    });
+
+    /* Загрузка подборки из файла. Статьи сверяются с базой (byId): мусор и
+       несуществующие id отбрасываются, дубли пропускаются, заметки берутся
+       из файла. Работает и когда подборка пуста. */
+    var ei = $("#colImportBtn"), ef = $("#colImportFile");
+    if (ei && ef && typeof FileReader !== "undefined") {
+      ei.addEventListener("click", function () { ef.click(); });
+      ef.addEventListener("change", function () {
+        var file = ef.files && ef.files[0];
+        if (!file) return;
+        var fr = new FileReader();
+        fr.onload = function () {
+          var added = 0, known = 0;
+          try {
+            var data = JSON.parse(String(fr.result));
+            var list = data && Array.isArray(data.col) ? data.col : (Array.isArray(data) ? data : null);
+            if (!list) throw new Error("нет списка");
+            list.forEach(function (e) {
+              var aid = e && (typeof e === "string" ? e : e.id);
+              if (!aid || !byId[aid]) return;
+              if (inCol(aid)) { known++; return; }
+              var note = (e && typeof e === "object" && typeof e.note === "string") ? e.note : "";
+              state.col.push({ id: aid, note: note });
+              added++;
+            });
+            if (data && data.title && !colTitle()) LS.set("colTitle", String(data.title).slice(0, 200));
+            LS.set("col", state.col);
+            syncColCount();
+          } catch (err) { toast("Файл не распознан как подборка"); }
+          if (added) toast("Добавлено в подборку: " + added + (known ? " (пропущено повторов: " + known + ")" : ""));
+          else toast(known ? "Все статьи из файла уже в подборке" : "В файле нет подходящих статей");
+          render();
+          try { ef.value = ""; } catch (e2) {}
+        };
+        fr.readAsText(file);
+      });
+    }
     var cp = $("#colCopy");
     if (cp) cp.addEventListener("click", function () {
       collectDocs(function (items) { copyText(colTextPlain(items), "Подборка скопирована"); });

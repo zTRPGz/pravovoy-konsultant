@@ -4888,6 +4888,33 @@
     return rows;
   }
 
+  /* «Почему такой ответ» — раскрывающаяся прозрачность вывода: по каким
+     словам описания движок распознал разбор, какие основания слов ушли в
+     смысловой поиск и откуда взяты нормы. Помогает читателю самому проверить
+     логику и не воспринимать разбор как чёрный ящик. */
+  function transparencyBox(help, scored, qStems, keyArts) {
+    var parts = [];
+    var primH = help && help[0], primS = scored && scored[0];
+    if (primH && primH.hits && primH.hits.length) {
+      parts.push({ k: "Разбор распознан по словам", v: primH.hits.join(", ") + " (совпадений: " + primH.n + ")" });
+    }
+    if (primS && primS.hits && primS.hits.length) {
+      parts.push({ k: "Правило блока совпало по словам", v: primS.hits.join(", ") + " (совпадений: " + primS.n + ")" });
+    }
+    if (qStems && qStems.length) {
+      parts.push({ k: "Смысловой поиск по основам слов", v: qStems.slice(0, 16).join(", ") + (qStems.length > 16 ? ", …" : "") });
+    }
+    if (keyArts && keyArts.length) {
+      parts.push({ k: "Нормы подобраны из данных сайта", v: "по названию, ключевым словам и аннотациям " + keyArts.length + " " +
+        plural(keyArts.length, ["статьи", "статей", "статей"]) + " открытого набора — откройте любую, чтобы увидеть редакцию" });
+    }
+    if (!parts.length) return "";
+    return '<details class="concl-why"><summary>' + ic("help") + " Почему такой ответ</summary>" +
+      parts.map(function (p) {
+        return '<div class="cw-row"><span class="cw-k">' + esc(p.k) + '</span><span class="cw-v">' + esc(p.v) + "</span></div>";
+      }).join("") + "</details>";
+  }
+
   /* «Вывод по запросу» — профессиональная сводка ответа в начале разбора:
      отрасль, вероятная квалификация, нормы для проверки (кликабельные) и что
      установить. Собирается только из данных сайта и идёт первым, чтобы ответ
@@ -5075,6 +5102,7 @@
         return '<div class="concl-row"><div class="concl-k">' + r[0] + "</div>" +
           '<div class="concl-v">' + r[1] + "</div></div>";
       }).join("") + "</div>" : "") +
+      transparencyBox(help, scored, qStems, keyArts) +
       '<div class="concl-foot">Вывод предварительный: он собран по ключевым словам описания и данным сайта ' +
       "(действующие редакции кодексов, законов и постановлений). " +
       "Итоговая квалификация и объём процессуальных действий определяются по материалам дела уполномоченным должностным лицом.</div>" +
@@ -10439,7 +10467,7 @@
   /* Построчное сравнение одной статьи двух редакций.
      Возвращает готовую разметку в тех же классах .diff-*, что и сравнение
      редакций целиком, — читается одинаково. */
-  function oneArtDiff(id, rows1, rows2, label1, label2) {
+  function oneArtDiff(id, rows1, rows2, label1, label2, layout) {
     var a = byId[id];
     if (!a) return "";
     var num = String(a.n);
@@ -10468,6 +10496,31 @@
         '<div class="diff-head"><span class="st st-warn">в новой редакции статьи нет</span></div>' +
         '<div class="diff-title">' + esc(r1[1] || "") + "</div>" +
         '<div class="diff-body">' + lines(r1[4], "diff-del", "− ") + "</div></div>";
+    }
+
+    /* Вид «рядом с рядом»: два столбца — прежняя и новая редакция статьи,
+       строки выровнены по общей части (LCS): совпадающие на одной линии,
+       удалённые только слева, добавленные только справа. */
+    if (layout === "sbs") {
+      var oL = diffLines(r1[4] || ""), nL = diffLines(r2[4] || "");
+      var sp = lineDiff(oL, nL), Lp = [], Rp = [];
+      sp.forEach(function (p) {
+        if (p.t === "=") { Lp.push('<div class="diff-line sbs-eq">' + esc(p.v) + "</div>"); Rp.push('<div class="diff-line sbs-eq">' + esc(p.v) + "</div>"); }
+        else if (p.t === "-") { Lp.push('<div class="diff-line sbs-del">− ' + esc(p.v) + "</div>"); }
+        else if (p.t === "+") { Rp.push('<div class="diff-line sbs-ins">+ ' + esc(p.v) + "</div>"); }
+      });
+      var ti1 = String(r1[1] || ""), ti2 = String(r2[1] || "");
+      var tline = ti1 === ti2
+        ? '<div class="diff-title">' + esc(ti1) + "</div>"
+        : '<div class="diff-title"><del>' + esc(ti1) + "</del> <ins>" + esc(ti2) + "</ins></div>";
+      return head + '<div class="diff-art diff-changed">' +
+        '<div class="diff-head"><span class="st st-warn">изменена</span></div>' + tline +
+        '<div class="diff-panes">' +
+          '<div class="diff-pane"><div class="diff-pane-h sbs-del-h">' + esc(label1) + "</div>" +
+            (Lp.length ? Lp.join("") : '<div class="small muted">пусто</div>') + "</div>" +
+          '<div class="diff-pane"><div class="diff-pane-h sbs-ins-h">' + esc(label2) + "</div>" +
+            (Rp.length ? Rp.join("") : '<div class="small muted">пусто</div>') + "</div>" +
+        "</div></div>";
     }
 
     var parts = lineDiff(diffLines(r1[4]), diffLines(r2[4]));
@@ -10526,10 +10579,16 @@
       '<div class="actions-row" style="margin-top:14px">' +
         '<button class="btn btn-sm" data-go="#/article/' + encodeURIComponent(id) + '">← К статье</button>' +
         '<button class="btn btn-sm" data-go="#/diff/' + esc(a.c) + '">Сравнить весь источник</button>' +
+        '<button class="btn btn-sm' + (changedLayout === "uni" ? " active" : "") + '" data-chg-layout="uni">Построчно</button>' +
+        '<button class="btn btn-sm' + (changedLayout === "sbs" ? " active" : "") + '" data-chg-layout="sbs">Рядом с рядом</button>' +
       "</div>" +
       '<div class="disclaimer">Сравнение строится по текстам из открытого набора данных и по редакциям, ' +
       "сохранённым при обновлении источника. Для юридически значимых выводов сверяйтесь с официальной публикацией.</div>";
   }
+
+  /* Вид сравнения редакций статьи: "uni" — построчно (по умолчанию),
+     "sbs" — два столбца «рядом с рядом». Сеансовая настройка вида. */
+  var changedLayout = "uni";
 
   /* Тело блока сравнения: по одному разбору на каждую сохранённую редакцию
      источника плюс кнопка сверки с онлайн-набором, если он свежее базы. */
@@ -10540,7 +10599,7 @@
 
     verList(a.c).forEach(function (v) {
       blocks.push('<div class="card chg-block">' +
-        oneArtDiff(id, v.articles, cur, "Сохранённая ред. " + fmtRed(v.redaction), "Текущая в базе") +
+        oneArtDiff(id, v.articles, cur, "Сохранённая ред. " + fmtRed(v.redaction), "Текущая в базе", changedLayout) +
         "</div>");
     });
 
@@ -10601,7 +10660,7 @@
             return;
           }
           o2.innerHTML = oneArtDiff(id, currentRows(a.c), side.rows,
-            "Текущая в базе", "Онлайн-редакция " + fmtRed(side.red));
+            "Текущая в базе", "Онлайн-редакция " + fmtRed(side.red), changedLayout);
         });
       });
     };
@@ -11671,6 +11730,15 @@
       /* Экспорт вывода Помощника в текст или Word. */
       if (e.target.closest("[data-export-txt]")) { e.preventDefault(); exportAssistant("txt"); return; }
       if (e.target.closest("[data-export-docx]")) { e.preventDefault(); exportAssistant("docx"); return; }
+
+      /* Переключение вида сравнения редакций (построчно / рядом с рядом). */
+      var chgLay = e.target.closest("[data-chg-layout]");
+      if (chgLay) {
+        e.preventDefault();
+        changedLayout = chgLay.getAttribute("data-chg-layout") === "sbs" ? "sbs" : "uni";
+        render();
+        return;
+      }
 
       var goEl = e.target.closest("[data-go]");
       if (goEl) {

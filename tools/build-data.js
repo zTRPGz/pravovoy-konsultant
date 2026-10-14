@@ -27,6 +27,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const vm = require("vm");
 const parse = require("./lib/parse.js");
 const text = require("./lib/text.js");
 const codeStamp = require("./lib/code-stamp.js").codeStamp;
@@ -308,6 +309,80 @@ function displayName(cfg, number) {
   if (cfg.kind === "decree") return decreeTitle(cfg.short, number);
   if (cfg.kind === "plenum") return plenumTitle(cfg.short, cfg.topic);
   return cfg.short;
+}
+
+/* Читает обратно уже записанный data/full/<id>.js и возвращает массив статей.
+   Файлы приложения — обычные скрипты для браузера (window.RF_FULL), поэтому
+   выполняем их в изолированной песочнице, а не через require. */
+function readFullRows(id) {
+  const src = fs.readFileSync(path.join(OUT_FULL, id + ".js"), "utf8");
+  const sandbox = { window: {} };
+  vm.runInNewContext(src, sandbox, { filename: id + ".js" });
+  return (sandbox.window.RF_FULL || {})[id] || [];
+}
+
+/* --- граф перекрёстных ссылок (data/graph.js) ------------------------------
+   Раздел «Связи источников» раньше считал граф прямо в браузере: чтобы его
+   построить, приложение подгружало полные тексты ВСЕХ источников — это 118 МБ
+   и десятки секунд ожидания на пустом кеше. Сам граф при этом зависит только
+   от текстов, то есть от содержимого сборки, и считается за считанные секунды.
+   Поэтому считаем его здесь и кладём готовым файлом на десятки килобайт.
+
+   Единица счёта — уникальная цель внутри статьи: одна статья одного акта
+   даёт максимум одну связь с каждым другим актом (иначе акт, где норма
+   упомянута сто раз, перевешивал бы всё остальное). */
+function buildGraph(registry, index) {
+  const knownArts = {};
+  index.forEach(function (r) { knownArts[r[0] + "-" + r[1]] = 1; });
+
+  const xr = require("./lib/xref.js").create({
+    docs: registry,
+    has: function (id, num) { return !!knownArts[id + "-" + num]; }
+  });
+
+  const inRegistry = {};
+  registry.forEach(function (c) { inRegistry[c.id] = 1; });
+
+  const link = {}, weight = {};
+  registry.forEach(function (c) {
+    if (!fs.existsSync(path.join(OUT_FULL, c.id + ".js"))) return;
+    readFullRows(c.id).forEach(function (row) {
+      if (!row || !row[4]) return;
+      const seen = {};
+      xr.targets(row[4], { doc: c.id, num: row[0] }).forEach(function (t) {
+        if (t.doc === c.id || !inRegistry[t.doc]) return;
+        if (seen[t.doc]) return;
+        seen[t.doc] = 1;
+        const k = c.id + "|" + t.doc;
+        link[k] = (link[k] || 0) + 1;
+        weight[c.id] = (weight[c.id] || 0) + 1;
+        weight[t.doc] = (weight[t.doc] || 0) + 1;
+      });
+    });
+  });
+
+  /* Порядок рёбер фиксируем: файл участвует в отпечатке сборки, а от него
+     зависит, перезагрузится ли открытая вкладка у посетителя. */
+  const edges = Object.keys(link).map(function (k) {
+    const p = k.split("|");
+    return [p[0], p[1], link[k]];
+  }).sort(function (a, b) {
+    if (b[2] !== a[2]) return b[2] - a[2];
+    if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;
+    return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
+  });
+
+  const total = edges.reduce(function (s, e) { return s + e[2]; }, 0);
+  const body = "/* Правовой консультант :: граф перекрёстных ссылок между источниками.\n" +
+    "   edges — направленные связи [откуда, куда, сколько статей ссылается];\n" +
+    "   weight — сколько ссылок ведёт к акту и из него (по нему выбираются\n" +
+    "   самые связанные акты для рисунка). Учитываются только ссылки между\n" +
+    "   актами базы; связи внутри одного акта не считаются.\n" +
+    "   Считается один раз при сборке — в браузере полные тексты для этого\n" +
+    "   больше не подгружаются. Сформирован автоматически: tools/build-data.js */\n" +
+    "window.RF_GRAPH=" + JSON.stringify({ built_at: BUILT_AT, edges: edges, weight: weight }) + ";\n";
+  fs.writeFileSync(path.join(OUT_DATA, "graph.js"), body, "utf8");
+  return { pairs: edges.length, nodes: Object.keys(weight).length, links: total, size: Buffer.byteLength(body) };
 }
 
 /* ---------------------------------------------------------------- сборка */
@@ -759,6 +834,11 @@ function build() {
       manifests: { codes: ctx.codesManifest, laws: ctx.lawsManifest }
     }) + ";\n", "utf8");
 
+  /* --- граф перекрёстных ссылок ---
+     Считаем до отпечатка сборки: graph.js — часть данных, и его появление
+     должно менять digest, иначе открытые вкладки не узнают об обновлении. */
+  const graphStat = buildGraph(registry, index);
+
   /* --- отчёт --- */
   const byKind = { code: 0, law: 0, fkz: 0, constitution: 0, decree: 0, plenum: 0, review: 0 };
   let ta = 0, ts = 0;
@@ -812,6 +892,13 @@ function build() {
     " · слов " + ftTokens + " · сегментов " + NSHARDS);
   console.log("Словарь основ для опечаток: " + (Buffer.byteLength(dictBody) / 1024).toFixed(0) +
     " КБ · основ " + dictParts.length + " (df >= 3)");
+  console.log("Граф ссылок: пар " + graphStat.pairs + " · узлов " + graphStat.nodes +
+    " · ссылок " + graphStat.links + " · файл " + (graphStat.size / 1024).toFixed(1) + " КБ");
 }
 
-build();
+/* Экспорт для точечного пересчёта: пересобрать только граф, не трогая
+   остальные данные (tools/verify-data.js сверяет по нему свежесть файла),
+   и пересчитать отпечаток сборки после добавления нового файла в data/. */
+module.exports = { buildGraph: buildGraph, readFullRows: readFullRows, buildVersionStamp: buildVersionStamp };
+
+if (require.main === module) build();

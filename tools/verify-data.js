@@ -505,6 +505,62 @@ FT_CASES.forEach(function (t) {
 check("контрольные запросы находят нужные статьи", ftCaseBad.length === 0,
   ftCaseBad.length ? ftCaseBad.join("; ") : FT_CASES.length + " запросов");
 
+/* 5d ------------------------------------------- граф перекрёстных ссылок */
+console.log("\n5d. Граф перекрёстных ссылок между источниками");
+
+/* Раздел «Связи источников» больше не считает граф в браузере (для этого ему
+   пришлось бы подгрузить полные тексты всех 330 актов — 118 МБ). Граф считает
+   сборка и кладёт готовым файлом data/graph.js. Здесь мы пересчитываем его
+   заново по текстам и сверяем: если данные обновили, а граф не пересобрали,
+   раздел показывал бы устаревшую картину. */
+const graphPath = path.join(ROOT, "data", "graph.js");
+if (!fs.existsSync(graphPath)) {
+  check("data/graph.js собран", false, "файла нет — запустите node tools/build-data.js");
+} else {
+  const gw = { window: {} };
+  vm.runInNewContext(fs.readFileSync(graphPath, "utf8"), gw);
+  const G = gw.window.RF_GRAPH || {};
+  const gLink = {}, gWeight = {};
+  let gDocs = 0;
+  codes.forEach(function (c) {
+    let F;
+    try { F = fullOf(c.id); } catch (e) { return; }
+    if (!F || !F.length) return;
+    gDocs++;
+    F.forEach(function (row) {
+      if (!row || !row[4]) return;
+      const seen = {};
+      X.targets(row[4], { doc: c.id, num: row[0] }).forEach(function (t) {
+        if (t.doc === c.id || !codes.some(function (x) { return x.id === t.doc; })) return;
+        if (seen[t.doc]) return;
+        seen[t.doc] = 1;
+        gLink[c.id + "|" + t.doc] = (gLink[c.id + "|" + t.doc] || 0) + 1;
+        gWeight[c.id] = (gWeight[c.id] || 0) + 1;
+        gWeight[t.doc] = (gWeight[t.doc] || 0) + 1;
+      });
+    });
+  });
+
+  const fileEdges = {}, fileWeight = G.weight || {};
+  (G.edges || []).forEach(function (e) { fileEdges[e[0] + "|" + e[1]] = e[2]; });
+  const edgeBad = Object.keys(gLink).filter(function (k) { return fileEdges[k] !== gLink[k]; })
+    .concat(Object.keys(fileEdges).filter(function (k) { return gLink[k] === undefined; }));
+  const weightBad = Object.keys(gWeight).filter(function (id) { return fileWeight[id] !== gWeight[id]; })
+    .concat(Object.keys(fileWeight).filter(function (id) { return gWeight[id] === undefined; }));
+
+  check("граф ссылок совпадает с текстами базы (рёбра)",
+    edgeBad.length === 0,
+    edgeBad.length ? edgeBad.length + " расхождений, например " + edgeBad.slice(0, 3).join(", ")
+      : Object.keys(gLink).length + " пар, " + gDocs + " источников");
+  check("граф ссылок совпадает с текстами базы (вес узлов)",
+    weightBad.length === 0,
+    weightBad.length ? weightBad.length + " расхождений, например " + weightBad.slice(0, 3).join(", ")
+      : Object.keys(gWeight).length + " узлов");
+  check("в файле графа есть метка сборки и он компактен",
+    !!G.built_at && fs.statSync(graphPath).size < 400 * 1024,
+    "built_at " + (G.built_at || "нет") + " · " + (fs.statSync(graphPath).size / 1024).toFixed(1) + " КБ");
+}
+
 /* 6 --------------------------------------------------------------- шаблоны */
 console.log("\n6. Шаблоны документов");
 const tplProblems = [];
@@ -662,6 +718,7 @@ console.log("\n8. Сравнение редакций: движок постро
    алгоритм на автономной копии тех же функций — она обязана совпадать
    по поведению. Если app.js меняет алгоритм, тест это заметит. */
 const appSrc = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+const buildSrc = fs.readFileSync(path.join(ROOT, "tools", "build-data.js"), "utf8");
 function extractFn(name) {
   const m = new RegExp("function " + name + "\\s*\\([^)]*\\)\\s*\\{", "m").exec(appSrc);
   if (!m) return null;
@@ -893,37 +950,49 @@ const stWithArt = Object.keys(STATUS).filter(id => idSet[id]).length;
 check("статусы ссылаются на существующие статьи", stWithArt > 0 && stWithArt <= stRows.length,
   stWithArt + " из " + stRows.length + " статусов нашли статью");
 
-/* --- граф связей: устойчивость сборки -------------------------------------- */
+/* --- граф связей: устойчивость сборки --------------------------------------
+   Граф считается при сборке (buildGraph в tools/build-data.js) и приходит в
+   браузер готовым файлом. В приложении остаётся только выборка узлов и
+   раскладка по кругу. Проверяем обе половины: что клиент не тянет полные
+   тексты ради графа и что сам счёт не потерял защиты от петель и «чужих»
+   источников. */
 const buildGraphSrc = extractFn("buildGraph");
 check("функция построения графа есть в app.js", !!buildGraphSrc);
 if (buildGraphSrc) {
   check("узлы графа ограничены сверху",
     /GRAPH_NODE_LIMIT/.test(appSrc) && /slice\(0, GRAPH_NODE_LIMIT\)/.test(buildGraphSrc),
     "лимит узлов задан");
-  check("в графе учитываются только известные источники",
-    /!CO\[t\.doc\]/.test(buildGraphSrc), "фильтр неизвестных источников есть");
-  check("связи внутри одного акта исключены",
-    /t\.doc === c\.id/.test(buildGraphSrc), "петли исключены");
-  /* Граф пересобирается при каждой перерисовке раздела, а обход всех текстов
-     стоит ~0.6 с. Результат кэшируется по отпечатку набора загруженных
-     источников — проверяем, что кэш есть и что он сбрасывается при замене
-     текста (applyOverride), иначе граф останется устаревшим. */
-  check("граф кэшируется по набору загруженных текстов",
-    /graphCache/.test(buildGraphSrc) && /graphCache\.sig === sig/.test(buildGraphSrc),
-    "кэш по отпечатку есть");
+  /* Главное приобретение: раздел больше не подгружает полные тексты всех
+     актов (118 МБ) — раньше именно из-за этого «Связи источников» открывались
+     десятки секунд. Если в buildGraph вернётся обращение к FULL или loadFull,
+     ожидание вернётся вместе с ним. */
+  check("граф в приложении строится из готового файла, а не из полных текстов",
+    /GRAPH_DATA/.test(buildGraphSrc) && !/FULL\s*\[/.test(buildGraphSrc) && !/loadFull/.test(buildGraphSrc),
+    "источник — data/graph.js");
+  check("граф догружается отдельным файлом с обработкой ошибки",
+    /function loadGraphData/.test(appSrc) && /s\.onerror/.test(appSrc) && /cb\(new Error/.test(appSrc),
+    "loadGraphData + onerror");
+  check("кэш графа привязан к метке сборки данных",
+    /graphCache/.test(buildGraphSrc) && /graphCache\.sig === GRAPH_DATA\.built_at/.test(buildGraphSrc),
+    "кэш по метке сборки");
   const applyOvSrc = extractFn("applyOverride");
   check("кэш графа сбрасывается при замене текста",
     !!applyOvSrc && /graphCache\s*=\s*null/.test(applyOvSrc),
     "applyOverride обнуляет кэш");
 }
+/* Счёт графа при сборке: петли внутри акта и ссылки на акты вне базы не в счёт. */
+check("в счёте графа исключены петли внутри акта",
+  /t\.doc === c\.id/.test(buildSrc), "петли исключены");
+check("в счёте графа учитываются только акты реестра",
+  /inRegistry\[t\.doc\]/.test(buildSrc), "фильтр по реестру есть");
 
 /* --- вывод значений: защита от подстановки разметки ------------------------ */
 /* tile() вставляет первый аргумент как разметку, поэтому вызывающий обязан
    экранировать данные сам. Проверяем, что в вызове с именем источника
    (данные, а не число) стоит esc(). */
 check("tile() не получает неэкранированных данных",
-  !/tile\(freq\.length \? \(codeById/.test(appSrc) &&
-  /tile\(freq\.length \? esc\(/.test(appSrc),
+  !/tile\(topCode \? \(codeById/.test(appSrc) &&
+  /tile\(topCode \? esc\(/.test(appSrc),
   "имя источника экранируется");
 
 /* --- обработчики разделов навешиваются один раз ---------------------------- */
@@ -933,10 +1002,10 @@ check("tile() не получает неэкранированных данны�
 /* Примечание: функция bindBackup удалена вместе с разделом «Резервная копия»
    (пользователь отказался от резервного копирования). Проверка вызова снята. */
 
-/* --- загрузка всех текстов сообщает об ошибках ----------------------------- */
-const loadAllFullSrc = extractFn("loadAllFull");
-check("loadAllFull сообщает о незагруженных текстах",
-  !!loadAllFullSrc && /failed/.test(loadAllFullSrc) && /done\(failed/.test(loadAllFullSrc),
+/* --- загрузка графа сообщает об ошибках ------------------------------------ */
+const loadGraphSrc = extractFn("loadGraphData");
+check("loadGraphData сообщает о незагруженном файле",
+  !!loadGraphSrc && /s\.onerror/.test(loadGraphSrc) && /cb\(new Error/.test(loadGraphSrc),
   "ошибки загрузки учитываются");
 
 /* --- разбор ситуации: вес совпадений и порог показа ------------------------ */
@@ -1427,11 +1496,19 @@ check("длинная выдача реестра разбита по месяц
   /rep-group-h/.test(appSrc) && /MONTHS_NOM/.test(appSrc) &&
   /var withGroups = list\.length > 12/.test(appSrc));
 
-/* Справка: было 12 разделов-кнопок подряд — эксан выглядел как простыня. */
+/* Справка: было 12 разделов-кнопок подряд — эксан выглядел как простыня.
+   Разделы должны оставаться смысловыми и немногочисленными: сюда попадает
+   только то, что нельзя объяснить в интерфейсе одной строкой. */
 const helpFn = extractFn("viewHelp");
 const helpSecs = helpFn ? (helpFn.match(/sec\(/g) || []).length : -1;
-check("справка: разделов не больше восьми (было двенадцать)", helpSecs > 0 && helpSecs <= 8,
+check("справка: разделов немного (было двенадцать)", helpSecs > 0 && helpSecs <= 10,
   helpSecs + " разделов");
+/* Новые возможности должны быть описаны там же, где остальные: справка —
+   единственное место, где пользователь о них узнаёт. */
+check("справка описывает выбор источников Помощника",
+  /Отвечать только по выбранным источникам/.test(helpFn || ""));
+check("справка описывает памятки и чек-листы как один раздел",
+  /sec\("Памятки и чек-листы"/.test(helpFn || ""));
 check("справка начинается с ряда задач, а не с текста",
   /help-start/.test(appSrc) && /quickCard\("search"/.test(appSrc) && /quickCard\("compass"/.test(appSrc));
 /* Плитки справки сжимались общей сеткой .tiles (minmax 150px) и текст в них
@@ -1452,7 +1529,6 @@ check("дисклеймер на сайте ссылается на услови
    нему понимает, что на хостинге выложена новая сборка. Без этого посетитель
    с открытой вкладкой оставался бы на старых текстах до перезагрузки, и
    «просто загрузить новые файлы» ничего бы для него не меняло. */
-const buildSrc = fs.readFileSync(path.join(ROOT, "tools", "build-data.js"), "utf8");
 const versionFile = path.join(ROOT, "data", "version.json");
 let version = null;
 try { version = JSON.parse(fs.readFileSync(versionFile, "utf8")); } catch (e) { version = null; }
@@ -1623,39 +1699,34 @@ check("память проекта не возвращается в публич
   "публичный репозиторий выложил бы заметки в открытый доступ");
 
 const deployDoc = fs.readFileSync(path.join(ROOT, "DEPLOY.md"), "utf8");
-check("в инструкции по публикации назван реальный лимит Vercel Hobby",
-  /100 МБ/.test(deployDoc) && /Cloudflare Pages/.test(deployDoc),
-  "бесплатный Vercel не принимает деплой такого размера");
-check("инструкция публикации описывает сборку dist/ и настройку хостинга",
+/* Инструкция сокращена до того, что нужно в работе: сайт давно опубликован,
+   поэтому пошаговая настройка «от нуля» и сравнение хостингов (Cloudflare,
+   Vercel, Netlify) из неё убраны — они остались в истории git. Проверяем то,
+   без чего инструкция перестанет быть полезной. */
+check("инструкция по публикации называет адрес сайта",
+  /zTRPGz\.github\.io\/pravovoy-konsultant/.test(deployDoc),
+  "читатель должен видеть, где живёт сайт");
+check("инструкция описывает сборку каталога публикации dist/",
   /npm run dist/.test(deployDoc) && /node tools\/build-dist\.js/.test(deployDoc) &&
-  /Build output directory/.test(deployDoc),
+  /_headers/.test(deployDoc),
   "иначе на хостинг ушёл бы корень репозитория вместе с tools/");
-check("инструкция объясняет, откуда берётся адрес *.pages.dev",
-  /Project name/.test(deployDoc) && /pages\.dev/.test(deployDoc),
-  "адрес — из названия проекта, а не из почты аккаунта");
-check("в инструкции есть пошаговый путь «от нуля»",
-  /git config --global user\.name/.test(deployDoc) &&
-  /Workflow permissions/.test(deployDoc) && /git remote add origin/.test(deployDoc),
-  "git без имени и почты не даст сделать первый коммит");
-check("в сравнении хостингов есть Netlify с его реальным лимитом",
-  /Netlify/.test(deployDoc) && /15 ГБ/.test(deployDoc),
-  "бесплатный Netlify — 300 кредитов/мес ≈ 15 ГБ трафика");
-
-/* --- доступность из России -------------------------------------------------
-   Сайт рассчитан на читателя в России, а *.vercel.app и pages.dev из России
-   без VPN не открываются вовсе (замер curl: таймаут). Инструкция обязана об
-   этом предупреждать, иначе читатель снова выложит сайт «в никуда».          */
-check("инструкция предупреждает о недоступности Vercel и Cloudflare Pages из России",
-  /без VPN/.test(deployDoc) && /pages\.dev/.test(deployDoc) && /таймаут/.test(deployDoc),
-  "замер с российского подключения: *.vercel.app и pages.dev не отвечают");
+check("инструкция описывает обновление сайта одним коммитом",
+  /git commit/.test(deployDoc) && /git push/.test(deployDoc),
+  "правки и обновления базы — обычные коммиты");
+check("инструкция описывает ночную сборку и ручной запуск",
+  /23:30/.test(deployDoc) && /Run workflow/.test(deployDoc) && /update-logs/.test(deployDoc),
+  "иначе непонятно, как обновить базу, не дожидаясь ночи");
+check("инструкция предупреждает, что репозиторий должен быть публичным",
+  /публичным/.test(deployDoc),
+  "на бесплатном плане GitHub Pages иначе не включается");
+check("инструкция объясняет кеш GitHub Pages и метку версии в адресе",
+  /max-age=600/.test(deployDoc) && /\?v=/.test(deployDoc),
+  "иначе кнопка «Обновить» отдавала бы данные из кеша");
 check("инструкция называет хостинг, который из России открывается",
-  /github\.io/.test(deployDoc) && /100 ГБ/.test(deployDoc),
+  /GitHub Pages/.test(deployDoc) && /из России/.test(deployDoc) && /100 ГБ/.test(deployDoc),
   "GitHub Pages читается из России и даёт 100 ГБ трафика в месяц");
-check("инструкция объясняет требование публичного репозитория",
-  /публичным/.test(deployDoc) && /GitHub Pro/.test(deployDoc),
-  "на бесплатном плане Pages включается только для публичных репозиториев");
 check("инструкция описывает вычистку заметок из истории коммитов",
-  /filter-branch/.test(deployDoc),
+  /grep workbuddy/.test(deployDoc),
   "исключение из .gitignore не убирает уже сделанные коммиты");
 
 /* --- задача публикации на GitHub Pages -------------------------------------
@@ -1851,13 +1922,17 @@ check("метка версии подставляется только когд�
   "первый заход и file:// должны работать как раньше");
 /* Список файлов данных берём с диска, а не из константы: новый файл в data/
    (например, справочник исков) обязан попасть в загрузчик, иначе он просто
-   не доедет до читателя — молча, без единой ошибки в консоли. */
+   не доедет до читателя — молча, без единой ошибки в консоли.
+   Исключение — файлы, которые подгружаются по требованию: параметры
+   полнотекстового индекса и граф ссылок. Их в стартовом загрузчике нет и
+   быть не должно: граф нужен только разделу «Связи источников». */
+const LAZY_DATA = ["data/ft/meta.js", "data/graph.js"];
 const dataRootFiles = fs.readdirSync(path.join(ROOT, "data"))
   .filter((f) => /\.js$/.test(f))
   .map((f) => "data/" + f)
-  .concat(["data/ft/meta.js"]);
-const missingFromLoader = dataRootFiles.filter((f) => htmlDataFiles.indexOf(f) === -1);
-const loaderUnknown = htmlDataFiles.filter((f) => f !== "data/ft/meta.js" &&
+  .concat(LAZY_DATA);
+const missingFromLoader = dataRootFiles.filter((f) => LAZY_DATA.indexOf(f) === -1 && htmlDataFiles.indexOf(f) === -1);
+const loaderUnknown = htmlDataFiles.filter((f) => LAZY_DATA.indexOf(f) === -1 &&
   !fs.existsSync(path.join(ROOT, f)));
 check("все данные верхнего уровня перечислены в загрузчике",
   missingFromLoader.length === 0 && loaderUnknown.length === 0 &&
@@ -1998,18 +2073,34 @@ console.log("\n14. Режим одного источника (ответить 
 check("поиск умеет ограничиваться выбранными источниками",
   /if \(opt\.scope\)[\s\S]{0,160}sids\.indexOf\(a\.c\) !== -1/.test(appSrc),
   "иначе «ответить только по УК» не отфильтровало бы выдачу по акту");
-check("Помощник хранит и запоминает выбранный источник",
-  appSrc.indexOf('assistScope: LS.get("assistScope"') !== -1 &&
-  appSrc.indexOf('LS.set("assistScope", state.assistScope)') !== -1 &&
-  appSrc.indexOf("function assistScopeCode") !== -1,
-  "выбор должен переживать перезагрузку раздела");
+/* Выбор источников — уточнение на время работы, а не настройка «навсегда».
+   Раньше он сохранялся в localStorage, и при следующем заходе Помощник молча
+   отвечал по одному застрявшему акту («стоит на Конституции»). Теперь по
+   умолчанию действуют все источники, а выбор живёт в памяти сеанса. */
+check("Помощник по умолчанию отвечает по всем источникам",
+  /assistScope: "",/.test(appSrc) &&
+  appSrc.indexOf('LS.get("assistScope"') === -1 &&
+  appSrc.indexOf('LS.set("assistScope"') === -1,
+  "иначе ограничение застревало бы между сеансами");
+check("устаревшая настройка ограничения источников вычищается",
+  /LS\.del\("assistScope"\)/.test(appSrc),
+  "старый ключ в localStorage больше не сбивает с толку");
 check("переключатель источника выводится в Помощнике",
   appSrc.indexOf('id="scopeTrigger"') !== -1 && appSrc.indexOf("function assistScopePicker") !== -1 &&
   appSrc.indexOf("id=\"asScopeChips\"") !== -1 && appSrc.indexOf("id=\"asScopeBadge\"") !== -1,
   "иначе режим некуда включать, а состояние — негде показать");
-check("смена источника пересчитывает готовый разбор",
-  /addEventListener\("change",[\s\S]{0,120}toggleAssistScope\([\s\S]{0,80}if \(asText\) render\(\)/.test(appSrc),
-  "иначе пользователь не видел бы эффекта без повторного «Разобрать»");
+/* Пикер перерисовывался вместе с разделом на каждом щелчке: список схлопывался,
+   запрос в поиске сбрасывался, и выбрать несколько актов подряд было нельзя.
+   Теперь смена выбора пересобирает только вывод разбора. */
+check("смена источника пересчитывает разбор, не перерисовывая раздел",
+  /function refreshAssistAnswer/.test(appSrc) &&
+  /asRefresh = render;/.test(appSrc) &&
+  /if \(asText && typeof asRefresh === "function"\) asRefresh\(\)/.test(appSrc),
+  "иначе пикер закрывался бы на каждом щелчке");
+check("открытый пикер и запрос переживают перерисовку раздела",
+  /var scopeOpen = false, scopeQuery = ""/.test(appSrc) &&
+  /\(scopeOpen \? "" : " hidden"\)/.test(appSrc),
+  "список не должен схлопываться сам");
 check("нормы ответа фильтруются по выбранному акту",
   appSrc.indexOf("keyArts = keyArts.filter(function (a) { return sc.indexOf(a.c) !== -1; })") !== -1 &&
   appSrc.indexOf("arts = arts.filter(function (a) { return sc.indexOf(a.c) !== -1; })") !== -1,

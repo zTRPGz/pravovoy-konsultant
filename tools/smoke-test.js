@@ -714,8 +714,6 @@ server.listen(0, "127.0.0.1", async () => {
   /* --- множественный выбор источников для Помощника --- */
   section = "6b2. Помощник: множественный выбор источников"; console.log("\n" + section);
   await nav("#/assistant", 200);
-  /* сбрасываем предыдущий разбор, чтобы переключение чекбоксов не вызывало
-     перерисовку раздела (иначе ссылки на элементы пикера устаревают) */
   const clr0 = $("#asClear");
   if (clr0) clr0.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
   const trig = $("#scopeTrigger");
@@ -734,6 +732,9 @@ server.listen(0, "127.0.0.1", async () => {
   ok("выбрано два источника — чипы", $$("#asScopeChips .chip-rem").length === 2, $$("#asScopeChips .chip-rem").length + " чипов");
   ok("бейдж называет оба источника", /УК РФ/.test(T("#asScopeBadge") || "") && /УПК РФ/.test(T("#asScopeBadge") || ""), T("#asScopeBadge"));
   ok("подпись кнопки обновлена", /УК РФ/.test(T(".scope-trigger-label") || "") && /УПК РФ/.test(T(".scope-trigger-label") || ""), T(".scope-trigger-label"));
+  /* выбор нескольких актов подряд не должен схлопывать список */
+  ok("пикер остаётся открытым после выбора", picker && picker.hidden === false);
+  ok("счётчик выбранного обновлён", /Выбрано: 2/.test(T("#scopeCount") || ""), T("#scopeCount"));
   /* ответ строится строго в рамках выбранных актов */
   $("#asInput").value = "украли телефон в магазине";
   $("#asRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
@@ -743,7 +744,10 @@ server.listen(0, "127.0.0.1", async () => {
     const href = a.getAttribute("data-go") || "";
     return /#\/article\/(?:uk|upk)-/.test(href);
   }), arts.slice(0, 3).map(a => a.getAttribute("data-go")).join(", "));
-  /* снимаем один источник по крестику на чипе (после перерисовки ссылки заново) */
+  /* снимаем один источник по крестику на чипе — пикер при этом не пересоздаётся
+     (щелчок по «Разобрать» выше закрыл его как выпадающий список), поэтому
+     галочку в нём снимает syncScopePicker, а сам список не схлопывается */
+  const hiddenBefore = picker.hidden;
   let rem = $("#asScopeChips .chip-rem[data-scope-rem]");
   const remId = rem && rem.getAttribute("data-scope-rem");
   if (rem) rem.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
@@ -751,17 +755,20 @@ server.listen(0, "127.0.0.1", async () => {
   ok("после снятия одного остался один чип", $$("#asScopeChips .chip-rem").length === 1, $$("#asScopeChips .chip-rem").length + " чипов");
   const remChk = remId && $('[data-scope-chk="' + remId + '"]');
   ok("снятый источник убран и из пикера", !remChk || remChk.checked === false);
-  /* проверяем закрытие пикера кнопкой «Готово» — пикер после перерисовки
-     закрыт, поэтому сначала открываем его заново свежей ссылкой */
-  let trig2 = $("#scopeTrigger");
-  if (trig2) trig2.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ok("снятие чипа не трогает состояние пикера", picker.hidden === hiddenBefore);
+  ok("пикер не пересоздан при снятии чипа", $("#scopePicker") === picker);
+  /* пикер открывается заново и закрывается явно по «Готово» */
+  if (picker.hidden) $("#scopeTrigger").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ok("пикер снова открыт", picker.hidden === false);
   let done = $("#scopeDone");
   if (done) done.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
-  picker = $("#scopePicker");
   ok("пикер закрывается по «Готово»", picker && picker.hidden === true);
   const clr = $("#scopeClear");
   if (clr) clr.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
   ok("«Снять всё» очищает выбор", $$("#asScopeChips .chip-rem").length === 0, $$("#asScopeChips .chip-rem").length + " чипов");
+  ok("«Снять всё» снимает галочки в пикере",
+    $$("[data-scope-chk]").every(cb => cb.checked === false));
+  ok("подпись вернулась к «все источники»", /Все источники базы/.test(T(".scope-trigger-label") || ""), T(".scope-trigger-label"));
 
   section = "6c. Перемещение по разделам кнопками"; console.log("\n" + section);
   /* Кнопки в панели и кнопка «Назад» браузера ходят по одной и той же истории
@@ -1992,13 +1999,17 @@ server.listen(0, "127.0.0.1", async () => {
   await nav("#/search/жалоба", 500);
   ok("поиск работает на вкладке с ролью", $$(".result").length > 0, $$(".result").length + " результатов");
 
-  /* --- справка: короткий ряд задач и шесть разделов --- */
+  /* --- справка: короткий ряд задач и смысловые разделы --- */
   await nav("#/help", 300);
   ok("справка открывается", /Как пользоваться/.test(T("h1") || ""));
   ok("ряд задач для быстрого старта", $$(".help-start .quick-card").length >= 4,
     $$(".help-start .quick-card").length + " плиток");
-  ok("разделов справки не больше восьми", $$(".help-sec").length > 0 && $$(".help-sec").length <= 8,
+  ok("разделов справки немного — не простыня", $$(".help-sec").length > 0 && $$(".help-sec").length <= 10,
     $$(".help-sec").length + " разделов");
+  ok("в справке есть раздел про выбор источников Помощника",
+    /Отвечать только по выбранным источникам/.test(T("#view") || ""));
+  ok("в справке есть раздел про памятки и чек-листы",
+    /Памятки и чек-листы/.test(T("#view") || ""));
   ok("у справки остался дисклеймер", /1259/.test(T("#view") || ""));
 
   /* --- пометки утративших силу в списке источника --- */
@@ -2211,18 +2222,24 @@ server.listen(0, "127.0.0.1", async () => {
   }
 
   /* --- граф связей (вкладка раздела «Аналитика») --- */
-  await nav("#/graph", 200);   /* грузятся полные тексты всех источников */
+  /* Граф приходит готовым файлом data/graph.js — раздел больше НЕ подгружает
+     полные тексты всех 330 актов (118 МБ). Проверяем, что он появляется сразу. */
+  const tGraph = Date.now();
+  await nav("#/graph", 200);
   ok("граф открывается через вкладку «Аналитика»",
     $$('#view .tab[data-go="#/graph"]').length === 1);
-  const graphReady = await waitFor(() => $("#view .graph-svg") || $("#view .graph-empty"), 90000);
-  ok("граф догрузил тексты и отрисовался", graphReady);
+  const graphReady = await waitFor(() => $("#view .graph-svg") || $("#view .graph-empty"), 20000);
+  ok("граф отрисовался", graphReady);
+  ok("граф открылся без долгой загрузки текстов", Date.now() - tGraph < 8000, (Date.now() - tGraph) + " мс");
   ok("граф открывается", /Связи между источниками/.test(T("#view h1") || ""), T("#view h1"));
   const gNodes = $$("#view .graph-node");
   ok("узлы графа построены", gNodes.length > 0, gNodes.length + " узлов");
   ok("рёбра графа построены", $$("#view .graph-edge").length > 0, $$("#view .graph-edge").length + " рёбер");
   ok("у узла есть подпись", gNodes.length > 0 && !!gNodes[0].querySelector("text"));
   ok("в графе нет пустого состояния", !$("#view .graph-empty"));
-  ok("есть список самых частых связей", /Самые частые связи/.test(T("#view") || ""));
+  ok("блок «Самые частые связи» убран", !/Самые частые связи/.test(T("#view") || ""));
+  ok("плитка «самый связанный акт» называет акт, а не пару",
+    /самый связанный акт/.test(T("#view .tiles") || "") && /ссылок в обе стороны/.test(T("#view .tiles") || ""));
   if (gNodes.length) {
     const gid = gNodes[0].getAttribute("data-gnode");
     await nav("#/graph/" + gid, 4000);

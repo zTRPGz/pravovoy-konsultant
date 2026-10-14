@@ -1417,6 +1417,9 @@
     },
     set: function (k, v) {
       try { localStorage.setItem("rflaws." + k, JSON.stringify(v)); } catch (e) {}
+    },
+    del: function (k) {
+      try { localStorage.removeItem("rflaws." + k); } catch (e) {}
     }
   };
 
@@ -1437,9 +1440,18 @@
     read: LS.get("read", { fs: 15, lh: 1.65, w: 0 }),  // настройки чтения текста
     role: LS.get("role", ""),       // роль: "" | sle || adv | gos
     newSeen: LS.get("newSeen", 0),  // сколько верхних записей ленты «Новое» уже показано
-    assistScope: LS.get("assistScope", ""), // Помощник: запятами-перечисленные id источников для режима «только эти акты» ("" — все)
+    /* Помощник: запятыми перечисленные id источников для режима «только эти
+       акты» ("" — все). Выбор живёт ТОЛЬКО в памяти текущего сеанса: раньше он
+       сохранялся в localStorage и при следующем открытии Помощник молча отвечал
+       по одному застрявшему источнику («стоит на Конституции»). По умолчанию —
+       все источники базы. */
+    assistScope: "",
     route: { name: "home", arg: null, q: "" }
   };
+
+  /* Разовая уборка устаревшей настройки прошлых версий: иначе старый ключ так и
+     лежал бы в localStorage, сбивая с толку при отладке. */
+  try { LS.del("assistScope"); } catch (e) {}
 
   /* ------------------------------------------------------------------ роли
 
@@ -2443,12 +2455,13 @@
     var n = state.route.name;
     $$(".nav-item[data-nav]").forEach(function (el) {
       var k = el.getAttribute("data-nav");
-      var on = (k === n) || (k === "code" && n === "code") || (k === "checklists" && n === "checklist") ||
+      var on = (k === n) || (k === "code" && n === "code") ||
         (k === "terms" && (n === "terms" || n === "term")) ||
         (k === "sources" && (n === "sources" || n === "code")) ||
         (k === "docs" && (n === "templates" || n === "template" || n === "suits" || n === "suit")) ||
         (k === "cases" && n === "case") ||
-        (k === "scenarios" && (n === "scenarios" || n === "scenario")) ||
+        /* памятки и чек-листы — один пункт меню с вкладками */
+        (k === "scenarios" && (n === "scenarios" || n === "scenario" || n === "checklists" || n === "checklist")) ||
         (k === "diff" && (n === "diff" || n === "compare")) ||
         (k === "stats" && (n === "stats" || n === "timeline" || n === "graph"));
       el.classList.toggle("active", on);
@@ -3834,8 +3847,22 @@
      Пленуму». Для этого Помощник переключается в режим одного источника:
      подбор норм и дословные цитаты берутся только из выбранного кодекса,
      закона или постановления Пленума, нормы соседних отраслей и общая
-     судебная практика в ответ не попадают. Выбор запоминается и виден
-     полосой-состоянием под переключателем. */
+     судебная практика в ответ не попадают. По умолчанию действуют ВСЕ
+     источники базы; выбор живёт в текущем сеансе и виден полосой-состоянием
+     под переключателем. */
+
+  /* Состояние пикера переживает перерисовку раздела: открыт ли он и что
+     набрано в поиске. Без этого любая перерисовка схлопывала список и
+     сбрасывала запрос — выбрать несколько источников подряд было мучением. */
+  var scopeOpen = false, scopeQuery = "";
+
+  /* Пересобрать готовый разбор после смены выбранных источников, НЕ трогая
+     сам раздел: полная перерисовка закрывала пикер на каждом щелчке.
+     Указатель на внутренний render() раздела ставит bindAssistant(). */
+  var asRefresh = null;
+  function refreshAssistAnswer() {
+    if (asText && typeof asRefresh === "function") asRefresh();
+  }
 
   function assistScopeIds() {
     return (state.assistScope || "").split(",").map(function (s) { return s.trim(); })
@@ -3847,9 +3874,10 @@
      «спросить Помощника только по этому источнику» на страницах кодексов. */
   function setAssistScope(id) {
     state.assistScope = (id && codeById(id)) ? id : "";
-    LS.set("assistScope", state.assistScope);
     syncAssistScope();
     renderScopeChips();
+    syncScopePicker();
+    refreshAssistAnswer();
   }
 
   /* Переключить вхождение одного источника во множество (чекбоксы пикера). */
@@ -3859,9 +3887,10 @@
     assistScopeIds().forEach(function (x) { set[x] = 1; });
     if (set[id]) delete set[id]; else set[id] = 1;
     state.assistScope = Object.keys(set).join(",");
-    LS.set("assistScope", state.assistScope);
     syncAssistScope();
     renderScopeChips();
+    syncScopePicker();
+    refreshAssistAnswer();
   }
 
   /* Строка состояния под переключателем источника: показывает, отвечаем ли
@@ -3876,14 +3905,14 @@
     }
     el.innerHTML = '<span class="as-scope-on">Помощник отвечает <b>только</b> по выбранным источникам:</span> ' +
       cs.map(function (c) {
-        return '<span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(c.short) + "</span>";
+        return '<span class="badge" title="' + esc(c.full || c.short) + '" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(codeAbbr(c)) + "</span>";
       }).join(" ");
   }
 
   function scopeTriggerLabel() {
     var cs = assistScopeCodes();
     if (!cs.length) return "Все источники базы";
-    if (cs.length <= 3) return cs.map(function (c) { return c.short; }).join(", ");
+    if (cs.length <= 3) return cs.map(codeAbbr).join(", ");
     return cs.length + " источников выбрано";
   }
 
@@ -3894,8 +3923,8 @@
     if (box) {
       var cs = assistScopeCodes();
       box.innerHTML = cs.map(function (c) {
-        return '<span class="chip chip-rem" data-scope-rem="' + esc(c.id) + '">' +
-          '<span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(c.short) + "</span>" +
+        return '<span class="chip chip-rem" data-scope-rem="' + esc(c.id) + '" title="' + esc(c.full || c.short) + '">' +
+          '<span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(codeAbbr(c)) + "</span>" +
           '<span class="chip-x" title="Убрать">×</span></span>';
       }).join("");
     }
@@ -3903,60 +3932,136 @@
     if (lbl) lbl.textContent = scopeTriggerLabel();
   }
 
+  /* Компактная метка источника для строки выбора, чипа и подписи на кнопке.
+     `abbr` — привычное сокращение («УК РФ», «ФЗ о связи»); у обзоров практики
+     своего сокращения нет, поэтому берём их имя. */
+  function codeAbbr(c) {
+    return String((c.kind === "review" ? c.short : c.abbr) || c.short || c.abbr || c.id || "");
+  }
+  /* Название источника для подписи рядом с меткой: у кодексов и законов —
+     официальное полное, у Пленума — тема разъяснения (в метке уже реквизиты),
+     у обзора — реквизиты утверждения. */
+  function codeRowLabel(c) {
+    var s = String(c.short || ""), f = String(c.full || "");
+    if (c.kind === "plenum") {
+      var a = String(c.abbr || "");
+      if (a && s.indexOf(a) === 0) s = s.slice(a.length).replace(/^[\s«"„]+/, "").replace(/[»"“]\s*$/, "");
+      return s || f;
+    }
+    return f || s;
+  }
+
   /* Пикер множественного выбора источников: группы по видам актов, как в
-     реестре, плюс поле быстрого поиска. Чекбоксы отражают текущий выбор. */
+     реестре, плюс поле быстрого поиска и счётчик выбранного. Чекбоксы
+     отражают текущий выбор; открытое состояние и запрос переживают
+     перерисовку раздела. */
   function assistScopePicker() {
     var ids = {}; assistScopeIds().forEach(function (x) { ids[x] = 1; });
     var html = docGroups().map(function (g) {
+      var n = 0;
       var items = g.items.map(function (c) {
-        var on = ids[c.id] ? " checked" : "";
-        return '<label class="scope-opt"><input type="checkbox" data-scope-chk="' + esc(c.id) + '"' + on + ">" +
-          '<span class="scope-opt-c"><span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(c.short) + "</span></span>" +
-          '<span class="scope-opt-t">' + esc(c.a) + "</span></label>";
+        var on = !!ids[c.id];
+        if (on) n++;
+        return '<label class="scope-opt"' + (on ? ' data-on="1"' : "") + ' title="' + esc(c.full || c.short || c.id) + '">' +
+          '<input type="checkbox" data-scope-chk="' + esc(c.id) + '"' + (on ? " checked" : "") + ">" +
+          '<span class="badge" style="border-color:' + c.color + '66;color:' + c.color + '">' + esc(codeAbbr(c)) + "</span>" +
+          '<span class="scope-opt-t">' + esc(codeRowLabel(c)) + "</span></label>";
       }).join("");
-      return '<div class="scope-group"><div class="scope-group-h">' + esc(g.title) + "</div>" + items + "</div>";
+      return '<div class="scope-group" data-scope-group="' + esc(g.kind) + '">' +
+        '<div class="scope-group-h">' + esc(g.title) +
+          '<span class="scope-group-n"' + (n ? "" : " hidden") + ">" + n + "</span></div>" +
+        items + "</div>";
     }).join("");
-    return '<div class="scope-picker" id="scopePicker" hidden>' +
+    return '<div class="scope-picker" id="scopePicker"' + (scopeOpen ? "" : " hidden") + ">" +
       '<div class="scope-picker-bar">' +
-        '<input class="input" id="scopeSearch" placeholder="Найти источник (УК, УПК, закон…)" style="flex:1">' +
+        '<input class="input" id="scopeSearch" placeholder="Найти источник (УК, УПК, закон…)" value="' + esc(scopeQuery) + '" style="flex:1">' +
+        '<span class="scope-count" id="scopeCount"></span>' +
         '<button class="btn btn-sm" id="scopeClear" type="button">Снять всё</button>' +
         '<button class="btn btn-sm btn-primary" id="scopeDone" type="button">Готово</button>' +
       "</div>" +
-      '<div class="scope-picker-body" id="scopePickerBody">' + html + "</div>" +
+      '<div class="scope-picker-body" id="scopePickerBody">' + html +
+        '<div class="scope-empty" id="scopeEmpty" hidden>Ничего не найдено — измените запрос</div>' +
+      "</div>" +
       "</div>";
+  }
+
+  /* Привести пикер в согласие с текущим выбором: галочки, подсветка строк и
+     счётчики. Нужно потому, что выбор меняется не только щелчком по чекбоксу —
+     источник можно снять крестиком на чипе, а «Снять всё» — кнопкой. Раньше
+     раздел перерисовывался целиком и это выравнивалось само собой; теперь
+     перерисовки нет, поэтому синхронизируем руками. */
+  function syncScopePicker() {
+    var picker = $("#scopePicker");
+    if (!picker) return;
+    var ids = {}; assistScopeIds().forEach(function (x) { ids[x] = 1; });
+    $$("[data-scope-chk]", picker).forEach(function (cb) {
+      var on = !!ids[cb.getAttribute("data-scope-chk")];
+      cb.checked = on;
+      var lbl = cb.closest(".scope-opt");
+      if (lbl) { if (on) lbl.setAttribute("data-on", "1"); else lbl.removeAttribute("data-on"); }
+    });
+    updateScopeCounts(picker);
+  }
+
+  /* Счётчик «Выбрано: N» в шапке пикера и число выбранных у каждой группы. */
+  function updateScopeCounts(picker) {
+    picker = picker || $("#scopePicker");
+    if (!picker) return;
+    var ids = {}; assistScopeIds().forEach(function (x) { ids[x] = 1; });
+    var el = $("#scopeCount", picker);
+    if (el) el.textContent = Object.keys(ids).length ? "Выбрано: " + Object.keys(ids).length : "Ничего не выбрано";
+    $$("[data-scope-group]", picker).forEach(function (g) {
+      var n = 0;
+      $$("[data-scope-chk]", g).forEach(function (cb) { if (ids[cb.getAttribute("data-scope-chk")]) n++; });
+      var b = $(".scope-group-n", g);
+      if (b) { b.textContent = n; b.hidden = !n; }
+    });
+  }
+
+  /* Отбор источников по запросу: прячем несовпавшие строки и целые группы,
+     показываем заглушку, если не нашлось ничего. */
+  function applyScopeFilter(picker, q) {
+    q = (q || "").trim().toLowerCase();
+    var any = false;
+    $$(".scope-group", picker).forEach(function (g) {
+      var hit = false;
+      $$(".scope-opt", g).forEach(function (o) {
+        var show = !q || o.textContent.toLowerCase().indexOf(q) !== -1;
+        o.style.display = show ? "" : "none";
+        if (show) hit = true;
+      });
+      g.style.display = hit ? "" : "none";
+      if (hit) any = true;
+    });
+    var emp = $("#scopeEmpty", picker);
+    if (emp) emp.hidden = any;
   }
 
   /* Открытие/закрытие пикера, поиск, чекбоксы и съёмные чипы. */
   function bindScopePicker() {
     var trigger = $("#scopeTrigger"), picker = $("#scopePicker");
     if (!trigger || !picker) return;
+    updateScopeCounts(picker);
+    if (scopeQuery) applyScopeFilter(picker, scopeQuery);
     trigger.addEventListener("click", function () {
-      picker.hidden = !picker.hidden;
-      if (!picker.hidden) { var s = $("#scopeSearch"); if (s) s.focus(); }
+      scopeOpen = picker.hidden;              // сейчас откроем
+      picker.hidden = !scopeOpen;
+      if (scopeOpen) { var s = $("#scopeSearch"); if (s) s.focus(); }
     });
     var done = $("#scopeDone"); if (done) done.addEventListener("click", function () {
-      picker.hidden = true; if (asText) render();
+      scopeOpen = false; picker.hidden = true;
     });
     var clr = $("#scopeClear"); if (clr) clr.addEventListener("click", function () {
-      state.assistScope = ""; LS.set("assistScope", "");
-      $$("[data-scope-chk]", picker).forEach(function (cb) { cb.checked = false; });
-      syncAssistScope(); renderScopeChips(); if (asText) render();
+      state.assistScope = "";
+      syncAssistScope(); renderScopeChips(); syncScopePicker(); refreshAssistAnswer();
     });
     var sInp = $("#scopeSearch"); if (sInp) sInp.addEventListener("input", function () {
-      var q = this.value.trim().toLowerCase();
-      $$(".scope-group", picker).forEach(function (g) {
-        var any = false;
-        $$(".scope-opt", g).forEach(function (o) {
-          var hit = !q || o.textContent.toLowerCase().indexOf(q) !== -1;
-          o.style.display = hit ? "" : "none"; if (hit) any = true;
-        });
-        g.style.display = any ? "" : "none";
-      });
+      scopeQuery = this.value;
+      applyScopeFilter(picker, scopeQuery);
     });
     $$("[data-scope-chk]", picker).forEach(function (cb) {
       cb.addEventListener("change", function () {
         toggleAssistScope(this.getAttribute("data-scope-chk"));
-        if (asText) render();
       });
     });
     /* съёмные чипы выбранных источников (над пикером): клик по крестику
@@ -3968,13 +4073,14 @@
       if (!rem) return;
       e.preventDefault();
       toggleAssistScope(rem.getAttribute("data-scope-rem"));
-      if (asText) render();
     });
     if (!window.__scopeOutsideBound) {
       document.addEventListener("click", function (ev) {
         var p = $("#scopePicker"), t = $("#scopeTrigger");
         if (!p || p.hidden) return;
-        if (!p.contains(ev.target) && ev.target !== t && !(t && t.contains(ev.target))) p.hidden = true;
+        if (!p.contains(ev.target) && ev.target !== t && !(t && t.contains(ev.target))) {
+          p.hidden = true; scopeOpen = false;
+        }
       });
       window.__scopeOutsideBound = true;
     }
@@ -4000,7 +4106,7 @@
           '<button class="btn" id="asClear">Очистить</button>' +
           '<input type="file" id="asOcrFile" accept="image/*" hidden>' +
         "</div>" +
-        '<div class="field as-scope-field"><label>Отвечать только по выбранным источникам</label>' +
+        '<div class="field as-scope-field"><label>Источники для ответа (по умолчанию — все)</label>' +
           '<button class="btn scope-trigger" id="scopeTrigger" type="button"><span class="scope-trigger-label">' + esc(scopeTriggerLabel()) + '</span> <span class="caret">▾</span></button>' +
           '<div class="chips" id="asScopeChips" style="margin-top:8px"></div>' +
           assistScopePicker() +
@@ -4023,6 +4129,9 @@
       markNav();
       enrichAssistant(out);
     };
+    /* Смена выбранных источников пересобирает только вывод разбора — сам
+       раздел не перерисовывается, поэтому пикер остаётся открытым. */
+    asRefresh = render;
     var analyze = function () {
       var text = (input.value || "").trim();
       if (text.length < 5) { toast("Опишите ситуацию подробнее"); return; }
@@ -8695,66 +8804,37 @@
      статьи одного акта ссылаются на другой. Рёбер внутри одного акта не
      рисуем: они образуют «петлю» и забивают картину. Раскладка — по кругу,
      без внешних библиотек (работает офлайн).
+
+     Сам граф приходит готовым (data/graph.js) — его считает сборка. Раньше
+     раздел строил граф сам и ради этого подгружал полные тексты ВСЕХ 330
+     актов: 118 МБ и десятки секунд ожидания на пустом кеше. Файл графа
+     весит 50 КБ и подтягивается один раз, только когда раздел открыт.
      ------------------------------------------------------------------------ */
   var GRAPH_NODE_LIMIT = 28;
-  var graphState = { loading: false, ready: false, error: "" };
-  /* Кэш построенного графа: { sig, g }. sig — отпечаток набора загруженных
-     полных текстов. Сбрасывается в null при замене текста (applyOverride). */
+  var GRAPH_DATA = window.RF_GRAPH || null;
+  var graphState = { loading: false, error: "" };
+  /* Построенный из данных граф: { sig, g }. sig — метка сборки данных. */
   var graphCache = null;
 
-  /* Для графа нужны полные тексты всех источников, а они подгружаются лениво.
-     Грузим их пачками, чтобы не забивать сеть и не блокировать интерфейс. */
-  function loadAllFull(done) {
-    var ids = CODES.filter(function (c) { return !c.note; }).map(function (c) { return c.id; });
-    var i = 0, failed = 0;
-    (function step() {
-      if (i >= ids.length) return done(failed ? new Error("не загружено текстов: " + failed) : null);
-      var batch = ids.slice(i, i + 4);
-      i += 4;
-      var left = batch.length;
-      batch.forEach(function (id) {
-        loadFull(id, function (err) {
-          if (err) failed++;
-          if (--left === 0) step();
-        });
-      });
-    })();
+  function loadGraphData(cb) {
+    if (GRAPH_DATA) { cb(null); return; }
+    var s = document.createElement("script");
+    s.src = "data/graph.js" + buildQuery();
+    s.onload = function () {
+      GRAPH_DATA = window.RF_GRAPH || null;
+      cb(GRAPH_DATA ? null : new Error("файл графа пуст"));
+    };
+    s.onerror = function () { cb(new Error("файл графа не загрузился")); };
+    document.head.appendChild(s);
   }
 
   function buildGraph() {
-    if (!XREF) return null;
-    /* Результат детерминирован: он зависит только от того, какие полные тексты
-       уже загружены. Пересчёт стоит ~0.6 с (обход всех 99 текстов, ~75 МБ), а
-       раздел перерисовывается при каждом клике по узлу (меняется только focus).
-       Поэтому кэшируем по «отпечатку» набора загруженных источников: как только
-       подгружается новый текст, отпечаток меняется и граф строится заново. */
-    var loaded = [];
-    CODES.forEach(function (c) { if (FULL[c.id] && FULL[c.id].length) loaded.push(c.id); });
-    var sig = loaded.length + ":" + loaded.join(",");
-    if (graphCache && graphCache.sig === sig) return graphCache.g;
+    if (!GRAPH_DATA || !GRAPH_DATA.weight) return null;
+    /* Данные неизменны в пределах сборки, а раздел перерисовывается при каждом
+       клике по узлу (меняется только focus) — держим готовый результат. */
+    if (graphCache && graphCache.sig === GRAPH_DATA.built_at) return graphCache.g;
 
-    /* для каждого источника считаем, на какие другие он ссылается */
-    var link = {};   /* "from|to" -> count */
-    var weight = {};
-    CODES.forEach(function (c) {
-      var rows = FULL[c.id];
-      if (!rows || !rows.length) return;
-      rows.forEach(function (row) {
-        if (!row || !row[4]) return;
-        var tg = XREF.targets(row[4], { doc: c.id, num: row[0] });
-        var seen = {};
-        tg.forEach(function (t) {
-          if (t.doc === c.id || !CO[t.doc]) return;
-          if (seen[t.doc]) return;
-          seen[t.doc] = 1;
-          var k = c.id + "|" + t.doc;
-          link[k] = (link[k] || 0) + 1;
-          weight[c.id] = (weight[c.id] || 0) + 1;
-          weight[t.doc] = (weight[t.doc] || 0) + 1;
-        });
-      });
-    });
-
+    var weight = GRAPH_DATA.weight;
     var nodes = Object.keys(weight)
       .sort(function (a, b) { return weight[b] - weight[a]; })
       .slice(0, GRAPH_NODE_LIMIT);
@@ -8762,15 +8842,13 @@
     var idx = {};
     nodes.forEach(function (id, i) { idx[id] = i; });
 
-    var edges = [];
-    Object.keys(link).forEach(function (k) {
-      var p = k.split("|");
-      if (idx[p[0]] === undefined || idx[p[1]] === undefined) return;
-      edges.push({ a: p[0], b: p[1], n: link[k] });
-    });
+    /* allEdges — все связи: по ним строится панель «ссылается на» / «ссылаются
+       на него» для любого акта, даже если он не попал в рисунок. */
+    var allEdges = GRAPH_DATA.edges.map(function (e) { return { a: e[0], b: e[1], n: e[2] }; });
+    var edges = allEdges.filter(function (e) { return idx[e.a] !== undefined && idx[e.b] !== undefined; });
 
-    var g = { nodes: nodes, idx: idx, edges: edges, weight: weight };
-    graphCache = { sig: sig, g: g };
+    var g = { nodes: nodes, idx: idx, edges: edges, allEdges: allEdges, weight: weight };
+    graphCache = { sig: GRAPH_DATA.built_at, g: g };
     return g;
   }
 
@@ -8826,20 +8904,23 @@
   function graphSide(g, focus) {
     if (!focus || !g) return "";
     var c = codeById(focus) || { short: focus, full: focus };
-    var out = g.edges.filter(function (e) { return e.a === focus; })
+    /* Берём ВСЕ связи акта, а не только те, что попали в рисунок: панель
+       должна отвечать на вопрос «с чем связан этот акт» целиком. */
+    var all = g.allEdges || g.edges;
+    var out = all.filter(function (e) { return e.a === focus; })
       .sort(function (x, y) { return y.n - x.n; });
-    var inc = g.edges.filter(function (e) { return e.b === focus; })
+    var inc = all.filter(function (e) { return e.b === focus; })
       .sort(function (x, y) { return y.n - x.n; });
 
     function list(arr, dir) {
       if (!arr.length) return '<span class="small muted">нет</span>';
-      return arr.map(function (e) {
+      return arr.slice(0, 40).map(function (e) {
         var other = dir === "out" ? e.b : e.a;
         var oc = codeById(other) || { short: other };
         return '<div class="graph-side-item">' +
           '<span data-go="#/code/' + esc(other) + '"><b>' + esc(oc.short) + "</b></span>" +
           '<span class="mini muted">' + e.n + " " + plural(e.n, ["ссылка", "ссылки", "ссылок"]) + "</span></div>";
-      }).join("");
+      }).join("") + (arr.length > 40 ? '<div class="small muted">и ещё ' + (arr.length - 40) + "…</div>" : "");
     }
 
     return '<div class="graph-side">' +
@@ -8854,28 +8935,24 @@
   }
 
   function viewGraph(focus) {
-    if (graphState.loading || !graphState.ready) {
+    if (!GRAPH_DATA) {
       return '<h1>Связи между источниками</h1>' +
         tabStrip(ANALYTICS_TABS, "graph") +
         '<p class="lead">Какие акты ссылаются друг на друга. Размер кружка — сколько ссылок ведёт к этому ' +
         "акту и из него; толщина линии — сколько раз акты ссылаются друг на друга. " +
         "Показаны самые связанные источники; нажмите на кружок, чтобы увидеть подробности.</p>" +
-        '<div class="info-box"><span class="loading">Загружаем полные тексты и считаем ссылки…</span></div>' +
-        (graphState.error ? '<div class="warn-box" style="margin-top:12px">Не удалось загрузить тексты: ' +
+        '<div class="info-box"><span class="loading">Готовим граф ссылок…</span></div>' +
+        (graphState.error ? '<div class="warn-box" style="margin-top:12px">Не удалось загрузить граф: ' +
           esc(graphState.error) + "</div>" : "");
     }
 
     var g = buildGraph();
-    var edgesTotal = g ? g.edges.reduce(function (s, e) { return s + e.n; }, 0) : 0;
-    var freq = g ? g.edges.slice().sort(function (a, b) { return b.n - a.n; }).slice(0, 8) : [];
-    var strong = freq.map(function (e) {
-      var c1 = codeById(e.a) || { short: e.a }, c2 = codeById(e.b) || { short: e.b };
-      return '<div class="graph-side-item">' +
-        '<span data-go="#/code/' + esc(e.a) + '">' + esc(c1.short) + "</span>" +
-        '<span class="mini muted">→</span>' +
-        '<span data-go="#/code/' + esc(e.b) + '">' + esc(c2.short) + "</span>" +
-        '<span class="mini muted" style="margin-left:auto">' + e.n + "</span></div>";
-    }).join("");
+    var edgesTotal = g ? g.allEdges.reduce(function (s, e) { return s + e.n; }, 0) : 0;
+    /* «Самый связанный» — акт с наибольшим числом ссылок в обе стороны, а не
+       самая частая пара: пара почти всегда одна и та же (крупный Пленум →
+       кодекс) и ничего не говорит о базе. */
+    var topNode = g && g.nodes.length ? g.nodes[0] : "";
+    var topCode = topNode ? codeById(topNode) : null;
 
     var canvas = g && g.nodes.length
       ? graphSvg(g, focus) + graphSide(g, focus)
@@ -8889,9 +8966,10 @@
 
       '<div class="tiles" style="margin-bottom:14px">' +
         tile(g ? g.nodes.length : 0, "актов в графе", "из " + CODES.filter(function (c) { return !c.note; }).length + " в реестре") +
-        tile(g ? g.edges.length : 0, "связей между актами", "направленных пар") +
+        tile(g ? g.edges.length : 0, "связей между актами", "направленных пар среди показанных") +
         tile(edgesTotal.toLocaleString("ru-RU"), "ссылок всего", "с учётом повторов") +
-        tile(freq.length ? esc((codeById(freq[0].a) || {}).short || "—") : "—", "самый активный", "источник по числу ссылок") +
+        tile(topCode ? esc(topCode.abbr || topCode.short) : "—", "самый связанный акт",
+          topNode ? (g.weight[topNode] || 0) + " ссылок в обе стороны" : "источник по числу ссылок") +
       "</div>" +
 
       (focus ? '<div class="chips" style="margin-bottom:12px">' +
@@ -8903,15 +8981,13 @@
       '<div class="graph-legend"><span>● размер узла — степень связности</span>' +
       "<span>— толщина ребра — число ссылок</span></div>" +
 
-      (graphState.error ? '<div class="warn-box" style="margin-top:12px">Часть текстов не загрузилась, ' +
-        "граф построен по остальным: " + esc(graphState.error) + "</div>" : "") +
-
-      (strong ? '<div class="card" style="margin-top:14px"><h3 style="margin-top:0">Самые частые связи</h3>' +
-        '<div class="bars">' + strong + "</div></div>" : "") +
+      (graphState.error ? '<div class="warn-box" style="margin-top:12px">' +
+        esc(graphState.error) + "</div>" : "") +
 
       '<div class="disclaimer"><b>О графе.</b> Учитываются ссылки вида «в соответствии со статьёй N такого-то ' +
       "акта», распознанные в текстах. Ссылки на нормативные акты, которых нет в базе, в граф не попадают. " +
-      "Связи внутри одного акта не показаны, чтобы не загромождать картину.</div>";
+      "Связи внутри одного акта не показаны, чтобы не загромождать картину. Граф посчитан при сборке базы; " +
+      "ваши собственные правки редакций в нём не отражены.</div>";
   }
 
 
@@ -8922,13 +8998,13 @@
         go("#/graph/" + this.getAttribute("data-gnode"));
       });
     });
-    /* если тексты ещё не загружены — грузим и перерисовываем раздел */
-    if (!graphState.ready && !graphState.loading) {
+    /* Граф лежит отдельным файлом (50 КБ) и грузится один раз — при первом
+       открытии раздела. Тексты актов для него больше не нужны. */
+    if (!GRAPH_DATA && !graphState.loading) {
       graphState.loading = true;
       graphState.error = "";
-      loadAllFull(function (err) {
+      loadGraphData(function (err) {
         graphState.loading = false;
-        graphState.ready = true;
         graphState.error = err ? (err.message || String(err)) : "";
         if (state.route.name === "graph") render();
       });
@@ -8943,7 +9019,7 @@
      Было 12 раскрывающихся разделов подряд — эксан выглядел как простыня
      из кнопок, и найти нужное было не легче, чем в самом приложении.
      Теперь: сверху короткий ряд задач (сразу переход, раскрывать ничего не
-     нужно), ниже — шесть смысловых разделов вместо двенадцати. */
+     нужно), ниже — смысловые разделы вместо двенадцати. */
   function viewHelp() {
     var sec = function (title, ico, body) {
       return '<details class="help-sec"><summary>' + ic(ico) + "<span>" + esc(title) + "</span></summary>" +
@@ -8956,7 +9032,7 @@
       quickCard("calculator", "Калькуляторы", "Обычный счёт, процессуальные сроки, давность, пошлина, неустойка, сроки под стражей", "#/calc", "amber") +
       quickCard("activity", "Что нового", "Лента изменений по дням: новые статьи, редакции, утрата силы", "#/new", "rose") +
       quickCard("swap", "Что изменилось", "Сравнить статью с прежней редакцией и увидеть правки построчно", "#/diff", "violet") +
-      quickCard("shield", "Памятки", "Порядок действий: досмотр, задержание, ОРМ, приём заявлений", "#/scenarios", "teal") +
+      quickCard("shield", "Памятки и чек-листы", "Порядок действий по ситуациям и обязательные элементы следственных действий", "#/scenarios", "teal") +
       quickCard("file", "Шаблоны и иски", "Бланки документов по отраслям и готовые исковые заявления", "#/templates", "green") +
       "</div>";
 
@@ -8974,20 +9050,29 @@
         "<p>Быстрый переход и поиск с клавиатуры — <b>Ctrl + K</b> (или <b>/</b>): статьи, разделы и источники без мыши. Термины ищутся там же — наберите слово, и первым делом появится его определение.</p>" +
         "<p>Не знаете, как называется нужное? Раздел <b>«Термины»</b> — " + TERMS.length + " определений с синонимами: «умышленно» находит «умысел», «дубинка» — «специальные средства», «развод» — «расторжение брака». У каждого термина — ссылки на нормы, из которых взято определение. То же определение показывается над результатами обычного поиска, когда запрос совпал с термином.</p>") +
 
-      sec("Помощник и памятки", "compass",
+      sec("Помощник: разбор ситуации", "compass",
         "<p>Опишите ситуацию обычным языком — помощник определит отрасль, вероятный состав, объект и предмет, покажет квалификацию, санкцию, что нужно установить и что сделать, и уточнит детали вопросами.</p>" +
+        "<p>Квалификация выводится <b>по составу, а не по последствию</b>: помощник смотрит на деяние, субъекта и форму вины. Поэтому за «тяжким вредом здоровью» он видит не только ст. 111 УК РФ, но и неосторожные составы, а выпуск в рейс неисправного транспорта разбирает по ст. 266 УК РФ, а не по статьям о вреде здоровью.</p>" +
         "<p>Разбор строится <b>только по текстам, размещённым на сайте</b>: каждая ссылка ведёт на статью действующей редакции, а под разбором указаны источники с датами редакций. Сослаться на норму, которой в базе нет, помощник не может.</p>" +
+        "<p>Разбор открывается <b>коротким ответом</b> — квалификация, санкция и первые шаги, — чтобы не читать весь разбор, когда нужен только вывод. Рядом — надёжность вывода: если данных в фабуле мало, помощник прямо помечает ответ предварительным и говорит, что нужно уточнить. Ниже идут подробности: что установить, что оформить и в какой срок.</p>" +
+        "<p>Уточняющие вопросы — кнопками под разбором: следователь или адвокат, тяжкий вред или средний, была ли выгода. Ответы сразу пересобирают вывод, вводить текст заново не нужно.</p>" +
+        "<p><b>Отвечать только по выбранным источникам.</b> По умолчанию помощник ищет по всей базе. Если вопрос касается одного акта — «что говорит Уголовный кодекс», — откройте список <b>«Источники для ответа»</b> и отметьте нужные: подбор норм и цитаты ограничатся ими, нормы соседних отраслей и общая практика в ответ не попадут. Список с поиском по названию и счётчиком выбранного; выбранные акты видны чипами, снять можно крестиком. Кнопка «Спросить Помощника» на странице кодекса включает этот режим сразу. Выбор действует <b>до конца сеанса</b> — при следующем открытии помощник снова ищет по всей базе.</p>" +
         "<p>Упоминания норм в разборах, памятках и примечаниях — <b>кликабельные ссылки</b>: «ст. 105 УК РФ» или «п. 6 постановления Пленума ВС РФ № 29» ведут прямо на нужный пункт действующей редакции.</p>" +
-        "<p>Разборы охватывают хищения и их формы, вред здоровью, наркотики, оружие, взятки, ДТП, задержание, обыск и выемку, личный досмотр, оперативно-розыскные мероприятия, угон, угрозы, приём заявлений (КУСП), миграцию, трудовые и имущественные споры.</p>" +
-        "<p>По смыслу запроса помощник также подбирает судебную практику — блок «Судебная практика» под разбором: постановления Пленума ВС РФ и обзоры судебной практики, утверждённые Президиумом ВС РФ. Они не создают норму, а разъясняют, как её применять.</p>" +
-        "<p>Разбор открывается <b>коротким ответом</b> — квалификация, санкция и первые шаги, — чтобы не читать весь разбор, когда нужен только вывод. Ниже идут подробности: что установить, что оформить и в какой срок.</p>") +
+        "<p>Разборы охватывают хищения и их формы, вред здоровью, наркотики, оружие, взятки, ДТП, безопасность движения и эксплуатации транспорта, задержание, обыск и выемку, личный досмотр, оперативно-розыскные мероприятия, угон, угрозы, приём заявлений (КУСП), миграцию, трудовые и имущественные споры.</p>" +
+        "<p>По смыслу запроса помощник также подбирает судебную практику — блок «Судебная практика» под разбором: постановления Пленума ВС РФ и обзоры судебной практики, утверждённые Президиумом ВС РФ. У разбора есть «свои» постановления — они идут первыми. Практика не создаёт норму, а разъясняет, как её применять.</p>" +
+        "<p>Если в тексте есть вопросы («есть ли состав», «что повлияет на наказание», «было ли соучастие»), помощник отвечает на каждый отдельной строкой вывода — в дополнение к разбору.</p>") +
+
+      sec("Памятки и чек-листы", "shield",
+        "<p>Это один раздел с двумя вкладками. <b>«Памятки»</b> — готовые сценарии типовых ситуаций: последовательность действий, применимые статьи, оформляемые документы и контрольные сроки. <b>«Чек-листы»</b> — обязательные элементы, которые проверяются при оценке законности процессуального действия: отсутствие любого из них — типичное основание признать доказательства недопустимыми.</p>" +
+        "<p>Переключение — вкладками сверху страницы; отдельного пункта меню для чек-листов нет, чтобы не занимать место. Памятку можно скачать как .docx, скопировать текстом или распечатать, а её статьи — забрать в подборку одной кнопкой.</p>" +
+        "<p>Материал справочный: он не заменяет закон, формулировки и сроки приводятся по действующей редакции — сверяйтесь с разделом «Проверка актуальности».</p>") +
 
       sec("Источники, редакции и статусы", "book",
         "<p>В сайдбаре слева — все акты, сгруппированные по виду: Конституция, Кодексы, ФКЗ, ФЗ, постановления Правительства, постановления Пленума ВС РФ и обзоры судебной практики. Группу можно <b>свернуть и развернуть</b> кликом по заголовку — состояние запоминается.</p>" +
-        "<p>Отдельная вкладка <b>«Источники»</b> показывает весь реестр одним списком: фильтр по названию, коду или номеру, группы по виду акта. У каждой карточки две кнопки — <b>«Открыть»</b> (читать статьи по главам) и <b>«Спросить Помощника»</b>: вопрос решается в режиме «ответ только по этому источнику», то есть помощник опирается исключительно на нормы выбранного акта.</p>" +
+        "<p>Отдельная вкладка <b>«Источники»</b> показывает весь реестр одним списком: фильтр по названию, коду или номеру, группы по виду акта. У каждой карточки две кнопки — <b>«Открыть»</b> (читать статьи по главам) и <b>«Спросить Помощника»</b>: вопрос решается в режиме «ответ только по этому источнику», то есть помощник опирается исключительно на нормы выбранного акта. Режим включается сразу и действует до конца сеанса; вернуть ответ по всей базе можно кнопкой «Снять всё» в списке источников на странице Помощника.</p>" +
         "<p>Судебная практика — два вида актов, они не смешиваются: <b>постановления Пленума ВС РФ</b> (разъяснения) и <b>обзоры судебной практики</b>, утверждённые Президиумом ВС РФ. Обзор открывается как обычный источник — со списком пунктов, оглавлением по разделам и датой утверждения.</p>" +
         "<p>Приложение сверяет даты редакций «день в день» и показывает результат значком в панели. Нормы, утратившие силу, помечены зачёркиванием и серой плашкой; полный реестр — в разделе <b>«Утратившие силу»</b>, где список можно отсеять по периоду («за месяц», «за неделю») и по году с месяцем.</p>" +
-        "<p><b>«Новое»</b> — лента изменений по дням: новые статьи, новые редакции, утрата силы. <b>«Аналитика»</b> — сводные цифры, лента по годам и граф ссылок между актами.</p>") +
+        "<p><b>«Новое»</b> — лента изменений по дням: новые статьи, новые редакции, утрата силы. <b>«Аналитика»</b> — сводные цифры, лента по годам и <b>«Связи источников»</b>: граф перекрёстных ссылок между актами. Размер кружка — сколько ссылок ведёт к акту и из него, толщина линии — сколько раз акты ссылаются друг на друга. Нажмите на кружок, чтобы увидеть, на какие акты ссылается этот и кто ссылается на него. Граф посчитан заранее при сборке базы, поэтому открывается сразу.</p>") +
 
       sec("Сравнение редакций и изменения статьи", "swap",
         "<p><b>«Сравнение» → «Редакции источника»</b> показывает построчно, что изменилось в документе. Приложение сохраняет прежнюю редакцию перед каждым обновлением, поэтому видно добавленные, исключённые и переписанные статьи; есть фильтр по виду изменения и переход к статье. Сравнить можно и с онлайн-версией источника, не дожидаясь сохранённой копии.</p>" +
@@ -9434,7 +9519,7 @@
     if (c) { if (redaction) c.redaction = redaction; c.count = rows.length; }
     FULL[id] = rows;
     delete updates[id];
-    graphCache = null;   /* тексты изменились — граф пересоберётся */
+    graphCache = null;   /* граф строится из файла сборки; сбрасываем кэш на всякий случай */
   }
 
   /* Загрузка сохранённых обновлений при запуске */
@@ -11296,7 +11381,7 @@
         setAssistScope(scid);
         var scc = assistScopeCodes();
         go("#/assistant");
-        toast(scc.length ? "Помощник будет отвечать только по: " + scc.map(function (c) { return c.short; }).join(", ") : "Помощник: все источники");
+        toast(scc.length ? "Помощник будет отвечать только по: " + scc.map(codeAbbr).join(", ") : "Помощник: все источники");
         return;
       }
 

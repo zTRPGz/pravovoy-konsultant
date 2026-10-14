@@ -6,7 +6,7 @@
 #
 # Почему GitHub Pages, а не Vercel или Cloudflare Pages: из России без VPN
 # ни один из них не открывается (замер: *.vercel.app и pages.dev не
-# отвечают вовсе, github.io работает). Подробности — DEPLOY.md, раздел 3.
+# отвечают вовсе, github.io работает). Подробности — DEPLOY.md, §1 и §2.3.
 #
 # Что сделать один раз вручную: Settings → Pages → Build and deployment →
 # Source: GitHub Actions. Без этого задача упадёт на шаге «Настройка Pages».

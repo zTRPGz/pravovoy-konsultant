@@ -4684,6 +4684,24 @@
     return best;
   }
 
+  /* Начало текста статьи — запасной вариант цитаты, когда по основаниям не
+     совпало ни одно предложение (в блоке «Из текста нормы» лучше опора на
+     реальную норму, чем пустое место). Берём первые предложения, пока не
+     наберётся осмысленный объём; не зависит от FT. */
+  function normFallback(text, maxLen) {
+    maxLen = maxLen || 300;
+    if (!text) return "";
+    var t = String(text).replace(/\s+/g, " ").trim();
+    if (!t) return "";
+    var re = /[^.!?;]+[.!?;]+/g, m, out = "";
+    while ((m = re.exec(t)) !== null && out.length < 90 && out.length + m[0].length <= maxLen) {
+      out += (out ? " " : "") + m[0].trim();
+    }
+    if (!out) out = t;
+    if (out.length > maxLen) out = out.slice(0, maxLen).replace(/\s+\S*$/, "") + "…";
+    return out;
+  }
+
   /* Основной блок ответа. Разбор ситуации (REF.help) богаче — в нём есть
      юридическая характеристика и уточняющие вопросы, — поэтому при близких
      весах выигрывает он. Но если правило совпало заметно сильнее, основным
@@ -5066,13 +5084,14 @@
           "</div>";
       }).join("") + "</div>"]);
       /* Дословные цитаты подгружает enrichAssistant из полного текста статьи:
-         вывод должен опираться на текст нормы, а не на пересказ «по памяти». */
-      if (qStems && qStems.length) {
-        rows.push(["Из текста нормы", arts.slice(0, 2).map(function (a) {
-          return '<div class="concl-quote" data-quote="' + esc(a.id) + '" data-q="' + esc(qStems.join(" ")) + '">' +
-            '<span class="muted small">загрузка текста статьи…</span></div>';
-        }).join("")]);
-      }
+         вывод должен опираться на текст нормы, а не на пересказ «по памяти».
+         Показываем всегда: если по основаниям не нашлось совпавшего
+         предложения, enrichAssistant подставит начало текста статьи — опора на
+         реальную норму важнее, чем пустой блок или пересказ. */
+      rows.push(["Из текста нормы", arts.slice(0, 2).map(function (a) {
+        return '<div class="concl-quote" data-quote="' + esc(a.id) + '" data-q="' + esc((qStems || []).join(" ")) + '">' +
+          '<span class="muted small">загрузка текста статьи…</span></div>';
+      }).join("")]);
     }
     if (prove.length) rows.push(["Что установить (доказать)", "<ul class=\"list\">" + prove.map(function (s) { return "<li>" + linkify(s) + "</li>"; }).join("") + "</ul>"]);
     /* Ответы на вопросы, поставленные в самом описании (общественная
@@ -5354,7 +5373,8 @@
   /* Подгружает полные тексты и вписывает красные блоки санкций в плейсхолдеры */
   function enrichAssistant(root) {
     /* дословные цитаты в выводе: текст нормы берём из источника, а не из
-       аннотации; если предложение не нашлось, блок просто исчезает */
+       аннотации; если совпавшего предложения нет — показываем начало статьи,
+       а блок исчезает, только когда и текст недоступен */
     root.querySelectorAll(".concl-quote[data-quote]").forEach(function (el) {
       var id = el.getAttribute("data-quote");
       var a = byId[id];
@@ -5362,11 +5382,17 @@
       var stems = (el.getAttribute("data-q") || "").split(" ").filter(Boolean);
       loadFull(a.c, function (err) {
         if (err) { el.remove(); return; }
-        var F = findFull(a.c, a.n);
-        var q = F ? normQuote(F[4], stems) : "";
-        if (!q) { el.remove(); return; }
-        el.innerHTML = '<div class="cq-lbl">' + esc(cite(a)) + " — дословно из текста статьи</div>" +
-          '<blockquote class="cq-t">' + esc(q) + "</blockquote>";
+      var F = findFull(a.c, a.n);
+      var q = F ? normQuote(F[4], stems) : "";
+      /* По основаниям не нашлось совпавшего предложения — показываем начало
+         текста статьи: вывод должен опираться на реальную норму, а не на
+         пересказ. Метка «(начало)» честно указывает, что это вступление. */
+      var fb = false;
+      if (!q && F) { q = normFallback(F[4]); fb = true; }
+      if (!q) { el.remove(); return; }
+      el.innerHTML = '<div class="cq-lbl">' + esc(cite(a)) + " — дословно из текста статьи" +
+        (fb ? " (начало)" : "") + "</div>" +
+        '<blockquote class="cq-t">' + esc(q) + "</blockquote>";
       });
     });
     var ph = root.querySelectorAll(".as-san-body[data-as-san]");

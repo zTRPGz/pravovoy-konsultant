@@ -1433,7 +1433,8 @@
   }
 
   var state = {
-    fav: LS.get("fav", []),
+    fav: LS.get("fav", []),        // избранное: массив id статей
+    favMeta: LS.get("favMeta", {}), // метки избранного: { id: { folder, tags[] } }
     col: LS.get("col", []),        // подборка: [{ id, note }]
     cases: LS.get("cases", []),    // дела: [{ id, title, desc, created, updated, items:[{id,note}], notes:[{id,text,created}] }]
     theme: LS.get("theme", "dark"),
@@ -1731,9 +1732,31 @@
   function toggleFav(id) {
     var i = state.fav.indexOf(id);
     if (i === -1) { state.fav.push(id); toast("Добавлено в избранное"); }
-    else { state.fav.splice(i, 1); toast("Удалено из избранного"); }
+    else {
+      state.fav.splice(i, 1); toast("Удалено из избранного");
+      if (state.favMeta[id]) { delete state.favMeta[id]; LS.set("favMeta", state.favMeta); }
+    }
     LS.set("fav", state.fav);
   }
+  /* Метки избранного: папка (одна) + теги (несколько). Хранятся отдельно от
+     списка fav, чтобы isFav/toggleFav не менялись. Пустая папка/теги не
+     сохраняем — иначе favMeta растёт мусором. */
+  function favMetaOf(id) {
+    var m = state.favMeta[id];
+    if (!m) { m = { folder: "", tags: [] }; state.favMeta[id] = m; }
+    if (!Array.isArray(m.tags)) m.tags = [];
+    return m;
+  }
+  function favSaveMeta() {
+    var clean = {};
+    state.fav.forEach(function (id) {
+      var m = state.favMeta[id];
+      if (m && (m.folder || (m.tags && m.tags.length))) clean[id] = m;
+    });
+    state.favMeta = clean;
+    LS.set("favMeta", state.favMeta);
+  }
+  var favFilter = { folder: "", tag: "" };
 
   /* ------------------------------------------------------------- подборка */
 
@@ -2404,6 +2427,7 @@
     if (r.name === "assistant") bindAssistant();
     if (r.name === "freshness") bindFreshness();
     if (r.name === "collection") bindCollection();
+    if (r.name === "favorites") bindFavorites();
     /* Кнопки перемещения — после отрисовки: их состояние зависит от того,
        куда встал указатель стека (в том числе при переходе «Назад»). */
     syncNavBtns();
@@ -8287,22 +8311,92 @@
   /* --- избранное --- */
 
   function viewFavorites() {
-    var items = state.fav.map(function (id) { return byId[id]; }).filter(Boolean).sort(cmpArticles);
-    if (!items.length) {
+    var all = state.fav.map(function (id) { return byId[id]; }).filter(Boolean).sort(cmpArticles);
+    if (!all.length) {
       return '<h1>Избранное</h1><p class="lead">Здесь появятся статьи, которые вы отметите звёздочкой.</p>' +
         '<div class="empty"><div class="ico">' + ic("star") + '</div><div>Список пуст. Откройте статью и нажмите «В избранное».</div></div>';
     }
+    /* существующие папки и теги — для чипов-фильтров и подсказок ввода */
+    var folders = {}, tags = {};
+    all.forEach(function (a) {
+      var m = state.favMeta[a.id] || {};
+      if (m.folder) folders[m.folder] = (folders[m.folder] || 0) + 1;
+      (m.tags || []).forEach(function (t) { if (t) tags[t] = (tags[t] || 0) + 1; });
+    });
+    var folderNames = Object.keys(folders).sort();
+    var tagNames = Object.keys(tags).sort();
+
+    /* фильтрация выдачи */
+    var items = all.filter(function (a) {
+      var m = state.favMeta[a.id] || {};
+      if (favFilter.folder && (m.folder || "") !== favFilter.folder) return false;
+      if (favFilter.tag && (m.tags || []).indexOf(favFilter.tag) === -1) return false;
+      return true;
+    });
+
+    var folderChips = '<button class="chip' + (favFilter.folder ? "" : " on") + '" data-fav-filter="folder:">Все папки</button>' +
+      folderNames.map(function (f) {
+        return '<button class="chip' + (favFilter.folder === f ? " on" : "") + '" data-fav-filter="folder:' + esc(f) + '">' + esc(f) + " (" + folders[f] + ")</button>";
+      }).join("");
+    var tagChips = tagNames.length
+      ? '<button class="chip' + (favFilter.tag ? "" : " on") + '" data-fav-filter="tag:">Все теги</button>' +
+        tagNames.map(function (t) {
+          return '<button class="chip' + (favFilter.tag === t ? " on" : "") + '" data-fav-filter="tag:' + esc(t) + '">#' + esc(t) + " (" + tags[t] + ")</button>";
+        }).join("")
+      : "";
+
+    var dlFolders = folderNames.length ? '<datalist id="favFolders">' + folderNames.map(function (f) { return "<option value=\"" + esc(f) + "\"></option>"; }).join("") + "</datalist>" : "";
+
     var rows = items.map(function (a) {
       var c = codeById(a.c) || { short: a.c, color: "#888" };
-      return '<div class="result" data-go="#/article/' + encodeURIComponent(a.id) + '">' +
+      var m = state.favMeta[a.id] || { folder: "", tags: [] };
+      var folder = m.folder || "", tg = (m.tags || []).join(", ");
+      return '<div class="result fav-item" data-go="#/article/' + encodeURIComponent(a.id) + '">' +
         '<div class="result-head"><span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + '</span>' +
-        '<span class="result-num">ст. ' + esc(a.dn) + '</span><span class="result-title">' + esc(a.t) + "</span></div>" +
-        (a.s ? '<div class="result-snippet">' + esc(snippet(a.s, [], 150)) + "</div>" : "") + "</div>";
+        '<span class="result-num">ст. ' + esc(a.dn) + '</span><span class="result-title">' + esc(a.t) + "</span>" +
+        (folder ? '<span class="fav-folder-badge">' + ic("folder") + " " + esc(folder) + "</span>" : "") + "</div>" +
+        (a.s ? '<div class="result-snippet">' + esc(snippet(a.s, [], 150)) + "</div>" : "") +
+        '<div class="fav-meta-row">' +
+          '<input class="input fav-folder-in" list="favFolders" data-fav-folder="' + esc(a.id) + '" value="' + esc(folder) + '" placeholder="Папка (напр. «Досудебная»)">' +
+          '<input class="input fav-tags-in" data-fav-tags="' + esc(a.id) + '" value="' + esc(tg) + '" placeholder="Теги через запятую">' +
+        "</div></div>";
     }).join("");
-    var txt = items.map(function (a) { return cite(a) + " — " + a.t; }).join("\n");
-    return '<h1>Избранное</h1><p class="lead">Сохранено ' + items.length + " " + plural(items.length, ["статья", "статьи", "статей"]) + ".</p>" +
-      '<div class="actions-row" style="margin-bottom:16px"><button class="btn" data-copy-raw="' + encodeURIComponent(txt) + '">Скопировать список</button>' +
-      '<button class="btn" id="favClear">Очистить избранное</button></div>' + rows;
+
+    var txt = all.map(function (a) { return cite(a) + " — " + a.t; }).join("\n");
+    return '<h1>Избранное</h1><p class="lead">Сохранено ' + all.length + " " + plural(all.length, ["статья", "статьи", "статей"]) + "." +
+      " Раскладывайте по папкам и помечайте тегами — удобно дробить материал по делам и темам.</p>" +
+      '<div class="actions-row" style="margin-bottom:12px"><button class="btn" data-copy-raw="' + encodeURIComponent(txt) + '">Скопировать список</button>' +
+      '<button class="btn" id="favClear">Очистить избранное</button></div>' +
+      (folderNames.length ? '<div class="stg-row"><span class="stg-lbl">Папка</span><div class="chips">' + folderChips + "</div></div>" : "") +
+      (tagChips ? '<div class="stg-row"><span class="stg-lbl">Тег</span><div class="chips">' + tagChips + "</div></div>" : "") +
+      dlFolders + rows;
+  }
+
+  /* Избранное: фильтры папок/тегов и правка меток. Правка метки — на change
+     (не каждый ввод), без перерисовки, чтобы не терять фокус в поле. */
+  function bindFavorites() {
+    $$("[data-fav-filter]").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        var v = chip.getAttribute("data-fav-filter").split(":");
+        var key = v[0], val = v.slice(1).join(":").trim();
+        if (favFilter[key] === val) delete favFilter[key];
+        else favFilter[key] = val;
+        render();
+      });
+    });
+    $$("[data-fav-folder]").forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        favMetaOf(inp.getAttribute("data-fav-folder")).folder = inp.value.trim();
+        favSaveMeta(); render();
+      });
+    });
+    $$("[data-fav-tags]").forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        favMetaOf(inp.getAttribute("data-fav-tags")).tags =
+          inp.value.split(",").map(function (t) { return t.trim(); }).filter(Boolean).slice(0, 12);
+        favSaveMeta(); render();
+      });
+    });
   }
 
   /* --- справка --- */
@@ -11910,7 +12004,7 @@
       }
       var fc = e.target.closest("#favClear");
       if (fc) {
-        state.fav = []; LS.set("fav", state.fav); render(); toast("Избранное очищено"); return;
+        state.fav = []; state.favMeta = {}; LS.set("fav", state.fav); LS.set("favMeta", state.favMeta); render(); toast("Избранное очищено"); return;
       }
     });
 

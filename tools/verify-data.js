@@ -1995,8 +1995,8 @@ check("мини-окно статьи закрывается при перехо
 
 /* итог */
 console.log("\n14. Режим одного источника (ответить исключительно по одному акту)");
-check("поиск умеет ограничиваться одним источником",
-  appSrc.indexOf("if (opt.scope) pool = pool.filter(function (a) { return a.c === opt.scope; })") !== -1,
+check("поиск умеет ограничиваться выбранными источниками",
+  /if \(opt\.scope\)[\s\S]{0,160}sids\.indexOf\(a\.c\) !== -1/.test(appSrc),
   "иначе «ответить только по УК» не отфильтровало бы выдачу по акту");
 check("Помощник хранит и запоминает выбранный источник",
   appSrc.indexOf('assistScope: LS.get("assistScope"') !== -1 &&
@@ -2004,22 +2004,22 @@ check("Помощник хранит и запоминает выбранный 
   appSrc.indexOf("function assistScopeCode") !== -1,
   "выбор должен переживать перезагрузку раздела");
 check("переключатель источника выводится в Помощнике",
-  appSrc.indexOf('id="asScope"') !== -1 && appSrc.indexOf("function assistScopeOpts") !== -1 &&
-  appSrc.indexOf("id=\"asScopeBadge\"") !== -1,
+  appSrc.indexOf('id="scopeTrigger"') !== -1 && appSrc.indexOf("function assistScopePicker") !== -1 &&
+  appSrc.indexOf("id=\"asScopeChips\"") !== -1 && appSrc.indexOf("id=\"asScopeBadge\"") !== -1,
   "иначе режим некуда включать, а состояние — негде показать");
 check("смена источника пересчитывает готовый разбор",
-  /scopeSel\.addEventListener\("change",[\s\S]{0,160}if \(asText\) render\(\)/.test(appSrc),
+  /addEventListener\("change",[\s\S]{0,120}toggleAssistScope\([\s\S]{0,80}if \(asText\) render\(\)/.test(appSrc),
   "иначе пользователь не видел бы эффекта без повторного «Разобрать»");
 check("нормы ответа фильтруются по выбранному акту",
-  appSrc.indexOf("keyArts = keyArts.filter(function (a) { return a.c === sc; })") !== -1 &&
-  appSrc.indexOf("if (sc) arts = arts.filter") !== -1,
+  appSrc.indexOf("keyArts = keyArts.filter(function (a) { return sc.indexOf(a.c) !== -1; })") !== -1 &&
+  appSrc.indexOf("arts = arts.filter(function (a) { return sc.indexOf(a.c) !== -1; })") !== -1,
   "иначе вывод ссылался бы на нормы другого кодекса");
-check("судебная практика отключается в режиме одного источника",
-  /var practice = sc \? \[\] : search/.test(appSrc),
+check("судебная практика отключается при выбранном источнике",
+  /var practice = sc\.length \? \[\] : search/.test(appSrc),
   "«ответь только по УК» и отдельный блок Пленумов противоречат друг другу");
 check("режим помечен в выводе",
   appSrc.indexOf('class="concl-scope"') !== -1 &&
-  appSrc.indexOf("Ответ ограничен источником") !== -1,
+  appSrc.indexOf("Ответ ограничен источниками") !== -1,
   "иначе непонятно, почему в ответе только нормы одного акта");
 check("вкладка «Источники» разбирает адрес, рисует вид и имеет заголовок",
   appSrc.indexOf("function viewSources") !== -1 &&

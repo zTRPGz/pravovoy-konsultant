@@ -471,12 +471,6 @@
   function parseQuery(q) {
     var c = _pqCache.get(q);
     if (c) return c;
-    c = parseQueryRaw(q);
-    if (_pqCache.size > 256) _pqCache.clear();
-    _pqCache.set(q, c);
-    return c;
-  }
-  function parseQueryRaw(q) {
     var src = queryNorm(q);
     var phrases = [];
     /* фразы вынимаются первыми: внутри кавычек «+» и «-» — обычные символы */
@@ -515,10 +509,13 @@
        выдавал статьи 150 УК, 150 УПК, 150 ГК, 150 ТК и так далее по всему
        реестру, и ответ выглядел случайным. */
     var useNums = numbers.length > 0 && (!!code || (words.length === 0 && !phrases.length));
-    return {
+    var res = {
       raw: norm(q), tokens: words, must: must, not: not, phrases: phrases,
       numbers: numbers, useNums: useNums, code: code, syn: expandSyn(words)
     };
+    if (_pqCache.size > 256) _pqCache.clear();
+    _pqCache.set(q, res);
+    return res;
   }
 
   /* Совпадение основы запроса с основами документа: точное либо по началу
@@ -675,10 +672,26 @@
      opt.cut — доля от лучшего результата, ниже которой «хвост» отбрасывается.
      opt.cut = 1 отключает отсечку. opt.skipRepealed — не показывать нормы,
      утратившие силу. */
-  function searchRaw(q, opt) {
+  /* Кеш поверх всей выдачи: один рендер страницы поиска делает три вызова
+     search() с одним запросом (viewSearch, roleBlock, afterSearch), плюс
+     помощник вызывает search() несколько раз. Результат — чистые данные
+     (вызывающие только читают массив и элементы, не мутируют), поэтому
+     повторный полный проход по корпусу не нужен. Ключ — запрос + опции,
+     влияющие на выдачу; done() запоминает результат на каждом выходе. */
+  var _searchCache = new Map();
+  function search(q, opt) {
     opt = opt || {};
+    var key = JSON.stringify([q, opt.skipRepealed ? 1 : 0,
+      opt.cut == null ? 0.4 : opt.cut, opt.need == null ? "" : opt.need,
+      opt.kind || "", opt.scope || ""]);
+    if (_searchCache.has(key)) return _searchCache.get(key);
+    function done(r) {
+      if (_searchCache.size > 48) _searchCache.clear();
+      _searchCache.set(key, r);
+      return r;
+    }
     var p = parseQuery(q);
-    if (!p.tokens.length && !p.numbers.length) return [];
+    if (!p.tokens.length && !p.numbers.length) return done([]);
 
     var pool = arts;
     if (p.code) {
@@ -792,29 +805,9 @@
         topic: tb ? topic.t : "", role: rl.off ? "off" : rl.w ? "on" : "" });
     });
     out.sort(function (x, y) { return y.s - x.s || cmpArticles(x.a, y.a); });
-    if (!out.length) return [];
+    if (!out.length) return done([]);
     var cut = out[0].s * (opt.cut == null ? 0.4 : opt.cut);
-    return out.filter(function (x) { return x.num || x.s >= cut; });
-  }
-
-  /* Кеш поверх searchRaw: один рендер страницы поиска делает три вызова
-     search() с одним запросом (viewSearch, roleBlock, afterSearch), плюс
-     помощник вызывает search() несколько раз. Результат — чистые данные
-     (вызывающие только читают массив и элементы, не мутируют), поэтому
-     повторный полный проход по корпусу не нужен. Ключ — запрос + опции,
-     которые реально влияют на выдачу. */
-  var _searchCache = new Map();
-  function search(q, opt) {
-    opt = opt || {};
-    var key = JSON.stringify([q, opt.skipRepealed ? 1 : 0,
-      opt.cut == null ? 0.4 : opt.cut, opt.need == null ? "" : opt.need,
-      opt.kind || "", opt.scope || ""]);
-    var hit = _searchCache.get(key);
-    if (hit) return hit;
-    var res = searchRaw(q, opt);
-    if (_searchCache.size > 48) _searchCache.clear();
-    _searchCache.set(key, res);
-    return res;
+    return done(out.filter(function (x) { return x.num || x.s >= cut; }));
   }
 
   var DOC_ORDER = {};

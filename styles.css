@@ -76,6 +76,11 @@
   --fs-10: 25px;
   --fs-11: 34px;
   --fs-12: 40px;    /* заголовок «шапки» главной страницы */
+  /* относительные кегли знаков-глифов в элементах управления
+     (▾ у переключателя источников, ✕ у чипа): масштабируются от
+     родителя, поэтому в em, но через токен — как и весь кегль */
+  --fs-caret: 0.8em;
+  --fs-chipx: 1.05em;
 }
 
 [data-theme="light"] {
@@ -559,6 +564,12 @@ h3 { font-size: var(--fs-6); margin: 18px 0 8px; font-weight: 650; }
   margin-bottom: 9px;
   border-left: 3px solid transparent;
   transition: border-color .14s ease, background .14s ease, transform .14s ease, box-shadow .14s ease;
+  /* До 150 карточек на выдачу: как и в реестре (.rep-item), пропускаем
+     отрисовку экранов вне вида — первый кадр дешевле, прокрутка плавнее.
+     contain-intrinsic-size: auto <размер> — оценка до первой отрисовки и
+     запомненный реальный размер после. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 128px;
 }
 .result:hover {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border-2));
@@ -1313,7 +1324,7 @@ body.has-crash .toast { bottom: 104px; }
    вывод собран в рамках одного акта, а не по всей базе. */
 /* --- Помощник: множественный выбор источников (пикер) --- */
 .scope-trigger { display: inline-flex; align-items: center; gap: 8px; min-width: 220px; justify-content: space-between; }
-.scope-trigger .caret { font-size: 0.8em; opacity: 0.7; }
+.scope-trigger .caret { font-size: var(--fs-caret); opacity: 0.7; }
 .as-scope-on { color: var(--text); }
 .scope-picker { margin-top: 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-2); overflow: hidden; }
 .scope-picker[hidden] { display: none; }
@@ -1327,7 +1338,7 @@ body.has-crash .toast { bottom: 104px; }
 .scope-opt-c { flex: 0 0 auto; }
 .scope-opt-t { font-size: var(--fs-3); color: var(--text-2); }
 .chip-rem { display: inline-flex; align-items: center; gap: 6px; padding-right: 8px; }
-.chip-rem .chip-x { cursor: pointer; font-weight: 700; opacity: 0.6; font-size: 1.05em; line-height: 1; }
+.chip-rem .chip-x { cursor: pointer; font-weight: 700; opacity: 0.6; font-size: var(--fs-chipx); line-height: 1; }
 .chip-rem .chip-x:hover { opacity: 1; color: var(--danger, #c0392b); }
 
 .concl-scope {

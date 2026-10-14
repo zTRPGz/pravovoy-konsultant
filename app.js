@@ -1438,7 +1438,7 @@
     col: LS.get("col", []),        // подборка: [{ id, note }]
     cases: LS.get("cases", []),    // дела: [{ id, title, desc, created, updated, items:[{id,note}], notes:[{id,text,created}] }]
     theme: LS.get("theme", "dark"),
-    read: LS.get("read", { fs: 15, lh: 1.65, w: 0 }),  // настройки чтения текста
+    read: LS.get("read", { fs: 15, lh: 1.65, w: 0, zen: false }),  // настройки чтения текста (zen — режим чтения)
     role: LS.get("role", ""),       // роль: "" | sle || adv | gos
     newSeen: LS.get("newSeen", 0),  // сколько верхних записей ленты «Новое» уже показано
     /* Помощник: запятыми перечисленные id источников для режима «только эти
@@ -1639,6 +1639,7 @@
     /* w = 0 — на всю ширину; иначе ограничение колонки в px */
     root.style.setProperty("--read-w", r.w > 0 ? r.w + "px" : "100%");
     document.body.classList.toggle("read-wide", !!r.w);
+    document.body.classList.toggle("read-zen", !!r.zen);
     paintReadBtns();
   }
 
@@ -3295,6 +3296,8 @@
       '<button class="btn" data-art-nav="1" title="Следующая статья (→)">→</button>' +
       '<button class="btn" data-fs-dec title="Уменьшить шрифт статьи">А−</button>' +
       '<button class="btn" data-fs-inc title="Увеличить шрифт статьи">А+</button>' +
+      '<button class="btn' + (state.read.zen ? " active" : "") + '" data-read-zen title="Режим чтения: широкая колонка, крупный шрифт, без лишнего (Esc — выход)">' +
+        (state.read.zen ? "Выйти из режима чтения" : "Режим чтения") + "</button>" +
       "</div>";
 
     var inCases = casesWith(id);
@@ -12153,6 +12156,18 @@
       if (e.target.closest("[data-fs-dec]")) { e.preventDefault(); setRead("fs", -1); return; }
       if (e.target.closest("[data-fs-inc]")) { e.preventDefault(); setRead("fs", 1); return; }
 
+      /* Режим чтения: широкая колонка, крупный шрифт, без лишних кнопок.
+         Флаг живёт в общих настройках чтения (state.read.zen), поэтому
+         переживает перезагрузку страницы. */
+      if (e.target.closest("[data-read-zen]")) {
+        e.preventDefault();
+        state.read.zen = !state.read.zen;
+        LS.set("read", state.read);
+        applyRead();
+        render();
+        return;
+      }
+
       /* Экспорт вывода Помощника в текст или Word. */
       if (e.target.closest("[data-export-txt]")) { e.preventDefault(); exportAssistant("txt"); return; }
       if (e.target.closest("[data-export-docx]")) { e.preventDefault(); exportAssistant("docx"); return; }
@@ -12292,6 +12307,13 @@
     /* Горячие клавиши ← / → на странице статьи — шаг по смежным статьям
        того же источника. Не срабатывают в полях ввода и при модификаторах. */
     document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && state.read.zen) {
+        state.read.zen = false;
+        LS.set("read", state.read);
+        applyRead();
+        render();
+        return;
+      }
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       if (state.route.name !== "article") return;
       var t = e.target;

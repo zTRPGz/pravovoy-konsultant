@@ -81,6 +81,11 @@
      родителя, поэтому в em, но через токен — как и весь кегль */
   --fs-caret: 0.8em;
   --fs-chipx: 1.05em;
+  /* Режим чтения: кегль не мельче 17px при любой настройке пользователя,
+     межстрочный — не плотнее 1.8. Считаются от --read-fs/--read-lh,
+     которые выставляет app.js. */
+  --fs-read-zen: max(17px, var(--read-fs, 15px));
+  --lh-read-zen: max(var(--read-lh, 1.65), 1.8);
 }
 
 [data-theme="light"] {
@@ -411,6 +416,23 @@ button { font: inherit; cursor: pointer; }
 }
 .read-wide .article-body,
 .read-wide .law-text { max-width: var(--read-w, 100%); }
+
+/* ---------- режим чтения ---------- */
+/* Один текст по центру: боковое меню убрано, колонка сужена, шрифт крупнее
+   и с засечками — так длинная статья читается без напряжения. Верхняя панель
+   остаётся: в ней поиск и переходы. Выход — кнопкой на странице статьи или
+   Esc. */
+body.read-zen .sidebar { display: none; }
+body.read-zen .content { max-width: 780px; padding-top: 16px; }
+body.read-zen .article-body,
+body.read-zen .law-text {
+  font-size: var(--fs-read-zen);
+  line-height: var(--lh-read-zen);
+  font-family: Georgia, "Times New Roman", Times, serif;
+}
+/* служебные кнопки не должны спорить с текстом за внимание */
+body.read-zen .actions-row { opacity: .5; }
+body.read-zen .actions-row:hover { opacity: 1; }
 
 .content { padding: 26px 24px 64px; max-width: 1200px; width: 100%; margin: 0 auto; }
 

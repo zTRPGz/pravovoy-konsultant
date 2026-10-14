@@ -3305,6 +3305,7 @@
       (annot ? '<div class="article-body"><div class="section-label">Справочная аннотация</div>' + annot + "</div>" : "") +
       articleChronoHtml(id) +
       incomingRefsPanel(id) +
+      relatedArticlesHtml(a) +
       '<div class="section-label" style="margin-top:22px">Официальный текст статьи</div>' +
       '<div class="article-body" id="artText"><div class="loading">Загрузка полного текста…</div></div>' +
       actions +
@@ -10847,6 +10848,39 @@
         }
       });
     });
+  }
+
+  /* --- «Смотрите также»: близкие нормы под текстом статьи ---
+
+     Готового перечня «похожих статей» в данных нет, зато есть поисковый
+     движок: ищем по названию, главе и аннотации самой статьи. Нормы одного
+     акта ограничиваем двумя — иначе соседи по главе вытесняют всё остальное.
+     Подбор автоматический, это подсказка «где рядом», а не официальный
+     перечень связанных норм; если близких нет — блок не показываем вовсе. */
+  var RELATED_MAX = 6, RELATED_PER_ACT = 2;
+  function relatedArticlesHtml(a) {
+    if (!a || !arts.length || FT === null) return "";
+    var q = a.t + " " + (a.g || "");
+    if (a.k) q += " " + a.k;
+    var res = search(q, { need: 1, cut: 0.3, skipRepealed: true });
+    var perAct = {}, out = [];
+    res.forEach(function (x) {
+      if (x.a.id === a.id) return;
+      var n = perAct[x.a.c] || 0;
+      if (n >= RELATED_PER_ACT) return;
+      perAct[x.a.c] = n + 1;
+      out.push(x);
+    });
+    if (!out.length) return "";
+    return '<div class="related">' +
+      '<div class="related-h">' + ic("share") + " Смотрите также" +
+        '<span class="small muted">близкие нормы — подобраны по тексту статьи автоматически</span></div>' +
+      '<div class="related-list">' + out.slice(0, RELATED_MAX).map(function (x) {
+        var b = x.a, c = codeById(b.c) || { short: b.c, color: "#888" };
+        return '<a class="related-item" href="#/article/' + encodeURIComponent(b.id) + '">' +
+          '<span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + "</span>" +
+          '<span class="related-t">' + esc(unitShort(c, b.dn)) + " · " + esc(b.t) + "</span></a>";
+      }).join("") + "</div></div>";
   }
 
   function findRow(rows, num) {

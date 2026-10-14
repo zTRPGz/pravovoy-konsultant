@@ -3270,7 +3270,8 @@
 
     var inCases = casesWith(id);
 
-    return head +
+    return changeBanner(id) +
+      head +
       statusBox(id) +
       (annot ? '<div class="article-body"><div class="section-label">Справочная аннотация</div>' + annot + "</div>" : "") +
       '<div class="section-label" style="margin-top:22px">Официальный текст статьи</div>' +
@@ -8363,8 +8364,9 @@
       var c = codeById(r.art.c) || { short: r.art.c, color: "#888" };
       var rel = r.date ? relDay(r.date) : "";
       return { m: (r.date || "").slice(0, 7), h:
-        '<div class="rep-item" data-go="#/article/' + encodeURIComponent(r.id) + '">' +
-        '<div class="rep-item-head">' +
+        '<div class="rep-item" data-rep-id="' + esc(r.id) + '">' +
+        '<div class="rep-item-head" data-rep-toggle="' + esc(r.id) + '" title="Раскрыть содержание статьи">' +
+          '<span class="rep-toggle" aria-hidden="true">▸</span>' +
           '<span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + "</span>" +
           '<span class="result-num">ст. ' + esc(r.art.dn) + "</span>" +
           '<span class="rep-item-title">' + esc(r.art.t) + "</span>" +
@@ -8379,6 +8381,7 @@
           (r.date ? " от " + fmtRed(r.date) : "") + "</div>"
                : '<div class="rep-item-act">Акт-основание в тексте не указан</div>') +
         (rel ? '<div class="rep-item-rel">' + esc(rel) + "</div>" : "") +
+        '<div class="rep-item-body" hidden data-rep-body="' + esc(r.id) + '"></div>' +
         "</div>"
       };
     });
@@ -8439,6 +8442,28 @@
       "делайте по официальной публикации и разделу «Проверка актуальности».</div>";
   }
 
+  /* Содержимое утратившей силу статьи — показываем при раскрытии карточки,
+     чтобы было видно, какой именно нормы больше нет в действующей редакции. */
+  function repBodyHtml(id) {
+    var a = byId[id];
+    if (!a) return '<div class="warn-box">Статья не найдена в базе.</div>';
+    var rows = currentRows(a.c);
+    var row = findRow(rows, String(a.n));
+    if (!row) {
+      return '<div class="warn-box">Текст статьи ' + esc(a.dn || a.n) +
+        " недоступен в офлайн-базе (возможно, исключён из набора вместе с актом-основанием). " +
+        'Откройте её по ссылке «→», чтобы увидеть текст, сохранённый в базе.</div>';
+    }
+    var title = row[1], red = row[3], text = row[4] || "";
+    var ctx = { doc: a.c, num: String(a.n) };
+    return '<div class="law-meta">' + (title ? esc(title) + " · " : "") +
+      (red ? "Редакция: <b>" + fmtRed(red) + "</b>" : "") + "</div>" +
+      (text ? '<div class="law-text">' + renderLawText(text, ctx) + "</div>"
+            : '<div class="small muted">Текст статьи в базе пуст.</div>') +
+      '<div class="rep-item-foot"><span class="ibtn" data-go="#/article/' + encodeURIComponent(id) +
+        '" title="Открыть статью целиком">→ Открыть статью</span></div>';
+  }
+
   function repCurrentList() {
     var query = state.route.q || "";
     return repealedList().filter(function (r) { return repMatch(r, query); });
@@ -8470,6 +8495,36 @@
       repFilter = { code: "", status: "", year: "", period: "" };
       go("#/repealed");
     });
+
+    /* Раскрытие содержания утратившей силу статьи по клику на шапку карточки. */
+    var wrap = document.querySelector(".rep-cards");
+    if (wrap) {
+      wrap.addEventListener("click", function (e) {
+        var head = e.target.closest ? e.target.closest("[data-rep-toggle]") : null;
+        if (!head) return;
+        /* клики по кнопкам-стрелке и подборке не должны переключать раскрытие */
+        if (e.target.closest("[data-go]") || e.target.closest("[data-col-add]")) return;
+        var id = head.getAttribute("data-rep-toggle");
+        var item = wrap.querySelector('.rep-item[data-rep-id="' + id + '"]');
+        if (!item) return;
+        var body = item.querySelector(".rep-item-body");
+        var tog = head.querySelector(".rep-toggle");
+        var opening = body.hasAttribute("hidden");
+        if (opening) {
+          if (body.getAttribute("data-loaded") !== "1") {
+            body.innerHTML = repBodyHtml(id);
+            body.setAttribute("data-loaded", "1");
+          }
+          body.removeAttribute("hidden");
+          if (tog) tog.classList.add("open");
+          head.setAttribute("aria-expanded", "true");
+        } else {
+          body.setAttribute("hidden", "");
+          if (tog) tog.classList.remove("open");
+          head.setAttribute("aria-expanded", "false");
+        }
+      });
+    }
 
     function buildText() {
       var list = repCurrentList();
@@ -10290,6 +10345,22 @@
     return out;
   }
 
+  /* Баннер вверху страницы статьи: если норма попадала в ленту изменений,
+     сразу говорим об этом и ведём к сравнению «было → стало». */
+  function changeBanner(id) {
+    var ev = articleChangeEvents(id);
+    if (!ev.length) return "";
+    var last = ev[0];
+    var what = last.hits.map(function (h) { return '<span class="st ' + h.cls + '">' + esc(h.t) + "</span>"; }).join(" ");
+    return '<div class="chg-banner">' +
+      '<span class="chg-banner-ico">' + ic("clock") + "</span>" +
+      '<div class="chg-banner-body"><b>Статья изменялась.</b> Последнее событие: ' + what +
+      (last.d ? " — " + esc(fmtDateLong(last.d)) : "") +
+      (last.red ? " (редакция " + esc(fmtRed(last.red)) + ")" : "") +
+      '. <a class="lnk" href="#/changed/' + encodeURIComponent(id) + '">Старая редакция и сравнение что изменилось →</a>' +
+      "</div></div>";
+  }
+
   function findRow(rows, num) {
     for (var i = 0; i < (rows || []).length; i++) {
       if (String(rows[i][0]) === num) return rows[i];
@@ -10636,13 +10707,35 @@
     if (!inSet) st += ' <span class="st st-muted">с портала</span>';
     if (!n) st += ' <span class="st st-warn">нет статей</span>';
 
-    return "<tr><td><b>" + esc(c.short) + '</b><div class="small muted">' + esc(c.full) + "</div></td>" +
-      "<td>" + esc(KIND_TITLE[c.kind] || c.kind || "") + "</td>" +
-      "<td>" + esc(c.req || "—") + "</td>" +
-      '<td class="term">' + (c.redaction ? fmtRed(c.redaction) : "—") + (upd ? '<div class="small muted">→ ' + fmtRed(upd.redaction) + "</div>" : "") + "</td>" +
-      "<td>" + n + "</td>" +
-      "<td>" + st + "</td>" +
-      '<td class="row-act">' + act + "</td></tr>";
+    var summary =
+      '<tr class="fresh-row" data-fresh-toggle="' + esc(c.id) + '">' +
+        '<td><span class="fresh-toggle" aria-hidden="true">▸</span><b>' + esc(c.short) + '</b>' +
+          '<div class="small muted">' + esc(c.full) + "</div></td>" +
+        "<td>" + esc(KIND_TITLE[c.kind] || c.kind || "") + "</td>" +
+        "<td>" + esc(c.req || "—") + "</td>" +
+        '<td class="term">' + (c.redaction ? fmtRed(c.redaction) : "—") + (upd ? '<div class="small muted">→ ' + fmtRed(upd.redaction) + "</div>" : "") + "</td>" +
+        "<td>" + n + "</td>" +
+        "<td>" + st + "</td>" +
+        '<td class="row-act">' + act + "</td>" +
+      "</tr>";
+
+    var detail =
+      '<tr class="fresh-detail" data-fresh-detail="' + esc(c.id) + '" hidden><td colspan="7"><div class="fresh-detail-in">' +
+        '<div class="fresh-detail-grid">' +
+          '<div><span class="lbl">Вид акта</span>' + esc(KIND_TITLE[c.kind] || c.kind || "—") + "</div>" +
+          '<div><span class="lbl">Реквизиты</span>' + esc(c.req || "—") + "</div>" +
+          '<div><span class="lbl">Редакция в базе</span>' + (c.redaction ? fmtRed(c.redaction) : "—") + "</div>" +
+          '<div><span class="lbl">Статей разобрано</span>' + n + "</div>" +
+          (inSet ? "" : '<div><span class="lbl">Источник</span>загружен с портала actual.pravo.gov.ru</div>') +
+          (ov ? '<div><span class="lbl">Локально обновлено</span>' + fmtDateTime(new Date(ov.updated_at)) + "</div>" : "") +
+        "</div>" +
+        '<div class="fresh-detail-act">' +
+          (act ? act : "") +
+          '<span class="ibtn" data-go="#/code/' + encodeURIComponent(c.id) + '" title="Открыть источник">→ Открыть источник</span>' +
+        "</div>" +
+      "</div></td></tr>";
+
+    return summary + detail;
   }
 
   function viewFreshness() {
@@ -10736,6 +10829,10 @@
           'Нормы с изменённым статусом собраны в разделе <b>«Утратившие силу»</b>.</div>') +
 
       '<h2>Источники и их редакции</h2>' +
+      '<div class="fresh-bar">' +
+        '<input class="input" id="frFilter" placeholder="Фильтр по названию, виду или реквизитам…">' +
+        '<span class="small muted">показано: <b id="frCount">' + withText.length + "</b> из " + withText.length + "</span>" +
+      "</div>" +
       '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll"><table class="tbl tbl-fresh"><thead><tr>' +
         "<th>Источник</th><th>Вид акта</th><th>Реквизиты</th><th>Редакция</th><th>Статей</th><th>Статус</th><th></th>" +
       "</tr></thead><tbody>" +
@@ -10787,6 +10884,46 @@
         });
       });
     });
+
+    /* Раскрытие строки источника и фильтр таблицы. */
+    var ftbl = document.querySelector(".tbl-fresh");
+    if (ftbl) {
+      ftbl.addEventListener("click", function (e) {
+        if (e.target.closest("[data-upd]") || e.target.closest("[data-go]")) return;
+        var row = e.target.closest("[data-fresh-toggle]");
+        if (!row) return;
+        var id = row.getAttribute("data-fresh-toggle");
+        var det = ftbl.querySelector('.fresh-detail[data-fresh-detail="' + id + '"]');
+        if (!det) return;
+        var tog = row.querySelector(".fresh-toggle");
+        if (det.hasAttribute("hidden")) {
+          det.removeAttribute("hidden");
+          if (tog) tog.classList.add("open");
+          row.setAttribute("aria-expanded", "true");
+        } else {
+          det.setAttribute("hidden", "");
+          if (tog) tog.classList.remove("open");
+          row.setAttribute("aria-expanded", "false");
+        }
+      });
+
+      var ff = $("#frFilter");
+      if (ff) ff.addEventListener("input", function () {
+        var q = ff.value.trim().toLowerCase();
+        var shown = 0;
+        ftbl.querySelectorAll(".fresh-row").forEach(function (row) {
+          var id = row.getAttribute("data-fresh-toggle");
+          var text = (row.textContent || "").toLowerCase();
+          var match = !q || text.indexOf(q) !== -1;
+          row.classList.toggle("fresh-hidden", !match);
+          var det = ftbl.querySelector('.fresh-detail[data-fresh-detail="' + id + '"]');
+          if (det) det.classList.toggle("fresh-hidden", !match);
+          if (match) shown++;
+        });
+        var cnt = $("#frCount");
+        if (cnt) cnt.textContent = shown;
+      });
+    }
   }
 
   /* --------------------------------------------------------- лента «Новое»
@@ -10824,6 +10961,23 @@
     { id: "doc", lbl: "Документы", test: function (e) { return !!e.fresh; } }
   ];
 
+  /* Период, за который показываем изменения. Хранится в рамках сессии
+     (не в адресе), чтобы не ломать сохраняемую ссылку на фильтр вида. */
+  var NEW_PERIODS = [
+    { v: "1", lbl: "День" },
+    { v: "7", lbl: "Неделя" },
+    { v: "15", lbl: "15 дней" },
+    { v: "31", lbl: "Месяц" }
+  ];
+  var newPeriodSel = "31";
+
+  /* Число календарных дней между датами «YYYY-MM-DD» (b − a). */
+  function daysBetween(a, b) {
+    var da = Date.parse(a + "T00:00:00Z"), db = Date.parse(b + "T00:00:00Z");
+    if (isNaN(da) || isNaN(db)) return 0;
+    return Math.round((db - da) / 86400000);
+  }
+
   function newUnread() {
     return Math.max(0, CHANGELOG.entries.length - (state.newSeen || 0));
   }
@@ -10854,12 +11008,17 @@
     return { ico: "file", cls: "cn-art", lbl: "Статьи" };
   }
 
-  /* Номера статей в виде ссылок: «88, 101», «3, 12 и ещё 40». */
+  /* Номера статей в виде ссылок: «88, 101», «3, 12 и ещё 40».
+     Рядом с номером — название статьи из базы, чтобы было видно, какая
+     именно норма изменилась, а не весь кодекс целиком. */
   function newArtLinks(src, nums, prefix) {
     if (!nums || !nums.length) return "";
     var html = nums.slice(0, NEW_LIST_MAX).map(function (n) {
-      return '<a class="nlnk" href="#/article/' + encodeURIComponent(src + "-" + n) + '">' +
-        (prefix ? esc(prefix) + "&nbsp;" : "") + esc(n) + "</a>";
+      var a = byId[src + "-" + n];
+      var title = a && a.t ? a.t : "";
+      return '<a class="nlnk" href="#/article/' + encodeURIComponent(src + "-" + n) + '" title="' + esc(title) + '">' +
+        (prefix ? esc(prefix) + "&nbsp;" : "") + esc(n) +
+        (title ? ' <span class="nlnk-t">— ' + esc(title) + "</span>" : "") + "</a>";
     }).join("<span class=\"nsep\">,</span> ");
     if (nums.length > NEW_LIST_MAX) {
       html += '<span class="nmore"> и ещё ' + (nums.length - NEW_LIST_MAX) + "</span>";
@@ -10925,32 +11084,48 @@
   }
 
   function viewNew(arg) {
-    var filter = NEW_FILTERS.filter(function (f) { return f.id === arg; })[0] || NEW_FILTERS[0];
+    arg = arg || "";
+    var filterId = String(arg).split("/")[0] || "all";
+    var period = newPeriodSel || "31";
+    var pdays = parseInt(period, 10) || 31;
+    var plabel = (NEW_PERIODS.filter(function (p) { return p.v === period; })[0] || NEW_PERIODS[3]).lbl;
+    var filter = NEW_FILTERS.filter(function (f) { return f.id === filterId; })[0] || NEW_FILTERS[0];
     var all = CHANGELOG.entries;
-    var list = filter.test ? all.filter(filter.test) : all;
+    var refD = all.length ? all[0].d : null;
 
-    /* сводка считается по всей ленте, а не по отфильтрованной: цифры «сколько
-       всего» не должны меняться от нажатого фильтра */
-    var nRed = all.filter(function (e) { return e.red; }).length;
-    var nArt = all.reduce(function (n, e) {
+    /* период отсекает записи старше N дней от самой свежей записи ленты */
+    var within = all.filter(function (e) {
+      return !refD || pdays >= 400 || daysBetween(e.d, refD) <= pdays;
+    });
+    var list = filter.test ? within.filter(filter.test) : within;
+
+    /* сводка считается по отфильтрованному набору — цифры отражают то,
+       что реально показано на экране */
+    var nRed = within.filter(function (e) { return e.red; }).length;
+    var nArt = within.reduce(function (n, e) {
       return n + (e.add ? e.add.length : 0) + (e.chg ? e.chg.length : 0) + (e.del ? e.del.length : 0);
     }, 0);
-    var nRep = all.reduce(function (n, e) { return n + (e.rep ? e.rep.length : 0) + (e.res ? e.res.length : 0); }, 0);
+    var nRep = within.reduce(function (n, e) { return n + (e.rep ? e.rep.length : 0) + (e.res ? e.res.length : 0); }, 0);
     var docs = {};
-    all.forEach(function (e) { docs[e.s] = 1; });
+    within.forEach(function (e) { docs[e.s] = 1; });
 
     var unread = newUnread();
 
     var chips = NEW_FILTERS.map(function (f) {
-      var n = f.test ? all.filter(f.test).length : all.length;
+      var n = f.test ? within.filter(f.test).length : within.length;
       if (f.id !== "all" && !n) return "";
       return '<button type="button" class="chip' + (f.id === filter.id ? " on" : "") + '" data-nf="' + esc(f.id) + '">' +
         esc(f.lbl) + " " + '<span class="cnt">' + n + "</span></button>";
     }).join("");
 
+    var pchips = NEW_PERIODS.map(function (p) {
+      return '<button type="button" class="chip' + (p.v === period ? " on" : "") + '" data-np="' + esc(p.v) + '" title="Показать изменения за период">' +
+        esc(p.lbl) + "</button>";
+    }).join("");
+
     var body;
     if (!list.length) {
-      body = all.length
+      body = within.length
         ? '<div class="info-box">Под этот фильтр изменений нет. Выберите «Все».</div>'
         : '<div class="info-box"><b>Лента пока пуста.</b> Она заполняется автоматически: раз в сутки приложение ' +
           "скачивает официальные тексты с actual.pravo.gov.ru и sudact.ru, пересобирает базу и сравнивает её с предыдущим снимком. " +
@@ -10975,11 +11150,12 @@
 
       (unread ? '<div class="info-box" id="newUnreadBox"><b>Непрочитанных изменений: ' + unread + "</b></div>" : "") +
 
-      (all.length ? '<p class="small muted" style="margin:0 0 12px">Лента не разрастается бесконечно: хранится только последние 15 дней изменений (не более 400 записей), более старые уходят автоматически при ночной сборке — новым посетителям не накопится «тысяча статей». Показан период: ' +
-        esc(fmtDateLong(all[all.length - 1].d)) + " — " + esc(fmtDateLong(all[0].d)) + ".</p>" : "") +
+      (all.length ? '<p class="small muted" style="margin:0 0 12px">Лента не разрастается бесконечно: хранится только последние 15 дней изменений (не более 400 записей), более старые уходят автоматически при ночной сборке. ' +
+        "Показан период: <b>" + esc(plabel) + "</b>" +
+        (refD && within.length ? " · " + esc(fmtDateLong(within[within.length - 1].d)) + " — " + esc(fmtDateLong(refD)) : "") + ".</p>" : "") +
 
       '<div class="grid grid-4" style="margin-bottom:14px">' +
-        stat(all.length, "записей в ленте", "activity") +
+        stat(within.length, "записей в ленте", "activity") +
         stat(nRed, "новых редакций", "book") +
         stat(nArt, "статей затронуто", "file") +
         stat(nRep, "норм сменили статус", "ban") +
@@ -10994,6 +11170,7 @@
       "</div>" +
 
       (chips ? '<div class="chips nf-chips" style="margin-bottom:14px">' + chips + "</div>" : "") +
+      (pchips ? '<div class="chips nf-chips" style="margin-bottom:14px"><span class="nf-label">Период:</span>' + pchips + "</div>" : "") +
 
       body +
 
@@ -11017,6 +11194,15 @@
       b2.addEventListener("click", function () {
         var id = b2.getAttribute("data-nf");
         go(id === "all" ? "#/new" : "#/new/" + id);
+      });
+    });
+
+    /* фильтры по периоду — выбор хранится в сессии и просто перерисовывает
+       ленту, не трогая сохраняемый адрес фильтра вида */
+    $$("[data-np]").forEach(function (b3) {
+      b3.addEventListener("click", function () {
+        newPeriodSel = b3.getAttribute("data-np");
+        render();
       });
     });
 

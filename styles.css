@@ -809,6 +809,28 @@ table.tbl td.term { font-weight: 650; color: var(--text); white-space: nowrap; }
 table.tbl-fresh td { vertical-align: middle; }
 table.tbl-fresh td:first-child { min-width: 210px; }
 table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; }
+.fresh-row { cursor: pointer; }
+.fresh-row:hover { background: var(--bg-3); }
+.fresh-toggle {
+  display: inline-block; color: var(--muted); font-size: var(--fs-3); line-height: 1;
+  transition: transform .12s ease; transform: rotate(0deg);
+  width: 12px; text-align: center; margin-right: 4px; user-select: none;
+}
+.fresh-toggle.open { transform: rotate(90deg); color: var(--accent); }
+.fresh-detail[hidden] { display: none; }
+.fresh-hidden { display: none !important; }
+.fresh-detail-in { padding: 12px 14px; background: var(--bg-3); }
+.fresh-detail-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 18px;
+}
+.fresh-detail-grid > div { font-size: var(--fs-3); }
+.fresh-detail-grid .lbl {
+  display: block; font-size: var(--fs-2); color: var(--muted);
+  text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px;
+}
+.fresh-detail-act { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.fresh-bar { display: flex; align-items: center; gap: 12px; margin: 8px 2px 12px; flex-wrap: wrap; }
+.fresh-bar .input { max-width: 320px; flex: 1 1 240px; }
 /* значок статуса: подпалпачник — он же цель нажатия в строках таблиц,
    поэтому высоту дерим не меньше 26px */
 .st {
@@ -899,6 +921,19 @@ table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; 
   content: ""; width: 4px; height: 4px; border-radius: var(--r-pill);
   background: var(--border-2); flex: 0 0 auto;
 }
+.rep-item-head { cursor: pointer; }
+.rep-toggle {
+  display: inline-block; color: var(--muted); font-size: var(--fs-3); line-height: 1;
+  transition: transform .12s ease; transform: rotate(0deg);
+  flex: 0 0 auto; width: 12px; text-align: center; margin-right: 1px;
+  user-select: none;
+}
+.rep-toggle.open { transform: rotate(90deg); color: var(--accent); }
+.rep-item-body {
+  margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
+}
+.rep-item-body[hidden] { display: none; }
+.rep-item-foot { margin-top: 10px; display: flex; justify-content: flex-end; }
 /* заголовок месяца в выдаче реестра — тот же вид, что у дат в ленте «Новое» */
 .rep-group-h { margin: 20px 0 8px; }
 .rep-group-h:first-child { margin-top: 2px; }
@@ -2349,8 +2384,21 @@ body::-webkit-scrollbar-track { background: transparent; }
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .nlnk:hover { border-bottom-color: var(--accent); }
+.nlnk-t { color: var(--muted); font-weight: 500; border-bottom: none; }
 .nsep { color: var(--border); margin: 0 1px; }
 .nmore { color: var(--muted); }
+.nf-label { color: var(--muted); font-size: var(--fs-3); align-self: center; margin-right: 2px; }
+.chg-banner {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm); padding: 11px 14px; margin-bottom: 16px;
+}
+.chg-banner-ico { color: var(--accent); flex: 0 0 auto; margin-top: 1px; }
+.chg-banner-body { font-size: var(--fs-4); line-height: 1.45; }
+.chg-banner-body .st { margin: 0 4px 0 2px; }
+.chg-banner .lnk { font-weight: 600; }
 
 @media (max-width: 640px) {
   .nrow { flex-direction: column; gap: 2px; }

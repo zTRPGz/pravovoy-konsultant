@@ -1288,7 +1288,7 @@ server.listen(0, "127.0.0.1", async () => {
   await nav("#/freshness", 200);
   ok("раздел открывается", /Проверка актуальности/.test(T("h1") || ""), T("h1"));
   ok("кнопка проверки на месте", !!$("#frCheck"));
-  ok("таблица источников", $$("table.tbl-fresh tbody tr").length === N_SOURCES, $$("table.tbl-fresh tbody tr").length + " строк");
+  ok("таблица источников", $$("table.tbl-fresh tbody tr.fresh-row").length === N_SOURCES, $$("table.tbl-fresh tbody tr.fresh-row").length + " строк");
   ok("все источники помечены актуальными", $$("table.tbl-fresh .st-ok").length >= 128, $$("table.tbl-fresh .st-ok").length);
   ok("кнопка сброса скрыта без обновлений", !$("#frReset"));
   /* jsdom не предоставляет fetch — это ровно тот случай, когда сети нет.
@@ -1300,7 +1300,7 @@ server.listen(0, "127.0.0.1", async () => {
     (T("#view") || "").replace(/\s+/g, " ").slice(0, 90));
   ok("кнопка проверки не зависла", !!$("#frCheck") && !$("#frCheck").disabled);
   ok("сообщение объясняет офлайн-режим", /доступ к сети|Локальная база продолжает работать/.test(T("#view") || ""));
-  ok("таблица источников осталась", $$("table.tbl-fresh tbody tr").length === N_SOURCES);
+  ok("таблица источников осталась", $$("table.tbl-fresh tbody tr.fresh-row").length === N_SOURCES);
   ok("палитра знает о разделе", (() => {
     d.dispatchEvent(new w.KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
     return true;
@@ -1351,7 +1351,7 @@ server.listen(0, "127.0.0.1", async () => {
   ok("новая редакция показана", /2027/.test(T("#view") || ""));
   ok("кнопка сброса появилась", !!$("#frReset"));
   ok("обновление не потеряло статьи", (() => {
-    const rows = $$("#view table.tbl-fresh tbody tr");
+    const rows = $$("#view table.tbl-fresh tbody tr.fresh-row");
     return rows.length === N_SOURCES;
   })());
   w.fetch = origFetch;

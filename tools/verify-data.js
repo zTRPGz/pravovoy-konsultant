@@ -1545,6 +1545,43 @@ check("метка времени сборки одна на весь прого�
 check("version.json не попадает в собственный отпечаток",
   /r !== "version\.json"/.test(buildSrc));
 
+/* Метка времени — единственный признак, по которому открытая вкладка
+   отличает свежие файлы данных от отданных кешем браузера: version.json
+   запрашивается мимо кеша (cache: "no-store"), а freshness.js приходит как
+   все данные, из кеша. Сравниваются ровно два значения: at из version.json
+   и built_at из freshness.js.
+
+   Если сборщик проставит их вразнобой, приложение решит, что на экране
+   старые статьи, и покажет «Вышла новая редакция базы» — причём навсегда:
+   кнопка «Обновить» перезагрузит страницу мимо кеша, оба файла придут
+   свежими, но расхождение никуда не денется. Так и вышло, когда граф
+   пересобрали точечно: version.json получил новую метку, а freshness.js
+   остался со старой.
+
+   changelog.js сюда не входит намеренно: его пишет отдельный инструмент
+   (tools/build-changelog.js) своим временем, и совпадать с меткой сборки
+   данных он не обязан. */
+const stampAt = version ? version.at : "";
+const stampFiles = [
+  ["freshness.js", "data/freshness.js"],
+  ["status.js", "data/status.js"],
+  ["ft/meta.js", "data/ft/meta.js"],
+  ["graph.js", "data/graph.js"]
+];
+const stampBad = !stampAt ? [] : stampFiles.filter(function (f) {
+  const p = path.join(ROOT, f[1]);
+  if (!fs.existsSync(p)) return true;
+  const m = /"built_at":"([^"]*)"/.exec(fs.readFileSync(p, "utf8"));
+  return !m || m[1] !== stampAt;
+}).map(function (f) { return f[0]; });
+check("метка сборки во всех файлах данных одна",
+  !!stampAt && stampBad.length === 0,
+  !stampAt ? "в version.json нет поля at"
+    : stampBad.length
+      ? "разошлись с version.json (" + stampAt + "): " + stampBad.join(", ") +
+        " — уведомление об обновлении не закроется"
+      : "version.json, freshness, status, ft/meta, graph — " + stampAt);
+
 check("приложение опрашивает отпечаток сборки",
   /BUILD_URL = "data\/version\.json"/.test(appSrc) &&
   /function checkBuild\(/.test(appSrc) && /cache: "no-store"/.test(appSrc) &&

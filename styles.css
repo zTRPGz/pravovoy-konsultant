@@ -27,6 +27,7 @@
   --accent-3:  #28d8ee;   /* третий — для «живых» акцентов и графиков */
   --accent-bg: rgba(86,147,249,.14);
   --accent-grad: linear-gradient(135deg, var(--accent), var(--accent-2) 58%, var(--accent-3));
+  --skip-bg:   #175bbd;   /* фон ссылки «Перейти к содержимому»: белый текст даёт 6.4 (WCAG) */
   --ok:        #45c45a;
   --warn:      #e6ad33;
   --danger:    #fb5b53;
@@ -155,7 +156,7 @@ body::before {
 /* ---------- доступность ---------- */
 .skip-link {
   position: absolute; left: -9999px; top: 0; z-index: 100;
-  background: var(--accent); color: #fff; padding: 10px 16px;
+  background: var(--skip-bg); color: #fff; padding: 10px 16px;
   border-radius: 0 0 var(--radius) 0; font-size: var(--fs-5);
 }
 .skip-link:focus { left: 0; }
@@ -593,6 +594,13 @@ h3 { font-size: var(--fs-6); margin: 18px 0 8px; font-weight: 650; }
   white-space: nowrap;
 }
 .badge-code { font-weight: 600; }
+
+/* Тёмная тема: отраслевые цвета бейджей заданы инлайном (color из RF_CODES)
+   и на тёмном фоне у 12 из 24 отраслей дают контраст ниже нормы 4.5 (11px).
+   Осветляем только в тёмной теме: light-фон белый, там цвета проходят сами.
+   !important нужен: цвет задан инлайново в разметке. */
+[data-theme="dark"] .badge[style*="color:"] { color: color-mix(in srgb, currentcolor, white 30%) !important; }
+[data-theme="dark"] .badge-code { color: color-mix(in srgb, currentcolor, white 30%) !important; }
 
 /* результаты поиска */
 .result {
@@ -1388,10 +1396,11 @@ body.has-crash .toast { bottom: 104px; }
 .related-item {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
   border-radius: var(--r-sm); color: var(--text); text-decoration: none;
+  min-width: 0;
 }
 .related-item:hover { background: var(--accent-bg); }
 .related-item .badge { flex: none; }
-.related-t { font-size: var(--fs-4); line-height: 1.35; }
+.related-t { font-size: var(--fs-4); line-height: 1.35; min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- помощник: разбор ситуации ---------- */
 .help-card { border-color: color-mix(in srgb, var(--accent) 26%, var(--border)); }

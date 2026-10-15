@@ -26,7 +26,7 @@
   --accent-2:  #9b6cf8;   /* второй цвет градиента акцента */
   --accent-3:  #28d8ee;   /* третий — для «живых» акцентов и графиков */
   --accent-bg: rgba(86,147,249,.14);
-  --accent-grad: linear-gradient(135deg, var(--accent), var(--accent-2) 58%, var(--accent-3));
+  --accent-grad: linear-gradient(135deg, #2f6bd4, #7a4ed0 58%); /* углублён: белый текст на #5693f9 давал 3.03 */
   --skip-bg:   #175bbd;   /* фон ссылки «Перейти к содержимому»: белый текст даёт 6.4 (WCAG) */
   --ok:        #45c45a;
   --warn:      #e6ad33;
@@ -101,12 +101,16 @@
   --card:      #ffffff;
   --text:      #131c27;
   --text-2:    #3d4b5b;
-  --muted:     #647285;
-  --accent:    #1f6fe0;
+  --muted:     #5c6a7c;   /* было #647285 — 4.24 на bg-3; теперь 4.78 */
+  --accent:    #1a5fc0;   /* было #1f6fe0 — 3.89 на подсветке меню; теперь 4.98 */
   --accent-2:  #6d4ff0;
   --accent-3:  #0e9aa7;
+  /* ЯВНЫЕ цвета: var() внутри custom property подставляется из :root (тёмный
+     каскад), поэтому в light-теме градиент оставался тёмным (#5693f9 —
+     белый текст давал 3.03). Переопределяем целиком. */
+  --accent-grad: linear-gradient(135deg, #1a5fc0, #6d4ff0 58%); /* третий цвет убран: #0e9aa7 давал 3.39 */
   --accent-bg: rgba(31,111,224,.09);
-  --ok:        #1a7f37;
+  --ok:        #166b2e;   /* было #1a7f37 — 4.45 на bg-3; теперь 5.79 */
   --warn:      #8a5d05;
   --danger:    #cf222e;
   --mark:      rgba(255,214,0,.42);
@@ -601,6 +605,11 @@ h3 { font-size: var(--fs-6); margin: 18px 0 8px; font-weight: 650; }
    !important нужен: цвет задан инлайново в разметке. */
 [data-theme="dark"] .badge[style*="color:"] { color: color-mix(in srgb, currentcolor, white 30%) !important; }
 [data-theme="dark"] .badge-code { color: color-mix(in srgb, currentcolor, white 30%) !important; }
+/* Светлая тема: фон бейджа --bg-3 (#eaeff7) — светлые отраслевые цвета дают
+   на нём < 4.5 (минимум 3.2). Затемняем на 30% чёрного: худший цвет 5.76.
+   Тёмная тема не тронута — там наоборот осветляем. */
+[data-theme="light"] .badge[style*="color:"] { color: color-mix(in srgb, currentcolor, black 30%) !important; }
+[data-theme="light"] .badge-code { color: color-mix(in srgb, currentcolor, black 30%) !important; }
 
 /* результаты поиска */
 .result {

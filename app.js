@@ -4619,11 +4619,20 @@
     var txtWords = FT ? FT.tokenize(low) : [];
     var out = (REF.help || []).map(function (h) {
       var hits = [], score = 0, strong = false, anchorHit = false;
+      /* Корни уже зачтённых признаков. Словоформы одного корня («задержан»,
+         «задержали», «задержание») — это ОДИН признак, а не три: раньше одно
+         слово в описании раздувало вес блока и вытесняло разбор по существу.
+         Так фабула о соучастии в краже уходила в процессуальное «задержание»
+         только потому, что виновного «задержали на месте». */
+      var seenRoot = {};
       var anchor = norm((h.triggers || [])[0] || "");
       (h.triggers || []).forEach(function (k) {
         var nk = norm(k);
         var hit = trigHit(k, txtStems, txtWords);
         if (!hit) return;
+        var root = nk.slice(0, 5);
+        if (seenRoot[root]) return;
+        seenRoot[root] = 1;
         hits.push(k);
         if (nk === anchor) anchorHit = true;
         /* вес растёт с длиной признака (специфичностью); совпадение только по
@@ -4753,10 +4762,16 @@
       var kws = it.keywords || [];
       var primary = kws.length ? norm(kws[0]) : "";
       var hits = [], score = 0, strong = false, anchorHit = false;
+      /* как и в разборах: словоформы одного корня — один признак, а не
+         несколько (иначе «задержали»/«задержание» раздували правило) */
+      var seenRoot = {};
       kws.forEach(function (k) {
         var nk = norm(k);
         var hit = trigHit(k, txtStems, txtWords);
         if (!hit) return;
+        var root = nk.slice(0, 5);
+        if (seenRoot[root]) return;
+        seenRoot[root] = 1;
         hits.push(k);
         if (nk === primary) anchorHit = true;
         var phrase = nk.indexOf(" ") !== -1;

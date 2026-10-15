@@ -5316,7 +5316,171 @@
       "</div>";
   }
 
+  /* ----------------------------------------------- прямая ссылка на статью
+
+     Запрос «ст. 158 УК РФ», «статья 105 ук», «ст. 12.1 КоАП» человек пишет,
+     когда уже знает нужную норму. Распознаём ссылку сразу — номер плюс
+     аббревиатура акта — и открываем точную статью, минуя разбор по ключевым
+     словам: раньше такой запрос уходил в общий поток и точной статьи не давал. */
+
+  /* Нормализация аббревиатуры: регистр, ё→е, римские части → цифры, мусор
+     прочь. «ГК РФ ч. II» → «гкрфч2», «КоАП РФ» → «коапрф». */
+  function normAbbrKey(s) {
+    return String(s || "").toLowerCase().replace(/ё/g, "е")
+      .replace(/iv|iii|ii|i|v/g, function (r) {
+        return ({ i: "1", ii: "2", iii: "3", iv: "4", v: "5" })[r] || r;
+      })
+      .replace(/[^а-я0-9]/g, "");
+  }
+
+  /* Карта «аббревиатура → источники». Кодексы с частями (ГК, НК) дают и
+     точные ключи («гк2»), и общий («гк») — какой из частей принадлежит
+     статья, решаем по наличию номера в источнике. */
+  var ABBR_MAP = null;
+  function abbrMap() {
+    if (ABBR_MAP) return ABBR_MAP;
+    ABBR_MAP = {};
+    function add(k, id) {
+      if (!k) return;
+      if (!ABBR_MAP[k]) ABBR_MAP[k] = [];
+      if (ABBR_MAP[k].indexOf(id) === -1) ABBR_MAP[k].push(id);
+    }
+    (CODES || []).forEach(function (c) {
+      var ab = String(c.abbr || "").trim();
+      var m = /^([а-яё]+)\s*(?:рф)?\s*(?:ч\.?\s*([ivx\d]+))?$/i.exec(ab);
+      if (!m) { add(normAbbrKey(ab), c.id); return; }
+      var base = normAbbrKey(m[1]);
+      var part = m[2] ? normAbbrKey(m[2]) : "";
+      add(base, c.id);
+      add(base + "рф", c.id);
+      if (part) {
+        add(base + part, c.id);
+        add(base + "ч" + part, c.id);
+        add(base + "рфч" + part, c.id);
+      }
+    });
+    return ABBR_MAP;
+  }
+
+  /* «ст. 158», «статья 12.1», «ст 105» — номер статьи после слова-маркера.
+     Границу слова задаём явно: \b после кириллицы в JS не работает. */
+  var REF_NUM_RE = /(?:^|[^а-яёa-z0-9])(?:ст\.?|стать[яию]|статей|статья)\s*(\d+(?:[.,]\d+)?)/i;
+
+  /* Разбор прямой ссылки. Возвращает { id, num, ids, abbr } либо null.
+     id пуст, если акт узнан, а такой статьи в базе нет. */
+  function parseArticleRef(text) {
+    var t = String(text || "");
+    var m = REF_NUM_RE.exec(t);
+    if (!m) return null;
+    var num = m[1].replace(",", ".");
+    /* аббревиатура — среди нескольких слов сразу после номера («УК РФ»,
+       «ГК РФ ч. 2»). Собираем сочетания из 1–4 слов и сверяем с картой. */
+    var words = t.slice(m.index + m[0].length, m.index + m[0].length + 40)
+      .split(/[^а-яёА-ЯЁ0-9]+/).filter(Boolean);
+    var map = abbrMap(), best = null;
+    for (var i = 0; i < Math.min(words.length, 5); i++) {
+      for (var j = 1; j <= 4 && i + j <= words.length; j++) {
+        var k = normAbbrKey(words.slice(i, i + j).join(""));
+        /* предпочитаем более длинный ключ: «укрф» точнее, чем «ук» */
+        if (k && map[k] && (!best || k.length > best.k.length)) best = { k: k, ids: map[k] };
+      }
+    }
+    if (!best) return null;
+    var hit = null;
+    best.ids.forEach(function (id) { if (!hit && byId[id + "-" + num]) hit = id; });
+    return { src: hit || null, id: hit ? hit + "-" + num : null, ids: best.ids, num: num, abbr: best.k };
+  }
+
+  /* Текст запроса без самой ссылки — чтобы разобрать оставшееся описание. */
+  function refRest(text) {
+    var map = abbrMap();
+    return String(text || "").replace(REF_NUM_RE, " ")
+      .split(/\s+/).filter(function (wd) {
+        var k = normAbbrKey(wd);
+        return !(k && map[k]);
+      }).join(" ");
+  }
+
+  /* Человекочитаемые названия узнанных актов (для сообщения «не найдена»). */
+  function refNames(ref) {
+    var seen = {}, out = [];
+    (ref.ids || []).forEach(function (id) {
+      var c = codeById(id);
+      if (!c) return;
+      var nm = c.abbr || c.short;
+      if (!seen[nm]) { seen[nm] = 1; out.push(nm); }
+    });
+    return out.join(", ");
+  }
+
+  /* Карточка статьи по прямой ссылке. Санкцию и дословный фрагмент подставит
+     enrichAssistant — разметка та же, что в выводе Помощника (.as-art,
+     .concl-quote), поэтому ничего дополнительно подключать не нужно. */
+  function refCard(ref) {
+    var a = byId[ref.id];
+    if (!a) return "";
+    var c = codeById(a.c) || { short: a.c, color: "#888" };
+    var meta = [];
+    if (c.branch) meta.push(c.branch);
+    if (c.redaction) meta.push("ред. от " + fmtRed(c.redaction));
+    return '<div class="card concl">' +
+      '<div class="concl-head">' + ic("compass") + "Прямая ссылка на статью</div>" +
+      '<div class="concl-answer">' +
+        '<div class="ca-lbl">Статья найдена</div>' +
+        '<div class="ca-q">' + esc(c.short) + ", ст. " + esc(a.dn) + " · " + esc(a.t) + "</div>" +
+        (meta.length ? '<div class="ca-meta">' + esc(meta.join(" · ")) + "</div>" : "") +
+      "</div>" +
+      '<div class="concl-norms"><div class="as-art" data-go="#/article/' + encodeURIComponent(a.id) + '">' +
+        '<div class="as-art-head">' +
+          '<span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + '</span>' +
+          '<a class="as-art-title" href="#/article/' + encodeURIComponent(a.id) + '">ст. ' + esc(a.dn) + " · " + esc(a.t) + "</a>" +
+          '<button class="ibtn ibtn-col' + (inCol(a.id) ? " on" : "") + '" data-col-add="' + esc(a.id) + '" ' +
+            'title="' + (inCol(a.id) ? "Убрать из подборки" : "Добавить в подборку") + '">' + ic("clip") + '</button>' +
+        "</div>" +
+        '<div class="as-san-body" data-as-san="' + esc(a.id) + '" data-c="' + esc(a.c) + '" data-n="' + esc(a.n) + '">' +
+          '<span class="muted small">загрузка текста статьи…</span></div>' +
+      "</div></div>" +
+      '<div class="concl-quote" data-quote="' + esc(a.id) + '" data-q=""></div>' +
+      '<div class="actions-row">' +
+        '<button class="btn btn-primary" data-go="#/article/' + encodeURIComponent(a.id) + '">' + ic("book") + "Открыть статью</button>" +
+        '<button class="btn" data-go="#/graph/' + esc(a.id) + '">' + ic("share") + "Связи статьи</button>" +
+      "</div>" +
+      '<div class="ground-box"><span class="ico">' + ic("shield") + "</span>" +
+        "<div>Ссылка распознана по аббревиатуре «" + esc(c.abbr || "") + "». Статья и дата редакции — из базы сайта; " +
+        "полный текст открывается по кнопке.</div></div>" +
+      '<div class="disclaimer"><b>Важно.</b> Ссылка открывает норму в текущей редакции базы. ' +
+        "Применимость нормы к вашей ситуации проверяйте по полному тексту статьи.</div>" +
+      "</div>";
+  }
+
+  /* Глубина разбора: ссылка + оставшееся описание разбираются вложенно,
+     но не бесконечно (в запросе может стоять несколько ссылок). */
+  var refDepth = 0;
+
   function assistantResult(text) {
+    /* Прямая ссылка «ст. N <кодекс>» — приоритетная ветка: человек уже назвал
+       норму. Если кроме ссылки есть описание ситуации, разбираем и его. */
+    if (refDepth < 3) {
+      var ref = parseArticleRef(text);
+      if (ref) {
+        refDepth++;
+        try {
+          if (ref.id) {
+            var out = refCard(ref);
+            var rest = refRest(text);
+            if (norm(rest).length >= 18) out += assistantResult(rest);
+            return out;
+          }
+          var nf = '<div class="warn-box"><b>Статьи ' + esc(ref.num) + " в " +
+            esc(refNames(ref)) + " нет в базе.</b> Проверьте номер статьи — либо опишите ситуацию словами, " +
+            "и Помощник подберёт нормы по существу.</div>";
+          var rest2 = refRest(text);
+          if (norm(rest2).length >= 12) nf += assistantResult(rest2);
+          return nf;
+        } finally { refDepth--; }
+      }
+    }
+
     var f = assistantFound(text);
     var low = f.low, help = f.help, scored = f.scored;
 

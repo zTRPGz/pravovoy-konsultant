@@ -1163,6 +1163,18 @@ check("список «близких норм» не дублирует найд
   /keyArts = \(help\.length \|\| scored\.length\)/.test(assistSrc),
   "близкие нормы идут в вывод только когда перечень норм пуст (keyArts = [])");
 
+/* --- прямая ссылка «ст. N <кодекс>» в Помощнике ---------------------------- */
+/* Запрос «ст. 158 УК РФ» человек пишет, когда уже знает норму: ветка ссылки
+   идёт первой и открывает точную статью, минуя разбор по ключевым словам. */
+const refSrc = extractFn("assistantResult") || "";
+check("Помощник распознаёт прямую ссылку «ст. N <кодекс>»",
+  /parseArticleRef\(/.test(refSrc) && /function parseArticleRef\(/.test(appSrc) &&
+  /function refCard\(/.test(appSrc),
+  "ветка ссылки идёт первой в assistantResult");
+check("карта аббревиатур строится из реестра (RF_CODES[].abbr), а не списком в коде",
+  /c\.abbr/.test(extractFn("abbrMap") || "") && /byId\[id \+ "-" \+ num\]/.test(extractFn("parseArticleRef") || ""),
+  "аббревиатура → источник, часть кодекса — по наличию статьи");
+
 /* --- личные заметки к статье ------------------------------------------------ */
 check("заметки к статье: хранилище и обработчики на месте",
   /function getNotes\(/.test(appSrc) && /function setNote\(/.test(appSrc) &&

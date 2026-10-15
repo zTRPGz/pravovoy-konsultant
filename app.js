@@ -2680,15 +2680,12 @@
         ", " + nDec + " " + plural(nDec, ["постановление Правительства", "постановления Правительства", "постановлений Правительства"]) +
         (nPlen ? " и " + nPlen + " " + plural(nPlen, ["постановление Пленума ВС РФ", "постановления Пленума ВС РФ", "постановлений Пленума ВС РФ"]) : "") +
         ". Полные тексты подгружаются по требованию.</p>" +
-      '<div class="kind-tools">' +
-        '<button class="btn btn-sm" data-kinds-all="open">' + ic("plus") + " Развернуть все источники</button>" +
-        '<button class="btn btn-sm" data-kinds-all="close">' + ic("minus") + " Свернуть</button>" +
+      '<div class="src-teaser">' +
+        '<div class="src-teaser-ico" aria-hidden="true">' + ic("scales") + "</div>" +
+        '<div class="src-teaser-txt"><div class="src-teaser-h">Реестр из ' + CODES.length + " " + plural(CODES.length, ["акта", "актов", "актов"]) + "</div>" +
+          '<div class="src-teaser-s">Полный список с фильтром по названию и быстрым переходом к любой статье — и к режиму Помощника «только по выбранному акту».</div></div>' +
+        '<button class="btn btn-primary" data-go="#/sources">Открыть реестр →</button>' +
       "</div>" +
-      docGroups().map(function (g, i) {
-        return '<details class="kind-block">' +
-          '<summary class="kind-title">' + esc(g.title) + '<span class="cnt">' + g.items.length + "</span></summary>" +
-          '<div class="grid grid-3">' + g.items.map(codeCard).join("") + "</div></details>";
-      }).join("") +
 
       '<div class="disclaimer">' +
         "<b>О статусе текстов.</b> Полные тексты получены из открытого набора данных на основе официального портала опубликования правовых актов actual.pravo.gov.ru, а также напрямую с этого портала. " +
@@ -12661,6 +12658,13 @@
       window.addEventListener("scroll", syncTop, { passive: true });
       syncTop();
     }
+
+    /* нижняя панель на телефоне: «Меню» открывает боковую панель */
+    var bnMenu = $("#bnMenu");
+    if (bnMenu) bnMenu.addEventListener("click", function () {
+      setSidebar(!sidebarIsOpen());
+      var c = $("#sideClose"); if (sidebarIsOpen() && c) c.focus();
+    });
 
     /* --- настройки чтения --- */
     var readBtn = $("#readBtn");

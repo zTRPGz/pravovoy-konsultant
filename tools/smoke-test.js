@@ -208,7 +208,8 @@ server.listen(0, "127.0.0.1", async () => {
   section = "2. Главная страница"; console.log("\n" + section);
   await nav("#/home");
   ok("заголовок", /консультант-помощник/i.test(T("h1") || ""), T("h1"));
-  ok("карточки источников", $$(".code-card").length === N_SOURCES, $$(".code-card").length);
+  ok("блок перехода к реестру источников", !!$(".src-teaser") && /#\/sources/.test($(".src-teaser").innerHTML || ""), $(".src-teaser") ? "есть" : "нет");
+  ok("на главной нет дублирующего списка источников (он в меню и на #/sources)", $$(".code-card").length === 0, $$(".code-card").length);
 
   section = "3. Поиск"; console.log("\n" + section);
   const cases = [

@@ -1450,7 +1450,8 @@
     theme: LS.get("theme", "dark"),
     read: LS.get("read", { fs: 15, lh: 1.65, w: 0, zen: false }),  // настройки чтения текста (zen — режим чтения)
     role: LS.get("role", ""),       // роль: "" | sle || adv | gos
-    newSeen: LS.get("newSeen", 0),  // сколько верхних записей ленты «Новое» уже показано
+    newSeen: LS.get("newSeen", 0),  // прежний счётчик (миграция): сколько записей ленты «Новое» показано
+    newSeenKey: LS.get("newSeenKey", ""),  // ключ верхней прочитанной записи ленты «Новое»
     /* Помощник: запятыми перечисленные id источников для режима «только эти
        акты» ("" — все). Выбор живёт ТОЛЬКО в памяти текущего сеанса: раньше он
        сохранялся в localStorage и при следующем открытии Помощник молча отвечал
@@ -11547,7 +11548,7 @@
       var ff = $("#frFilter");
       if (ff) ff.addEventListener("input", function () {
         var q = ff.value.trim().toLowerCase();
-        var shown = 0;
+        var shown = 0, byGroup = {};
         ftbl.querySelectorAll(".fresh-row").forEach(function (row) {
           var id = row.getAttribute("data-fresh-toggle");
           var text = (row.textContent || "").toLowerCase();
@@ -11555,7 +11556,13 @@
           row.classList.toggle("fresh-hidden", !match);
           var det = ftbl.querySelector('.fresh-detail[data-fresh-detail="' + id + '"]');
           if (det) det.classList.toggle("fresh-hidden", !match);
-          if (match) shown++;
+          if (match) { shown++; var g = row.getAttribute("data-fresh-group") || ""; byGroup[g] = (byGroup[g] || 0) + 1; }
+        });
+        /* Заголовок группы прячем, если в ней не осталось подходящих строк:
+           иначе над пустотой висит одинокий заголовок и сбивает с толку. */
+        ftbl.querySelectorAll(".fresh-kind").forEach(function (head) {
+          var g = head.getAttribute("data-fresh-kind") || "";
+          head.classList.toggle("fresh-hidden", !!q && !byGroup[g]);
         });
         var cnt = $("#frCount");
         if (cnt) cnt.textContent = shown;
@@ -11615,8 +11622,27 @@
     return Math.round((db - da) / 86400000);
   }
 
+  /* Ключ записи ленты — устойчивый опознаватель для счётчика непрочитанного. */
+  function newKey(e) { return e ? (e.d + "|" + e.s + "|" + (e.a || "")) : ""; }
+
+  /* Сколько записей появилось с прошлого прочтения. Считаем не по числу
+     записей: лента обрезается до последних 15 дней, и когда новые записи
+     вытесняют старые, длина не меняется — тогда счётчик «по числу» молча
+     показывал ноль при живых изменениях. Держим ключ верхней прочитанной
+     записи: всё, что выше неё в ленте, — новое. */
   function newUnread() {
-    return Math.max(0, CHANGELOG.entries.length - (state.newSeen || 0));
+    var es = CHANGELOG.entries;
+    if (!es.length) return 0;
+    var key = state.newSeenKey;
+    if (key) {
+      for (var i = 0; i < es.length; i++) if (newKey(es[i]) === key) return i;
+      /* отмеченная запись уже ушла из ленты: новыми считаем те, что свежее её даты */
+      var kd = String(key).slice(0, 10), n = 0;
+      for (var j = 0; j < es.length && es[j].d > kd; j++) n++;
+      return n;
+    }
+    /* перенос со старого счётчика (записи считались по числу) */
+    return Math.max(0, es.length - (state.newSeen || 0));
   }
 
   /* Значок в сайдбаре + точка «есть непрочитанное». Вызывается после сборки
@@ -11630,7 +11656,9 @@
 
   function markNewSeen() {
     state.newSeen = CHANGELOG.entries.length;
+    state.newSeenKey = CHANGELOG.entries.length ? newKey(CHANGELOG.entries[0]) : "";
     LS.set("newSeen", state.newSeen);
+    LS.set("newSeenKey", state.newSeenKey);
     syncNewBadge();
   }
 

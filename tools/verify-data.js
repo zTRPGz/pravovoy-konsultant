@@ -1421,11 +1421,11 @@ check("роут #/new ведёт в свой вид",
   /r\.name === "new"\)\s*\{\s*v\.innerHTML = viewNew\(r\.arg\);\s*bindNew\(\);/.test(appSrc));
 check("вид ленты собран из записей, а не из заготовки",
   /function viewNew\(arg\)/.test(appSrc) && /CHANGELOG\.entries/.test(appSrc));
-check("непрочитанное считается по числу просмотренных записей",
-  /function newUnread\(\)/.test(appSrc) &&
-  /Math\.max\(0,\s*CHANGELOG\.entries\.length\s*-\s*\(state\.newSeen \|\| 0\)\)/.test(appSrc));
+check("непрочитанное считается по ключу верхней прочитанной записи (устойчиво к обрезке ленты)",
+  /function newUnread\(\)/.test(appSrc) && /state\.newSeenKey/.test(appSrc) && /function newKey\(/.test(appSrc));
 check("отметка о прочтении хранится в localStorage",
-  /LS\.set\("newSeen"/.test(appSrc) && /newSeen:\s*LS\.get\("newSeen"/.test(appSrc));
+  /LS\.set\("newSeen"/.test(appSrc) && /newSeen:\s*LS\.get\("newSeen"/.test(appSrc) &&
+  /LS\.set\("newSeenKey"/.test(appSrc) && /newSeenKey:\s*LS\.get\("newSeenKey"/.test(appSrc));
 check("значок непрочитанного обновляется после сборки меню",
   /function buildNav\(\)[\s\S]{0,300}syncNewBadge\(\)/.test(appSrc));
 check("ссылки на статьи и документы собираются из id записи",

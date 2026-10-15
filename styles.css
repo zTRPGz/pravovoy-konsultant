@@ -354,7 +354,6 @@ button { font: inherit; cursor: pointer; }
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border-2));
   color: var(--text); background: var(--bg-3); transform: translateY(-1px);
 }
-.icon-btn:active { transform: translateY(0); }
 .icon-btn .ic { width: 18px; height: 18px; }
 .icon-btn .ico { display: grid; place-items: center; }
 
@@ -737,7 +736,6 @@ mark { background: var(--mark); color: inherit; border-radius: var(--r-xs); padd
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border-2));
   background: var(--bg-4); transform: translateY(-1px); box-shadow: var(--shadow-sm);
 }
-.btn:active { transform: translateY(0); }
 .btn .ic { width: 1.05em; height: 1.05em; }
 .btn-primary {
   background: linear-gradient(135deg, var(--accent), var(--accent-2) 92%);

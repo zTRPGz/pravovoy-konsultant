@@ -867,6 +867,12 @@ table.tbl-fresh td.row-act { text-align: right; white-space: nowrap; width: 1%; 
 .fresh-detail-act { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
 .fresh-bar { display: flex; align-items: center; gap: 12px; margin: 8px 2px 12px; flex-wrap: wrap; }
 .fresh-bar .input { max-width: 320px; flex: 1 1 240px; }
+/* Группы видов акта в таблице источников: на телефоне свёрнуты по умолчанию,
+   иначе 330 строк подряд — несколько экранов прокрутки. */
+.fresh-kind { cursor: pointer; background: var(--bg-3); }
+.fresh-kind:hover { background: var(--bg-2); }
+.fresh-kind td { font-weight: 600; }
+.fresh-group-off { display: none; }
 /* значок статуса: подпалпачник — он же цель нажатия в строках таблиц,
    поэтому высоту дерим не меньше 26px */
 .st {

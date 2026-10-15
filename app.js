@@ -223,14 +223,24 @@
       esc(s.title) + "</span>";
   }
 
+  /* Реквизиты акта-основания. Показываем только то, что действительно похоже
+     на акт — есть номер либо дата. Обрывки слов, случайно попавшие в текст
+     («ие», «ия его из описи»), в реестр не пускаем: лучше честное «акт не
+     указан», чем мусор в карточке. */
+  function actReqText(act, date) {
+    var a = String(act || "");
+    if (!/№|\d{2}\.\d{2}\.\d{4}/.test(a)) return "";
+    return esc(a) + (date ? " от " + fmtRed(date) : "");
+  }
+
   /* Развёрнутая плашка статуса для страницы статьи */
   function statusBox(id) {
     var s = artStatus(id);
     if (!s) return "";
     var cls = s.st === "suspended" ? "warn-box" : "repeal-box";
-    var extra = s.act
-      ? '<div class="small" style="margin-top:6px">Основание: ' + esc(s.act) +
-        (s.date ? " от " + fmtRed(s.date) : "") + "</div>"
+    var req = actReqText(s.act, s.date);
+    var extra = req
+      ? '<div class="small" style="margin-top:6px">Основание: ' + req + "</div>"
       : "";
     return '<div class="' + cls + '"><b>' + esc(s.title) + ".</b> " +
       (s.st === "suspended"
@@ -1625,6 +1635,10 @@
 
   /* Позиция прокрутки статей — чтобы вернуться туда, где остановился */
   var scrollMemo = {};
+  /* Позиция прокрутки в графе связей. Выбор узла — уточнение внутри того же
+     раздела, а не переход: без этого на телефоне после нажатия на кружок
+     страница улетала в самый верх и до графа приходилось листать заново. */
+  var graphScroll = 0;
 
   /* ------------------------------------------------- настройки чтения текста */
 
@@ -2346,6 +2360,9 @@
     /* запомнить позицию на уходящей странице статьи */
     var prev = state.route;
     if (prev && prev.name === "article" && prev.arg) scrollMemo[prev.arg] = window.pageYOffset || 0;
+    /* граф: смена фокуса внутри раздела сохраняет прокрутку */
+    if (prev && prev.name === "graph") graphScroll = window.pageYOffset || 0;
+    var keepGraphScroll = !!prev && prev.name === "graph";
 
     state.route = parseHash();
     setDocTitle(routeTitle(state.route));
@@ -2414,7 +2431,15 @@
         viewHome();
     }
 
-    try { window.scrollTo(0, 0); } catch (e) {}
+    /* Граф перерисовывается при смене фокуса — там прокрутку не сбрасываем. */
+    if (keepGraphScroll && r.name === "graph" && graphScroll) {
+      requestAnimationFrame(function () {
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        window.scrollTo(0, Math.max(0, Math.min(graphScroll, max > 0 ? max : graphScroll)));
+      });
+    } else {
+      try { window.scrollTo(0, 0); } catch (e) {}
+    }
     markNav();
     a11yNav();
     syncColCount();
@@ -2568,8 +2593,13 @@
   var KIND_ORDER = ["constitution", "code", "fkz", "law", "decree", "plenum", "review"];
 
   /* Свёрнутые группы источников в сайдбаре. Пока пользователь ни разу не
-     переключал группы, по умолчанию свёрнуты ВСЕ (а не раскрыты). */
+     переключал группы, по умолчанию свёрнуты ВСЕ (а не раскрыты).
+     На телефоне панель — выдвижной ящик: раскрытые в нём группы превращаются
+     в стену из сотен источников, поэтому в ящике группы всегда начинаются
+     свёрнутыми, а выбор пользователя запоминаем только на широком экране
+     (иначе телефон затирал бы настройку компьютера и наоборот). */
   function navCollapsed() {
+    if (!wideLayout()) return docGroups().map(function (g) { return g.kind; });
     var set = LS.get("collapsedKinds", null);
     if (!set) set = docGroups().map(function (g) { return g.kind; });
     return set;
@@ -8714,6 +8744,13 @@
     var cards = list.slice(0, 400).map(function (r) {
       var c = codeById(r.art.c) || { short: r.art.c, color: "#888" };
       var rel = r.date ? relDay(r.date) : "";
+      /* Дата акта-основания показывается прямо в строке основания: без неё
+         непонятно, когда норма перестала действовать. Если даты в тексте нет —
+         говорим об этом прямо, а не молчим. */
+      var req = actReqText(r.act, r.date);
+      var basis = req
+        ? 'Основание: ' + req
+        : (r.act && !req ? "Акт-основание в тексте указан не полностью" : "Акт-основание в тексте не указан");
       return { m: (r.date || "").slice(0, 7), h:
         '<div class="rep-item" data-rep-id="' + esc(r.id) + '">' +
         '<div class="rep-item-head" data-rep-toggle="' + esc(r.id) + '" title="Раскрыть содержание статьи">' +
@@ -8728,9 +8765,7 @@
             '<span class="ibtn" data-go="#/article/' + encodeURIComponent(r.id) + '" title="Открыть статью">→</span>' +
           "</span>" +
         "</div>" +
-        (r.act ? '<div class="rep-item-act">Основание: ' + esc(r.act) +
-          (r.date ? " от " + fmtRed(r.date) : "") + "</div>"
-               : '<div class="rep-item-act">Акт-основание в тексте не указан</div>') +
+        '<div class="rep-item-act">' + basis + "</div>" +
         (rel ? '<div class="rep-item-rel">' + esc(rel) + "</div>" : "") +
         '<div class="rep-item-body" hidden data-rep-body="' + esc(r.id) + '"></div>' +
         "</div>"
@@ -8863,8 +8898,20 @@
         var opening = body.hasAttribute("hidden");
         if (opening) {
           if (body.getAttribute("data-loaded") !== "1") {
-            body.innerHTML = repBodyHtml(id);
-            body.setAttribute("data-loaded", "1");
+            /* Полный текст источника грузится лениво (по одному файлу на акт).
+               Без этой загрузки карточка показывала «Текст статьи в базе пуст»,
+               хотя текст в базе есть — он просто ещё не приехал. */
+            var srcId = (byId[id] || {}).c;
+            if (srcId && !hasFull(srcId)) {
+              body.innerHTML = '<div class="small muted"><span class="loading">Загружаем текст статьи…</span></div>';
+              loadFull(srcId, function () {
+                body.innerHTML = repBodyHtml(id);
+                body.setAttribute("data-loaded", "1");
+              });
+            } else {
+              body.innerHTML = repBodyHtml(id);
+              body.setAttribute("data-loaded", "1");
+            }
           }
           body.removeAttribute("hidden");
           if (tog) tog.classList.add("open");
@@ -11246,10 +11293,11 @@
 
   /* --- вид «Проверка актуальности» --- */
 
-  function docStatusRow(c) {
+  function docStatusRow(c, extraCls) {
     var n = (byCode[c.id] || []).length;
     var upd = updates[c.id];
     var ov = overrides[c.id];
+    var ex = extraCls || "";
     var st, act = "";
     if (upd) {
       st = '<span class="st st-warn">доступно обновление</span>';
@@ -11264,7 +11312,7 @@
     if (!n) st += ' <span class="st st-warn">нет статей</span>';
 
     var summary =
-      '<tr class="fresh-row" data-fresh-toggle="' + esc(c.id) + '">' +
+      '<tr class="fresh-row' + ex + '" data-fresh-toggle="' + esc(c.id) + '" data-fresh-group="' + esc(c.kind || "") + '">' +
         '<td><span class="fresh-toggle" aria-hidden="true">▸</span><b>' + esc(c.short) + '</b>' +
           '<div class="small muted">' + esc(c.full) + "</div></td>" +
         "<td>" + esc(KIND_TITLE[c.kind] || c.kind || "") + "</td>" +
@@ -11276,7 +11324,7 @@
       "</tr>";
 
     var detail =
-      '<tr class="fresh-detail" data-fresh-detail="' + esc(c.id) + '" hidden><td colspan="7"><div class="fresh-detail-in">' +
+      '<tr class="fresh-detail' + ex + '" data-fresh-detail="' + esc(c.id) + '" data-fresh-group="' + esc(c.kind || "") + '" hidden><td colspan="7"><div class="fresh-detail-in">' +
         '<div class="fresh-detail-grid">' +
           '<div><span class="lbl">Вид акта</span>' + esc(KIND_TITLE[c.kind] || c.kind || "—") + "</div>" +
           '<div><span class="lbl">Реквизиты</span>' + esc(c.req || "—") + "</div>" +
@@ -11292,6 +11340,25 @@
       "</div></td></tr>";
 
     return summary + detail;
+  }
+
+  /* Тело таблицы источников: сгруппировано по видам акта. На телефоне 330
+     строк подряд читать невозможно, поэтому там группы начинаются свёрнутыми
+     и раскрываются нажатием; на широком экране всё открыто, как и раньше.
+     Строки остаются в одной таблице (.tbl-fresh) — по ним работают фильтр и
+     проверки, поэтому разбивать таблицу на несколько нельзя. */
+  function freshTableBody() {
+    var open = wideLayout();
+    var off = open ? "" : " fresh-group-off";
+    return docGroups().map(function (g) {
+      var items = g.items.filter(function (c) { return !c.note; });
+      if (!items.length) return "";
+      return '<tr class="fresh-kind' + (open ? " on" : "") + '" data-fresh-kind="' + esc(g.kind) + '">' +
+          '<td colspan="7"><span class="fresh-toggle' + (open ? " open" : "") + '" aria-hidden="true">▸</span>' +
+            esc(g.title) + ' <span class="small muted">· ' + items.length + " " +
+            plural(items.length, ["источник", "источника", "источников"]) + "</span></td></tr>" +
+        items.map(function (c) { return docStatusRow(c, off); }).join("");
+    }).join("");
   }
 
   function viewFreshness() {
@@ -11392,7 +11459,7 @@
       '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll"><table class="tbl tbl-fresh"><thead><tr>' +
         "<th>Источник</th><th>Вид акта</th><th>Реквизиты</th><th>Редакция</th><th>Статей</th><th>Статус</th><th></th>" +
       "</tr></thead><tbody>" +
-      CODES.filter(function (c) { return !c.note; }).map(docStatusRow).join("") +
+      freshTableBody() +
       "</tbody></table></div></div>" +
       '<div class="small muted" style="margin:8px 2px 0">Значок «с портала» — источник загружен напрямую с actual.pravo.gov.ru ' +
       "(Конституция, ФКЗ и часть федеральных законов). Эти документы сверяются отдельно, минуя общий манифест.</div>" +
@@ -11444,6 +11511,20 @@
     /* Раскрытие строки источника и фильтр таблицы. */
     var ftbl = document.querySelector(".tbl-fresh");
     if (ftbl) {
+      /* Группы по видам акта: на телефоне свёрнуты по умолчанию. */
+      $$("#view .fresh-kind").forEach(function (head) {
+        head.addEventListener("click", function () {
+          var kind = head.getAttribute("data-fresh-kind");
+          var open = !head.classList.contains("on");
+          head.classList.toggle("on", open);
+          var tog = head.querySelector(".fresh-toggle");
+          if (tog) tog.classList.toggle("open", open);
+          $$('#view tr[data-fresh-group="' + kind + '"]').forEach(function (r) {
+            r.classList.toggle("fresh-group-off", !open);
+          });
+        });
+      });
+
       ftbl.addEventListener("click", function (e) {
         if (e.target.closest("[data-upd]") || e.target.closest("[data-go]")) return;
         var row = e.target.closest("[data-fresh-toggle]");
@@ -11647,11 +11728,14 @@
     var plabel = (NEW_PERIODS.filter(function (p) { return p.v === period; })[0] || NEW_PERIODS[3]).lbl;
     var filter = NEW_FILTERS.filter(function (f) { return f.id === filterId; })[0] || NEW_FILTERS[0];
     var all = CHANGELOG.entries;
-    var refD = all.length ? all[0].d : null;
 
-    /* период отсекает записи старше N дней от самой свежей записи ленты */
+    /* Период считаем от сегодняшнего дня, а не от самой свежей записи ленты.
+       Ночная сборка пишет одну дату сразу всем записям, поэтому «от свежей
+       записи» делало фильтр бессмысленным: «День» показывал всё подряд.
+       «День» = записи за сегодня, «Неделя» = за 7 дней включая сегодня. */
+    var todayIso = todayKey();
     var within = all.filter(function (e) {
-      return !refD || pdays >= 400 || daysBetween(e.d, refD) <= pdays;
+      return pdays >= 400 || daysBetween(e.d, todayIso) <= pdays - 1;
     });
     var list = filter.test ? within.filter(filter.test) : within;
 
@@ -11683,9 +11767,13 @@
     if (!list.length) {
       body = within.length
         ? '<div class="info-box">Под этот фильтр изменений нет. Выберите «Все».</div>'
-        : '<div class="info-box"><b>Лента пока пуста.</b> Она заполняется автоматически: раз в сутки приложение ' +
-          "скачивает официальные тексты с actual.pravo.gov.ru и sudact.ru, пересобирает базу и сравнивает её с предыдущим снимком. " +
-          "Всё, что изменилось — новые редакции, добавленные и изменённые статьи, нормы, утратившие силу, — попадает сюда.</div>";
+        : (all.length
+            ? '<div class="info-box"><b>За период «' + esc(plabel) + '» изменений нет.</b> ' +
+              "Последние изменения в ленте — " + esc(fmtDateLong(all[0].d)) +
+              " (" + esc(relDay(all[0].d)) + "). Выберите период пошире — «15 дней» или «Месяц».</div>"
+            : '<div class="info-box"><b>Лента пока пуста.</b> Она заполняется автоматически: раз в сутки приложение ' +
+              "скачивает официальные тексты с actual.pravo.gov.ru и sudact.ru, пересобирает базу и сравнивает её с предыдущим снимком. " +
+              "Всё, что изменилось — новые редакции, добавленные и изменённые статьи, нормы, утратившие силу, — попадает сюда.</div>");
     } else {
       /* группировка по дате: даты в ленте отсортированы по убыванию */
       var html = "", lastD = "";
@@ -11708,7 +11796,7 @@
 
       (all.length ? '<p class="small muted" style="margin:0 0 12px">Лента не разрастается бесконечно: хранится только последние 15 дней изменений (не более 400 записей), более старые уходят автоматически при ночной сборке. ' +
         "Показан период: <b>" + esc(plabel) + "</b>" +
-        (refD && within.length ? " · " + esc(fmtDateLong(within[within.length - 1].d)) + " — " + esc(fmtDateLong(refD)) : "") + ".</p>" : "") +
+        (within.length ? " · " + esc(fmtDateLong(within[within.length - 1].d)) + " — " + esc(fmtDateLong(within[0].d)) : "") + ".</p>" : "") +
 
       '<div class="grid grid-4" style="margin-bottom:14px">' +
         stat(within.length, "записей в ленте", "activity") +
@@ -12524,11 +12612,15 @@
       if (!wrap) return;
       var kind = h.getAttribute("data-toggle-kind");
       var collapsedNow = wrap.classList.toggle("collapsed");
-      var set = navCollapsed();
-      var ix = set.indexOf(kind);
-      if (collapsedNow && ix === -1) set.push(kind);
-      else if (!collapsedNow && ix !== -1) set.splice(ix, 1);
-      LS.set("collapsedKinds", set);
+      /* Запоминаем выбор только на широком экране: в мобильном ящике группы
+         намеренно начинаются свёрнутыми при каждом открытии. */
+      if (wideLayout()) {
+        var set = navCollapsed();
+        var ix = set.indexOf(kind);
+        if (collapsedNow && ix === -1) set.push(kind);
+        else if (!collapsedNow && ix !== -1) set.splice(ix, 1);
+        LS.set("collapsedKinds", set);
+      }
     });
 
     bindGlobal();

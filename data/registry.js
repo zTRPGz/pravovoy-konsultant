@@ -2450,6 +2450,24 @@ window.RF_CODES=[
   "count": 22
  },
  {
+  "id": "fz79ggs",
+  "kind": "law",
+  "short": "ФЗ «О гражданской службе» № 79",
+  "abbr": "ФЗ о гражданской службе",
+  "full": "Федеральный закон «О государственной гражданской службе Российской Федерации»",
+  "req": "от 27.07.2004 № 79-ФЗ",
+  "branch": "Административное право",
+  "color": "#c9a227",
+  "docstate": "Действует с изменениями",
+  "redaction": "2026-06-07",
+  "adopted": "27.07.2004",
+  "number": "79-ФЗ",
+  "docpassing": "",
+  "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f6f7ced714a038e1d31522652f4ed66b6e5bedcc53d9130fd3a5f3d998a9a299&ttl=1",
+  "dataset": "О государственной гражданской службе Российской Федерации",
+  "count": 85
+ },
+ {
   "id": "fz342ovd",
   "kind": "law",
   "short": "ФЗ «О службе в ОВД» № 342",
@@ -2574,24 +2592,6 @@ window.RF_CODES=[
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=6c48a72670ed15d122c2a75a6c829b237efdaddb8ad163cb4e295bba4fb3b461&ttl=1",
   "dataset": "О ведении гражданами садоводства и огородничества для собственных нужд и о внесении изменений в отдельные законодательные акты Российской Федерации",
   "count": 59
- },
- {
-  "id": "fz79ggs",
-  "kind": "law",
-  "short": "ФЗ «О гражданской службе» № 79",
-  "abbr": "ФЗ о гражданской службе",
-  "full": "Федеральный закон «О государственной гражданской службе Российской Федерации»",
-  "req": "от 27.07.2004 № 79-ФЗ",
-  "branch": "Административное право",
-  "color": "#c9a227",
-  "docstate": "Действует с изменениями",
-  "redaction": "2026-06-07",
-  "adopted": "27.07.2004",
-  "number": "79-ФЗ",
-  "docpassing": "",
-  "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f6f7ced714a038e1d31522652f4ed66b6e5bedcc53d9130fd3a5f3d998a9a299&ttl=1",
-  "dataset": "О государственной гражданской службе Российской Федерации",
-  "count": 85
  },
  {
   "id": "pg1090pdd",

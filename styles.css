@@ -150,15 +150,24 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Атмосфера: два мягких цветных пятна по углам рабочей области. Держим их
-   на ::before фиксированным слоем — иначе при прокрутке длинной статьи
-   градиент «уезжает» и фон выглядит грязным. */
+/* Атмосфера: четыре мягких цветных пятна по углам рабочей области — синее,
+   фиолетовое, циановое и тёплое янтарное. Они дрейфуют медленно, поэтому
+   фон живой, но не отвлекает. Держим на ::before фиксированным слоем —
+   иначе при прокрутке длинной статьи градиент «уезжает» и фон выглядит
+   грязным. Масштаб в ключевых кадрах (>1) нужен, чтобы при сдвиге не
+   оголился край экрана. */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
     radial-gradient(1000px 560px at 10% -10%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 62%),
     radial-gradient(860px 500px at 102% -4%, color-mix(in srgb, var(--accent-2) 12%, transparent), transparent 60%),
-    radial-gradient(900px 600px at 50% 120%, color-mix(in srgb, var(--accent-3) 7%, transparent), transparent 65%);
+    radial-gradient(900px 600px at 50% 120%, color-mix(in srgb, var(--accent-3) 7%, transparent), transparent 65%),
+    radial-gradient(760px 480px at -4% 104%, color-mix(in srgb, var(--tone-amber) 8%, transparent), transparent 60%);
+  animation: bgDrift 52s ease-in-out infinite alternate;
+}
+@keyframes bgDrift {
+  from { transform: scale(1.04) translate3d(0, 0, 0); }
+  to   { transform: scale(1.04) translate3d(-26px, 18px, 0); }
 }
 /* тонкая сетка поверх фона: даёт «рабочему столу» фактуру вместо ровной
    заливки. Едва заметна (4 %), поэтому тексту не мешает. */
@@ -234,14 +243,13 @@ a, button, [data-go], [data-href], [role="button"], [role="tab"],
    памяток и шаблонов выделять можно — их классы сюда не входят. */
 .nav-item, .btn, .ibtn, .icon-btn, .chip, .tab, .tab-n, .tabs,
 .result, .result-head, .result-title, .result-snippet,
-.result-meta, .result-num, .quick-card, .tool-link, .scen-card,
+.result-meta, .result-num, .quick-card, .tool-link,
 .role-item, .code-card, .palette-item, .art-row, .as-art,
 .term-pill, .term-ref, .term-norm, .term-hit-t, .term-item,
 .cmp-res, .fresh-row, .tl-item-title, .case-card, .fav-item,
 .ncard-t, .crumbs, .stg-lbl, .sc-key, .hero-cta a, .hero-cta .btn,
 .fav-folder-badge, .badge, .stat, .stat-num, .stat-lbl,
 .tool-grid, .grid-feature, .scope-trigger { user-select: none; }
-
 /* Серая вспышка при касании на Android — лишний визуальный шум. */
 body { -webkit-tap-highlight-color: transparent; }
 
@@ -565,6 +573,7 @@ h3 { font-size: var(--fs-6); margin: 18px 0 8px; font-weight: 650; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero::before { animation: none; }
+  body::before { animation: none; }
 }
 
 /* ---------- карточки ---------- */
@@ -2340,10 +2349,19 @@ details.refs-block[open] > summary { margin-bottom: 12px; }
 .oper-t { font-weight: 700; font-size: var(--fs-6); letter-spacing: -.1px; }
 .oper-s { color: var(--muted); font-size: var(--fs-3); margin-top: 2px; }
 
-/* ---------- карточки памяток ---------- */
-.scen-card { cursor: pointer; display: flex; flex-direction: column; gap: 9px; }
-.scen-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--t, var(--accent)) 42%, var(--border)); }
-.scen-head { display: flex; align-items: center; gap: 10px; }
+/* ---------- карточки памяток: свёрнуты, раскрываются нажатием ----------
+   Заголовок — кнопка во всю ширину: свёрнутая карточка показывает только
+   название и счётчики, содержание (порядок действий, сроки, статьи,
+   выгрузка) раскрывается нажатием. Полная страница памятки — по ссылке
+   «Открыть памятку» в раскрытом теле. */
+.scen-card { padding: 0; overflow: hidden; }
+.scen-card.open { border-color: color-mix(in srgb, var(--t, var(--accent)) 42%, var(--border)); }
+.scen-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 13px 15px; background: none; border: 0; text-align: left;
+  font: inherit; color: var(--text); cursor: pointer;
+}
+.scen-head:hover { background: var(--bg-3); }
 .scen-ico {
   width: 34px; height: 34px; flex: 0 0 34px; border-radius: var(--r-sm);
   display: grid; place-items: center;
@@ -2352,11 +2370,19 @@ details.refs-block[open] > summary { margin-bottom: 12px; }
   border: 1px solid color-mix(in srgb, var(--t, var(--accent)) 26%, transparent);
 }
 .scen-ico .ic { width: 18px; height: 18px; }
+.scen-htxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .scen-t { font-weight: 650; font-size: var(--fs-5); line-height: 1.35; }
-.scen-when { color: var(--text-2); font-size: var(--fs-3); line-height: 1.5; flex: 1; }
-.scen-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
-.scen-go { margin-left: auto; color: var(--t, var(--accent)); font-size: var(--fs-3); display: inline-flex; align-items: center; gap: 4px; }
-.scen-go .ic { width: 1em; height: 1em; }
+.scen-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.scen-chev {
+  flex: 0 0 auto; color: var(--muted); font-size: var(--fs-4); line-height: 1;
+  transition: transform .14s ease, color .14s ease;
+}
+.scen-head[aria-expanded="true"] .scen-chev { transform: rotate(90deg); color: var(--accent); }
+.scen-body { padding: 2px 15px 15px; border-top: 1px solid var(--border); }
+.scen-body[hidden] { display: none; }
+.scen-when { color: var(--text-2); font-size: var(--fs-4); line-height: 1.55; margin: 10px 0 2px; }
+.scen-open { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; }
+.scen-open .ic { width: 1em; height: 1em; }
 
 /* хлебные крошки */
 .crumbs { margin-bottom: 6px; font-size: var(--fs-3); }

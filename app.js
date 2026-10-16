@@ -1801,6 +1801,10 @@
     var open = force != null ? force : m.hasAttribute("hidden");
     if (open) m.removeAttribute("hidden"); else m.setAttribute("hidden", "");
     b.setAttribute("aria-expanded", open ? "true" : "false");
+    /* Меню роли и меню чтения стоят в одной панели и наезжают друг на
+       друга: обе кнопки гасят всплытие, поэтому «клик вне» чужое меню не
+       закрывал. Открытие одного закрывает второе. */
+    if (open) toggleRoleMenu(false);
   }
 
   /* Переключатель роли — в верхней панели: выпадающее меню по кнопке.
@@ -1811,6 +1815,7 @@
     var open = force != null ? force : m.hasAttribute("hidden");
     if (open) m.removeAttribute("hidden"); else m.setAttribute("hidden", "");
     b.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) toggleReadMenu(false);
   }
 
   /* ---------------------------------------------------- мобильное меню */
@@ -4652,19 +4657,49 @@
       if (!map[g]) { map[g] = { g: g, items: [] }; groups.push(map[g]); }
       map[g].items.push(s);
     });
+    /* Карточки памяток свёрнуты по умолчанию: заголовок со счётчиками шагов
+       и статей виден сразу, содержание раскрывается нажатием. Полная
+       страница памятки остаётся — ссылка «Открыть памятку» в раскрытом
+       теле (и через неё же ходит проверка в смоук-тесте). */
     return "<h1>Памятки</h1>" +
       '<p class="lead">Готовые сценарии типовых ситуаций: последовательность действий, применимые статьи, оформляемые документы и контрольные сроки. Материал справочный — сверяйтесь с действующей редакцией законов.</p>' +
       tabStrip(SCEN_TABS, "scenarios") +
       groups.map(function (gr) {
         return "<h2>" + esc(gr.g) + "</h2>" +
           '<div class="grid grid-2">' + gr.items.map(function (s) {
-            return '<div class="card scen-card" data-go="#/scenario/' + s.id + '">' +
-              '<div class="scen-head"><span class="scen-ico">' + ic(s.ico) + "</span>" +
-              '<div class="scen-t">' + esc(s.t) + "</div></div>" +
-              '<div class="scen-when">' + esc(s.when) + "</div>" +
-              '<div class="scen-foot"><span class="badge">' + (s.steps || []).length + " шагов</span>" +
-              '<span class="badge">' + (s.articles || []).length + " " + plural((s.articles || []).length, ["статья", "статьи", "статей"]) + "</span>" +
-              '<span class="scen-go">Открыть ' + ic("arrow") + "</span></div></div>";
+            var arts = (s.articles || []).map(function (aid) { return byId[aid]; }).filter(Boolean);
+            return '<div class="card scen-card">' +
+              '<button class="scen-head" type="button" data-scen-toggle="' + esc(s.id) + '" aria-expanded="false">' +
+                '<span class="scen-ico">' + ic(s.ico) + "</span>" +
+                '<span class="scen-htxt"><span class="scen-t">' + esc(s.t) + "</span>" +
+                '<span class="scen-meta"><span class="badge">' + (s.steps || []).length + " шагов</span>" +
+                '<span class="badge">' + (s.articles || []).length + " " + plural((s.articles || []).length, ["статья", "статьи", "статей"]) + "</span></span></span>" +
+                '<span class="scen-chev" aria-hidden="true">▸</span>' +
+              "</button>" +
+              '<div class="scen-body" hidden>' +
+                '<div class="scen-when">' + esc(s.when) + "</div>" +
+                '<div class="section-label">Порядок действий</div>' +
+                '<ol class="steps">' + (s.steps || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ol>" +
+                (s.terms && s.terms.length
+                  ? '<div class="section-label">Контрольные сроки и ориентиры</div>' +
+                    '<ul class="list">' + s.terms.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>"
+                  : "") +
+                (arts.length
+                  ? '<div class="section-label">Статьи по ситуации</div>' +
+                    '<div class="chips">' + arts.map(function (a) {
+                      var c = codeById(a.c) || { short: a.c, color: "#888" };
+                      return '<div class="chip" data-go="#/article/' + encodeURIComponent(a.id) + '">' +
+                        "<b>" + esc(cite(a)) + "</b> · " + esc(a.t) + "</div>";
+                    }).join("") + "</div>"
+                  : "") +
+                '<div class="actions-row">' +
+                  '<button class="btn" data-col-batch="' + esc((s.articles || []).join(",")) + '">' + ic("clip") + " Все статьи в подборку</button>" +
+                  '<button class="btn" data-scen-docx="' + esc(s.id) + '">' + ic("file") + " Скачать .docx</button>" +
+                  '<button class="btn" data-scen-copy="' + esc(s.id) + '">' + ic("file") + " Скопировать текст</button>" +
+                  '<button class="btn no-print" data-scen-print="' + esc(s.id) + '">' + ic("print") + " Печать</button>" +
+                "</div>" +
+                '<span class="lnk scen-open" data-go="#/scenario/' + esc(s.id) + '">Открыть памятку ' + ic("arrow") + "</span>" +
+              "</div></div>";
           }).join("") + "</div>";
       }).join("") +
       '<div class="disclaimer"><b>Справочно.</b> Памятки не заменяют закон. Формулировки и сроки приводятся по действующей редакции; проверяйте актуальность в разделе «Проверка актуальности».</div>';
@@ -11665,13 +11700,14 @@
     return summary + detail;
   }
 
-  /* Тело таблицы источников: сгруппировано по видам акта. На телефоне 330
-     строк подряд читать невозможно, поэтому там группы начинаются свёрнутыми
-     и раскрываются нажатием; на широком экране всё открыто, как и раньше.
+  /* Тело таблицы источников: сгруппировано по видам акта. Группы начинаются
+     свёрнутыми на любом экране: 330 строк подряд — это стена текста, из
+     которой не видно структуры. Раскрываются нажатием на заголовок группы;
+     при вводе в фильтр группа сама раскрывается, если в ней есть совпадения.
      Строки остаются в одной таблице (.tbl-fresh) — по ним работают фильтр и
      проверки, поэтому разбивать таблицу на несколько нельзя. */
   function freshTableBody() {
-    var open = wideLayout();
+    var open = false;
     var off = open ? "" : " fresh-group-off";
     return docGroups().map(function (g) {
       var items = g.items.filter(function (c) { return !c.note; });
@@ -11833,17 +11869,23 @@
     /* Раскрытие строки источника и фильтр таблицы. */
     var ftbl = document.querySelector(".tbl-fresh");
     if (ftbl) {
-      /* Группы по видам акта: на телефоне свёрнуты по умолчанию. */
+      /* Свернуть/раскрыть группу строк: заголовок, стрелка и сами строки.
+         Общая функция — ей пользуются и клик по заголовку, и фильтр. */
+      function setFreshGroup(kind, open) {
+        var head = ftbl.querySelector('.fresh-kind[data-fresh-kind="' + kind + '"]');
+        if (!head) return;
+        head.classList.toggle("on", open);
+        var tog = head.querySelector(".fresh-toggle");
+        if (tog) tog.classList.toggle("open", open);
+        $$('#view tr[data-fresh-group="' + kind + '"]').forEach(function (r) {
+          r.classList.toggle("fresh-group-off", !open);
+        });
+      }
+      /* Группы по видам акта: свёрнуты по умолчанию, раскрываются нажатием. */
       $$("#view .fresh-kind").forEach(function (head) {
         head.addEventListener("click", function () {
           var kind = head.getAttribute("data-fresh-kind");
-          var open = !head.classList.contains("on");
-          head.classList.toggle("on", open);
-          var tog = head.querySelector(".fresh-toggle");
-          if (tog) tog.classList.toggle("open", open);
-          $$('#view tr[data-fresh-group="' + kind + '"]').forEach(function (r) {
-            r.classList.toggle("fresh-group-off", !open);
-          });
+          setFreshGroup(kind, !head.classList.contains("on"));
         });
       });
 
@@ -11879,11 +11921,15 @@
           if (det) det.classList.toggle("fresh-hidden", !match);
           if (match) { shown++; var g = row.getAttribute("data-fresh-group") || ""; byGroup[g] = (byGroup[g] || 0) + 1; }
         });
-        /* Заголовок группы прячем, если в ней не осталось подходящих строк:
-           иначе над пустотой висит одинокий заголовок и сбивает с толку. */
+        /* Группа с совпадениями раскрывается сама — иначе фильтр прячет
+           найденное внутри свёрнутой группы. Заголовок без совпадений
+           прячется: иначе над пустотой висит одинокий заголовок.
+           Пустой фильтр возвращает группы в исходное свёрнутое состояние. */
         ftbl.querySelectorAll(".fresh-kind").forEach(function (head) {
           var g = head.getAttribute("data-fresh-kind") || "";
-          head.classList.toggle("fresh-hidden", !!q && !byGroup[g]);
+          var hit = !!byGroup[g];
+          head.classList.toggle("fresh-hidden", !!q && !hit);
+          setFreshGroup(g, !!q && hit);
         });
         var cnt = $("#frCount");
         if (cnt) cnt.textContent = shown;
@@ -12541,6 +12587,25 @@
               var a3 = byId[aid]; return a3 ? "<p>" + esc(citeLegal(a3)) + "</p>" : "";
             }).join("");
           printDoc(sc3.t, inner3);
+        }
+        return;
+      }
+
+      /* Памятка в списке: заголовок сворачивает и разворачивает карточку.
+         Сама карточка больше не ведёт на страницу памятки — переход по
+         явной ссылке «Открыть памятку» в раскрытом теле. */
+      var scTg = e.target.closest("[data-scen-toggle]");
+      if (scTg) {
+        e.preventDefault();
+        var card = scTg.closest(".scen-card");
+        if (!card) return;
+        var body = card.querySelector(".scen-body");
+        var open = scTg.getAttribute("aria-expanded") !== "true";
+        scTg.setAttribute("aria-expanded", open ? "true" : "false");
+        card.classList.toggle("open", open);
+        if (body) {
+          if (open) body.removeAttribute("hidden");
+          else body.setAttribute("hidden", "");
         }
         return;
       }

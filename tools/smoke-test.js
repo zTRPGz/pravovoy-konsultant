@@ -2281,10 +2281,26 @@ server.listen(0, "127.0.0.1", async () => {
   ok("активный пункт меню — памятки",
     !!($('.nav-item[data-nav="scenarios"]') && $('.nav-item[data-nav="scenarios"]').classList.contains("active")));
 
-  /* открытие конкретной памятки */
+  /* карточки памяток свёрнуты и раскрываются нажатием на заголовок */
   if (scenCards.length) {
-    const firstScen = scenCards[0].getAttribute("data-go");
-    await nav(firstScen, 600);
+    const firstBody = $("#view .scen-card .scen-body");
+    ok("памятка свёрнута по умолчанию", !!firstBody && firstBody.hasAttribute("hidden"));
+    $("#view .scen-card .scen-head").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+    await wait(80);
+    /* считаем только раскрытое тело: в jsdom свёрнутые карточки остаются
+       в DOM, и без уточнения счётчик суммировал бы все 12 памяток */
+    const openSteps = $$("#view .scen-card.open .scen-body:not([hidden]) ol.steps li");
+    ok("памятка раскрывается с шагами", openSteps.length > 0, openSteps.length + " шагов");
+    ok("раскрыта ровно одна карточка", $$("#view .scen-card.open").length === 1,
+      $$("#view .scen-card.open").length + " раскрытых");
+    ok("в раскрытой памятке есть статьи по ситуации",
+      $$('#view .scen-card.open .scen-body:not([hidden]) .chip[data-go^="#/article/"]').length > 0,
+      $$('#view .scen-card.open .scen-body:not([hidden]) .chip[data-go^="#/article/"]').length + " статей");
+    ok("в раскрытой памятке есть выгрузка",
+      !!$('#view .scen-card.open .scen-body:not([hidden]) [data-scen-docx]') &&
+      !!$('#view .scen-card.open .scen-body:not([hidden]) [data-scen-copy]'));
+    const openLink = $("#view .scen-card.open .scen-body .scen-open");
+    await nav(openLink.getAttribute("data-go"), 600);
     ok("памятка открывается с шагами", $$("#view ol.steps li").length > 0,
       $$("#view ol.steps li").length + " шагов");
     ok("в памятке есть статьи по ситуации", $$('#view .chip[data-go^="#/article/"]').length > 0,

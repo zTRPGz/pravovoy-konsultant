@@ -2482,7 +2482,7 @@
   } catch (e) {}
   function staggerIn(root) {
     if (!root || reduceMotion) return;
-    var els = root.querySelectorAll(".help-start > *, .grid-4 > *, .grid-3 > .quick-card, .tiles > *");
+    var els = root.querySelectorAll(".help-start > *, .grid-4 > *, .grid-feature > *, .grid-3 > .quick-card, .tool-grid > *, .tiles > *");
     for (var i = 0, n = 0; i < els.length && n < 18; i++, n++) {
       els[i].style.animationDelay = (n * 20) + "ms";
       els[i].classList.add("rise");
@@ -2529,7 +2529,7 @@
      скринридеров: role, tabindex, Enter/Space. Вызывается после отрисовки. */
   function a11yNav(root) {
     var scope = root || document;
-    $$(".nav-item, .code-card, .chip, .result, .palette-item, .quick-card, .scen-card", scope).forEach(function (el) {
+    $$(".nav-item, .code-card, .chip, .result, .palette-item, .quick-card, .scen-card, .tool-link", scope).forEach(function (el) {
       if (el.getAttribute("data-a11y") === "1") return;
       if (/^(BUTTON|A|INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
       if (!el.hasAttribute("data-go") && !el.hasAttribute("data-href")) return;
@@ -2549,12 +2549,23 @@
       (ico ? '<span class="stat-ico">' + ic(ico) + "</span>" : "") +
       '<div class="stat-num">' + num + '</div><div class="stat-lbl">' + esc(lbl) + "</div></div>";
   }
-  function quickCard(iconName, title, sub, href, tone) {
-    return '<div class="card quick-card" data-go="' + href + '"' +
+  function quickCard(iconName, title, sub, href, tone, lead) {
+    return '<div class="card quick-card' + (lead ? " qc-lead" : "") + '" data-go="' + href + '"' +
       (tone ? ' data-tone="' + tone + '"' : "") + ">" +
       '<span class="qc-ico">' + ic(iconName) + "</span>" +
       '<div class="qc-body"><div class="qc-t">' + esc(title) + "</div>" +
       '<div class="qc-s">' + esc(sub) + "</div></div></div>";
+  }
+
+  /* Компактная ссылка-инструмент для главной: иконка, подпись и короткое
+     пояснение. Мельче карточки быстрого действия — во второстепенном списке
+     важна плотность, а не крупный заголовок. */
+  function toolLink(iconName, title, sub, href, tone) {
+    return '<div class="tool-link" data-go="' + href + '"' +
+      (tone ? ' data-tone="' + tone + '"' : "") + ">" +
+      '<span class="tl-ico">' + ic(iconName) + "</span>" +
+      '<div class="tl-body"><div class="tl-t">' + esc(title) + "</div>" +
+      (sub ? '<div class="tl-s">' + esc(sub) + "</div>" : "") + "</div></div>";
   }
 
   /* Горизонтальные вкладки разделов: связывают родственные страницы, чтобы
@@ -2567,18 +2578,6 @@
         (it.ico ? ic(it.ico) : "") + "<span>" + esc(it.t) + "</span>" +
         (it.n != null ? '<span class="tab-n">' + it.n + "</span>" : "") + "</div>";
     }).join("") + "</nav>";
-  }
-
-  function codeCard(c) {
-    var n = (byCode[c.id] || []).length;
-    var upd = updates[c.id];
-    return '<div class="code-card" data-go="#/code/' + c.id + '" style="--c:' + c.color + '">' +
-      '<div class="cc-short">' + esc(c.short) + "</div>" +
-      '<div class="cc-full">' + esc(c.full) + "</div>" +
-      '<div class="cc-meta"><span>' + esc(c.req || "") + "</span><span>" + n + " ст.</span></div>" +
-      '<div class="cc-red">' + (c.redaction ? "ред. " + fmtRed(c.redaction) : (c.note ? "" : "справочно")) +
-        (upd ? '<span class="cc-upd">обновление</span>' : "") + "</div>" +
-      "</div>";
   }
 
   /* Группировка источников по виду акта */
@@ -2629,74 +2628,104 @@
     var nDec = CODES.filter(function (c) { return c.kind === "decree"; }).length;
     var nPlen = CODES.filter(function (c) { return c.kind === "plenum"; }).length;
     var nUpd = Object.keys(updates).length;
+    var nRef = (REF.scenarios || []).length + (REF.checklists || []).length + (REF.templates || []).length;
 
+    /* Главная отвечает на три вопроса подряд: «что это» (шапка с кнопками),
+       «что внутри» (цифры) и «куда идти» (основное и инструменты). Раньше
+       четырнадцать равных плиток шли одной простыней — теперь у входов есть
+       вес: четыре главных крупно, остальное плотным списком. */
     return '<header class="hero">' +
-        "<h1>Правовой консультант-помощник</h1>" +
-        '<p class="lead">Полные тексты кодексов, федеральных законов, Конституции, федеральных конституционных законов и постановлений Правительства Российской Федерации в действующей редакции: поиск по статьям, разбор ситуации в «Помощнике», процессуальные сроки, чек-листы следственных действий и шаблоны документов — в одном рабочем окне.</p>' +
+        '<span class="hero-badge">' + ic("shield") + "Работает офлайн · без регистрации и подписки</span>" +
+        "<h1>Правовой консультант</h1>" +
+        '<p class="lead">Полные тексты кодексов, федеральных законов, Конституции и постановлений Правительства в действующей редакции: поиск по словам, разбор ситуации с указанием норм, калькуляторы сроков и пошлин, памятки и шаблоны документов — в одном рабочем окне.</p>' +
+        '<div class="hero-cta">' +
+          '<button class="btn btn-primary btn-lg" type="button" data-go="#/search/">' + ic("search") + "Найти статью</button>" +
+          '<button class="btn btn-lg" type="button" data-go="#/assistant">' + ic("compass") + "Разобрать ситуацию</button>" +
+          '<button class="btn btn-lg" type="button" data-go="#/calc">' + ic("calculator") + "Калькуляторы</button>" +
+        "</div>" +
       "</header>" +
 
       '<div class="grid grid-4">' +
-        stat(arts.length.toLocaleString("ru-RU"), "статей в базе", "file", 1) +
-        stat(withText.length, "источников полностью", "shield", 2) +
+        stat(arts.length.toLocaleString("ru-RU"), "статей и пунктов", "file", 1) +
+        stat(withText.length, "источников с полным текстом", "shield", 2) +
         stat((REF.deadlines || []).length, "процессуальных сроков", "clock", 3) +
-        stat((REF.scenarios || []).length + (REF.checklists || []).length + (REF.templates || []).length, "памяток, чек-листов и шаблонов", "checkbox", 4) +
+        stat(nRef, "памяток, чек-листов и шаблонов", "checkbox", 4) +
       "</div>" +
 
-
-      '<div class="oper-panel">' +
-        '<div class="oper-head">' +
-          '<span class="oper-ico">' + ic("shield") + "</span>" +
-          '<div class="oper-txt"><div class="oper-t">' + esc(roleDative()) + "</div>" +
-          '<div class="oper-s">Типовые ситуации: что проверить, какие статьи применить, что оформить и в какой срок</div></div>' +
-          '<div class="btn btn-sm" data-go="#/scenarios">Все памятки →</div>' +
+      '<section class="home-sec">' +
+        '<div class="home-sec-h"><h2>Основное</h2></div>' +
+        '<div class="grid grid-feature">' +
+          quickCard("search", "Поиск статей", "По номеру, названию или ключевому слову", "#/search/", "blue", true) +
+          quickCard("compass", "Помощник", "Опишите ситуацию — разберём состав, квалификацию и порядок действий", "#/assistant", "violet", true) +
+          quickCard("calculator", "Калькуляторы", "Сроки, давность, госпошлина, проценты, сроки под стражей", "#/calc", "amber", true) +
+          quickCard("scales", "Источники", "Реестр " + CODES.length + " актов: открыть кодекс или спрашивать Помощник только по нему", "#/sources", "teal", true) +
         "</div>" +
-        '<div class="chips">' + roleSort((REF.scenarios || []).slice(0, 8), function (s) { return s.t + " " + (s.note || ""); }).map(function (s) {
-          var off = state.role && roleOff(s.t + " " + (s.note || "")) ? " role-off" : "";
-          return '<div class="chip' + off + '" data-go="#/scenario/' + s.id + '">' + ic(s.ico) + " " + esc(s.t) + "</div>";
-        }).join("") + "</div>" +
-      "</div>" +
+      "</section>" +
 
-      '<div class="grid grid-3" style="margin-top:16px">' +
-        quickCard("search", "Поиск статей", "По номеру, названию или ключевому слову", "#/search/", "blue") +
-        quickCard("book", "Термины", TERMS.length + " " + plural(TERMS.length, ["определение", "определения", "определений"]) + " со ссылками на нормы", "#/terms", "green") +
-        quickCard("scales", "Источники", "Реестр актов: открыть один кодекс или спрашивать Помощник только по нему", "#/sources", "teal") +
-        quickCard("compass", "Помощник", "Опишите ситуацию или вопрос — разберём состав, квалификацию и порядок действий", "#/assistant", "violet") +
-        quickCard("clip", "Подборка норм", colCount() ? "В подборке " + colCount() + " " + plural(colCount(), ["статья", "статьи", "статей"]) : "Рабочий набор статей по делу с выгрузкой", "#/collection", "teal") +
-        quickCard("folder", "Дела", state.cases.length ? "Дел заведено: " + state.cases.length + " — нормы, заметки, журнал" : "Папки по делам: нормы с заметками и журнал по делу", "#/cases", "amber") +
-        quickCard("swap", "Сравнение", "Редакции источника и две статьи бок о бок", "#/diff", "violet") +
-        quickCard("shield", "Проверка актуальности", nUpd ? nUpd + " " + plural(nUpd, ["источник требует", "источника требуют", "источников требуют"]) + " обновления" : "Сверить редакции с официальным источником", "#/freshness", "green") +
-        quickCard("ban", "Утратившие силу", (STATUS_META.total || 0) + " " + plural(STATUS_META.total || 0, ["норма утратила силу", "нормы утратили силу", "норм утратили силу"]) + " — реестр", "#/repealed", "slate") +
-        quickCard("scales", "Калькуляторы", "Обычный счёт, процессуальные сроки, давность, госпошлина, проценты, сроки под стражей", "#/calc", "amber") +
-        quickCard("checkbox", "Чек-листы", "Обязательные элементы следственных действий", "#/checklists", "blue") +
-        quickCard("file", "Шаблоны", "Документы по отраслям права с подстановкой данных", "#/templates", "teal") +
-        quickCard("star", "Избранное", state.fav.length ? "Сохранено статей: " + state.fav.length : "Статьи, к которым вы вернётесь", "#/favorites", "rose") +
-        quickCard("help", "Как пользоваться", "Возможности приложения и приёмы работы с текстами", "#/help", "slate") +
-      "</div>" +
+      '<section class="home-sec">' +
+        '<div class="oper-panel">' +
+          '<div class="oper-head">' +
+            '<span class="oper-ico">' + ic("shield") + "</span>" +
+            '<div class="oper-txt"><div class="oper-t">' + esc(roleDative()) + "</div>" +
+            '<div class="oper-s">Типовые ситуации: что проверить, какие статьи применить, что оформить и в какой срок</div></div>' +
+            '<div class="btn btn-sm" data-go="#/scenarios">Все памятки →</div>' +
+          "</div>" +
+          '<div class="chips">' + roleSort((REF.scenarios || []).slice(0, 8), function (s) { return s.t + " " + (s.note || ""); }).map(function (s) {
+            var off = state.role && roleOff(s.t + " " + (s.note || "")) ? " role-off" : "";
+            return '<div class="chip' + off + '" data-go="#/scenario/' + s.id + '">' + ic(s.ico) + " " + esc(s.t) + "</div>";
+          }).join("") + "</div>" +
+        "</div>" +
+      "</section>" +
 
-      '<h2>Нормативные источники</h2>' +
-      '<p class="lead" style="margin-top:-6px">' + nCodes + " " + plural(nCodes, ["кодекс", "кодекса", "кодексов"]) +
-        ", " + nLaws + " " + plural(nLaws, ["федеральный закон", "федеральных закона", "федеральных законов"]) +
-        ", Конституция Российской Федерации, " + nFkz + " " + plural(nFkz, ["федеральный конституционный закон", "федеральных конституционных закона", "федеральных конституционных законов"]) +
-        ", " + nDec + " " + plural(nDec, ["постановление Правительства", "постановления Правительства", "постановлений Правительства"]) +
-        (nPlen ? " и " + nPlen + " " + plural(nPlen, ["постановление Пленума ВС РФ", "постановления Пленума ВС РФ", "постановлений Пленума ВС РФ"]) : "") +
-        ". Полные тексты подгружаются по требованию.</p>" +
-      '<div class="src-teaser">' +
-        '<div class="src-teaser-ico" aria-hidden="true">' + ic("scales") + "</div>" +
-        '<div class="src-teaser-txt"><div class="src-teaser-h">Реестр из ' + CODES.length + " " + plural(CODES.length, ["акта", "актов", "актов"]) + "</div>" +
-          '<div class="src-teaser-s">Полный список с фильтром по названию и быстрым переходом к любой статье — и к режиму Помощника «только по выбранному акту».</div></div>' +
-        '<button class="btn btn-primary" data-go="#/sources">Открыть реестр →</button>' +
-      "</div>" +
+      '<section class="home-sec">' +
+        '<div class="home-sec-h"><h2>Инструменты</h2>' +
+          '<span class="home-more">Как устроен справочник — <span class="lnk" data-go="#/help">справка</span></span>' +
+        "</div>" +
+        '<div class="tool-grid">' +
+          toolLink("shield", "Памятки и чек-листы", "Порядок действий и элементы следственных действий", "#/scenarios", "green") +
+          toolLink("file", "Шаблоны и иски", "Бланки по отраслям и готовые исковые заявления", "#/templates", "teal") +
+          toolLink("book", "Термины", TERMS.length + " " + plural(TERMS.length, ["определение", "определения", "определений"]) + " со ссылками на нормы", "#/terms", "green") +
+          toolLink("clip", "Подборка норм", colCount() ? "В подборке " + colCount() + " " + plural(colCount(), ["статья", "статьи", "статей"]) : "Рабочий набор статей по делу с выгрузкой", "#/collection", "teal") +
+          toolLink("folder", "Дела", state.cases.length ? "Дел заведено: " + state.cases.length + " — нормы, заметки, журнал" : "Папки по делам: нормы с заметками и журнал", "#/cases", "amber") +
+          toolLink("swap", "Сравнение", "Редакции источника и две статьи бок о бок", "#/diff", "violet") +
+          toolLink("chart", "Аналитика", "Состав базы, статусы норм, лента изменений", "#/stats", "blue") +
+          toolLink("refresh", "Проверка актуальности", nUpd ? nUpd + " " + plural(nUpd, ["источник требует", "источника требуют", "источников требуют"]) + " обновления" : "Сверить редакции с официальным источником", "#/freshness", "green") +
+          toolLink("ban", "Утратившие силу", (STATUS_META.total || 0) + " " + plural(STATUS_META.total || 0, ["норма утратила силу", "нормы утратили силу", "норм утратили силу"]), "#/repealed", "slate") +
+          toolLink("activity", "Новое", "Что изменилось в базе за последние сборки", "#/new", "amber") +
+          toolLink("star", "Избранное", state.fav.length ? "Сохранено статей: " + state.fav.length : "Статьи, к которым вы вернётесь", "#/favorites", "rose") +
+          toolLink("help", "Как пользоваться", "Возможности приложения и приёмы работы", "#/help", "slate") +
+        "</div>" +
+      "</section>" +
 
-      '<div class="disclaimer">' +
-        "<b>О статусе текстов.</b> Полные тексты получены из открытого набора данных на основе официального портала опубликования правовых актов actual.pravo.gov.ru, а также напрямую с этого портала. " +
-        "Тексты правовых актов не являются объектами авторских прав (п. 6 ст. 1259 ГК РФ). " +
-        "Дата редакции указана для каждого источника и для каждой статьи отдельно. " +
-        "Справочные аннотации, ключевые слова и практические заметки подготовлены для приложения и не являются официальным текстом. " +
-        "Сам справочный слой — аннотации, памятки, чек-листы, шаблоны, разборы ситуаций и код приложения — охраняется как объект авторского права (ст. 1259 ГК РФ): " +
-        "цитировать его со ссылкой на источник можно, копировать целиком в свой продукт — нет. " +
-        "Полные условия — в <a href=\"https://github.com/zTRPGz/pravovoy-konsultant/blob/main/LICENSE\" target=\"_blank\" rel=\"noopener\">файле LICENSE ↗</a>. " +
-        "Для юридически значимых действий сверяйтесь с официальной публикацией и пользуйтесь разделом «Проверка актуальности». Приложение не заменяет консультацию юриста." +
-      "</div>";
+      '<section class="home-sec">' +
+        '<div class="home-sec-h"><h2>Нормативные источники</h2></div>' +
+        '<p class="lead" style="margin-top:-6px">' + nCodes + " " + plural(nCodes, ["кодекс", "кодекса", "кодексов"]) +
+          ", " + nLaws + " " + plural(nLaws, ["федеральный закон", "федеральных закона", "федеральных законов"]) +
+          ", Конституция Российской Федерации, " + nFkz + " " + plural(nFkz, ["федеральный конституционный закон", "федеральных конституционных закона", "федеральных конституционных законов"]) +
+          ", " + nDec + " " + plural(nDec, ["постановление Правительства", "постановления Правительства", "постановлений Правительства"]) +
+          (nPlen ? " и " + nPlen + " " + plural(nPlen, ["постановление Пленума ВС РФ", "постановления Пленума ВС РФ", "постановлений Пленума ВС РФ"]) : "") +
+          ". Полные тексты подгружаются по требованию.</p>" +
+        '<div class="src-teaser">' +
+          '<div class="src-teaser-ico" aria-hidden="true">' + ic("scales") + "</div>" +
+          '<div class="src-teaser-txt"><div class="src-teaser-h">Реестр из ' + CODES.length + " " + plural(CODES.length, ["акта", "актов", "актов"]) + "</div>" +
+            '<div class="src-teaser-s">Полный список с фильтром по названию и быстрым переходом к любой статье — и к режиму Помощника «только по выбранному акту».</div></div>' +
+          '<button class="btn btn-primary" data-go="#/sources">Открыть реестр →</button>' +
+        "</div>" +
+      "</section>" +
+
+      '<details class="disclaimer-collapse">' +
+        "<summary>О статусе текстов и авторских правах</summary>" +
+        '<div class="disclaimer">' +
+          "<b>О статусе текстов.</b> Полные тексты получены из открытого набора данных на основе официального портала опубликования правовых актов actual.pravo.gov.ru, а также напрямую с этого портала. " +
+          "Тексты правовых актов не являются объектами авторских прав (п. 6 ст. 1259 ГК РФ). " +
+          "Дата редакции указана для каждого источника и для каждой статьи отдельно. " +
+          "Справочные аннотации, ключевые слова и практические заметки подготовлены для приложения и не являются официальным текстом. " +
+          "Сам справочный слой — аннотации, памятки, чек-листы, шаблоны, разборы ситуаций и код приложения — охраняется как объект авторского права (ст. 1259 ГК РФ): " +
+          "цитировать его со ссылкой на источник можно, копировать целиком в свой продукт — нет. " +
+          "Полные условия — в <a href=\"https://github.com/zTRPGz/pravovoy-konsultant/blob/main/LICENSE\" target=\"_blank\" rel=\"noopener\">файле LICENSE ↗</a>. " +
+          "Для юридически значимых действий сверяйтесь с официальной публикацией и пользуйтесь разделом «Проверка актуальности». Приложение не заменяет консультацию юриста." +
+        "</div>" +
+      "</details>";
   }
 
   /* Настройки выдачи. Живут в памяти вкладки, а не в адресе: при переходе по
@@ -11571,22 +11600,7 @@
 
     return '<h1>Проверка актуальности</h1>' +
       '<p class="lead">База собрана из официального набора данных на основе портала actual.pravo.gov.ru. ' +
-      "Здесь можно сверить даты редакций с текущими, увидеть, какие источники изменились, и обновить их прямо в приложении.</p>" +
-
-      /* ежедневный контроль «день в день» */
-      '<div class="card" style="margin-bottom:16px">' +
-        '<h3 style="margin-top:0">Ежедневный контроль</h3>' +
-        '<p class="small muted" style="margin-top:-4px">Проверка запускается автоматически при первом открытии приложения в течение дня ' +
-        "и сверяет даты редакций с официальным набором данных. Нужен доступ к сети; всё остальное работает офлайн.</p>" +
-        '<div class="actions-row" style="margin:0">' +
-          freshnessChip() +
-          (dailyFresh.at ? '<span class="small muted">последняя проверка: ' + fmtDateTime(new Date(dailyFresh.at)) + "</span>" : "") +
-        "</div>" +
-        (dailyFresh.error ? '<div class="warn-box" style="margin-top:10px">Проверка за сегодня не удалась: ' +
-          esc(dailyFresh.error) + ". Попробуем при следующем открытии.</div>" : "") +
-        (dailyFresh.newDocs ? '<div class="warn-box" style="margin-top:10px">В наборе данных появились документы, которых нет в базе: <b>' +
-          dailyFresh.newDocs + "</b>.</div>" : "") +
-      "</div>" +
+      "Здесь видно, на какие редакции собрана база, что изменилось на портале и какие источники можно обновить прямо в приложении.</p>" +
 
       '<div class="grid grid-4" style="margin-bottom:16px">' +
         stat(withText.length, "источников в базе") +
@@ -11595,24 +11609,38 @@
         stat(nOv, "обновлено локально") +
       "</div>" +
 
+      /* Одна карточка вместо двух: ежедневная автопроверка и ручная кнопка
+         делают одно и то же, а раньше описывались дважды и читались как две
+         разные функции. Технические реквизиты сборки убраны под раскрывашку. */
       '<div class="card">' +
+        '<h3 style="margin-top:0">Проверка редакций</h3>' +
+        '<p class="small muted" style="margin-top:-4px">Проверка запускается сама при первом открытии за день и сверяет даты редакций ' +
+        "с официальным набором данных. Можно запустить вручную — нужен доступ к сети, всё остальное работает офлайн.</p>" +
         '<div class="actions-row" style="margin:0">' +
           '<button class="btn btn-primary" id="frCheck">Проверить обновления</button>' +
           (nUpd ? '<button class="btn" id="frUpdateAll">Обновить все (' + nUpd + ")</button>" : "") +
           (nOv ? '<button class="btn" id="frReset">Сбросить локальные обновления</button>' : "") +
+          freshnessChip() +
         "</div>" +
-        '<div class="small muted" style="margin-top:10px">Снимок базы собран: ' +
-          (FRESH && FRESH.built_at ? fmtDateTime(new Date(FRESH.built_at)) : "н/д") +
-          " · локальные обновления хранятся только в этом браузере" +
-          (IDB.available() ? "" : " (хранилище недоступно — обновления действуют до перезагрузки страницы)") +
-        "</div>" +
-        '<div class="small muted" style="margin-top:6px">Версия базы в этой вкладке: ' +
-          esc(buildStampText()) +
-          /* отпечаток кода показываем только когда он есть: по нему видно,
-             что на экране действительно новая сборка приложения */
-          (loadedCode() ? " · сборка кода " + esc(loadedCode()) : "") +
-          " · при выходе новой сборки приложение предложит обновиться</div>" +
         '<div style="margin-top:12px">' + statusHtml + "</div>" +
+        (dailyFresh.at ? '<div class="small muted" style="margin-top:10px">Автопроверка: ' + fmtDateTime(new Date(dailyFresh.at)) + "</div>" : "") +
+        (dailyFresh.error ? '<div class="warn-box" style="margin-top:10px">Автопроверка за сегодня не удалась: ' +
+          esc(dailyFresh.error) + ". Попробуем при следующем открытии.</div>" : "") +
+        (dailyFresh.newDocs ? '<div class="warn-box" style="margin-top:10px">В наборе данных появились документы, которых нет в базе: <b>' +
+          dailyFresh.newDocs + "</b>.</div>" : "") +
+        '<details class="fresh-tech">' +
+          "<summary>Технические подробности</summary>" +
+          '<div class="fresh-tech-body">' +
+            "<div>Снимок базы собран: " + (FRESH && FRESH.built_at ? fmtDateTime(new Date(FRESH.built_at)) : "н/д") +
+              " · локальные обновления хранятся только в этом браузере" +
+              (IDB.available() ? "" : " (хранилище недоступно — обновления действуют до перезагрузки страницы)") + "</div>" +
+            "<div>Версия базы в этой вкладке: " + esc(buildStampText()) +
+              /* отпечаток кода показываем только когда он есть: по нему видно,
+                 что на экране действительно новая сборка приложения */
+              (loadedCode() ? " · сборка кода " + esc(loadedCode()) : "") +
+              " · при выходе новой сборки приложение предложит обновиться</div>" +
+          "</div>" +
+        "</details>" +
       "</div>" +
 
       '<h2>Полнота базы и статусы норм</h2>' +

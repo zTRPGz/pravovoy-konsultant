@@ -207,7 +207,14 @@ server.listen(0, "127.0.0.1", async () => {
 
   section = "2. Главная страница"; console.log("\n" + section);
   await nav("#/home");
-  ok("заголовок", /консультант-помощник/i.test(T("h1") || ""), T("h1"));
+  ok("заголовок", /правовой консультант/i.test(T("h1") || ""), T("h1"));
+  ok("в шапке главной — три кнопки действий",
+    $$('#view .hero-cta .btn').length === 3, $$('#view .hero-cta .btn').length + " кнопок");
+  ok("блоки «Основное» и «Инструменты» на главной",
+    $$('#view .grid-feature .quick-card').length === 4 && $$('#view .tool-grid .tool-link').length >= 8,
+    $$('#view .grid-feature .quick-card').length + " основных · " + $$('#view .tool-grid .tool-link').length + " инструментов");
+  ok("правовая сноска на главной свёрнута",
+    !!$('#view details.disclaimer-collapse') && !$('#view details.disclaimer-collapse').open);
   ok("блок перехода к реестру источников", !!$(".src-teaser") && /#\/sources/.test($(".src-teaser").innerHTML || ""), $(".src-teaser") ? "есть" : "нет");
   ok("на главной нет дублирующего списка источников (он в меню и на #/sources)", $$(".code-card").length === 0, $$(".code-card").length);
 
@@ -2030,7 +2037,7 @@ server.listen(0, "127.0.0.1", async () => {
     w.localStorage.getItem("rflaws.read") !== null);
 
   await nav("#/freshness", 400);
-  ok("блок ежедневного контроля в разделе", /Ежедневный контроль/.test(T("#view") || ""));
+  ok("карточка проверки редакций в разделе", /Проверка редакций/.test(T("#view") || ""));
   ok("кнопка ручной проверки осталась", !!$("#frCheck"));
 
   /* отметка о проверке сохраняется и считывается */
@@ -2152,8 +2159,8 @@ server.listen(0, "127.0.0.1", async () => {
   /* роль на главной */
   await nav("#/home", 300);
   ok("переключатель ролей на главной", $$("[data-role]").length >= 4);
-  ok("карточка «Сравнение» на главной",
-    $$('#view .quick-card[data-go="#/diff"]').length === 1);
+  ok("ссылка «Сравнение» на главной",
+    $$('#view .tool-link[data-go="#/diff"]').length === 1);
   ok("панель «Оперативнику» на главной",
     $$('#view .oper-panel').length === 1 && $$('#view .oper-panel .chip[data-go^="#/scenario/"]').length > 0,
     $$('#view .oper-panel .chip').length + " памяток");

@@ -3248,6 +3248,19 @@
 
   /* ------------------------------------------------- список терминов */
 
+  /* Общее сворачивание/разворачивание группы в списках (термины, шаблоны).
+     Одна функция вместо двух одинаковых копий: состояние держим на кнопке
+     (aria-expanded), классе группы (.open) и атрибуте hidden у тела. */
+  function setGroupOpen(sec, btnSel, bodySel, open) {
+    var btn = sec.querySelector(btnSel);
+    var body = sec.querySelector(bodySel);
+    if (!btn || !body) return;
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    sec.classList.toggle("open", open);
+    if (open) body.removeAttribute("hidden");
+    else body.setAttribute("hidden", "");
+  }
+
   function viewTerms(q) {
     q = (q || "").trim();
     var all = TERMS.slice().sort(function (a, b) { return cmpRu(a.t, b.t); });
@@ -3269,15 +3282,19 @@
         'placeholder="Термин или слово из определения: преступление, алименты, обыск…" aria-label="Поиск по терминам">' +
       '<div class="chips tpl-nav">' + branches.map(function (gr) {
         return '<span class="chip" data-term-jump="' + esc(gr.b) + '">' + esc(gr.b) + " <b>" + gr.items.length + "</b></span>";
-      }).join("") + "</div></div>";
+      }).join("") + "</div>" +
+      '<div class="group-tools">' +
+        '<button class="btn btn-sm" type="button" data-term-all="open">Раскрыть все разделы</button>' +
+        '<button class="btn btn-sm" type="button" data-term-all="close">Свернуть все</button>' +
+      "</div></div>";
 
     var cards = branches.map(function (gr) {
       return '<section class="term-group" data-branch="' + esc(gr.b) + '" data-term-group="' + esc(gr.b) + '">' +
-        '<button class="term-group-head" type="button" data-term-group-toggle="' + esc(gr.b) + '" aria-expanded="false">' +
+        '<h2 class="term-group-h"><button class="term-group-head" type="button" data-term-group-toggle="' + esc(gr.b) + '" aria-expanded="false">' +
           '<span class="term-group-t">' + esc(gr.b) + "</span>" +
           '<span class="small muted">' + gr.items.length + "</span>" +
           '<span class="term-group-chev" aria-hidden="true">▸</span>' +
-        "</button>" +
+        "</button></h2>" +
         '<div class="term-group-body" hidden>' +
           '<div class="grid grid-2">' + gr.items.map(function (t) {
             var key = termNorm(t.t + " " + (t.a || []).join(" "));
@@ -3371,20 +3388,22 @@
     /* Сворачивание/разворачивание группы терминов. Изначально группы
        закрыты, поэтому поиск по разделам раскрывает группы с совпадениями. */
     function setTermGroup(sec, open) {
-      var btn = sec.querySelector("[data-term-group-toggle]");
-      var body = sec.querySelector(".term-group-body");
-      if (!btn || !body) return;
-      btn.setAttribute("aria-expanded", open ? "true" : "false");
-      sec.classList.toggle("open", open);
-      if (open) body.removeAttribute("hidden");
-      else body.setAttribute("hidden", "");
+      setGroupOpen(sec, "[data-term-group-toggle]", ".term-group-body", open);
     }
     $$("#view [data-term-group-toggle]").forEach(function (btn) {
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         var sec = btn.closest(".term-group");
-        var open = btn.getAttribute("aria-expanded") !== "true";
-        setTermGroup(sec, open);
+        setTermGroup(sec, btn.getAttribute("aria-expanded") !== "true");
+      });
+    });
+    /* «Раскрыть все разделы / Свернуть все» — только для видимых групп,
+       иначе кнопка разворачивала бы и то, что скрыл поиск. */
+    $$("#view [data-term-all]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var open = btn.getAttribute("data-term-all") === "open";
+        $$("#view .term-group").forEach(function (sec) { if (!sec.hidden) setTermGroup(sec, open); });
       });
     });
 
@@ -7596,15 +7615,19 @@
       '<input class="input" id="tplFind" type="search" autocomplete="off" placeholder="Поиск шаблона: название, правовое основание, раздел">' +
       '<div class="chips tpl-nav">' + groups.map(function (gr) {
         return '<div class="chip" data-tpl-jump="' + esc(gr.g) + '">' + esc(gr.g) + " <b>" + gr.items.length + "</b></div>";
-      }).join("") + "</div></div>";
+      }).join("") + "</div>" +
+      '<div class="group-tools">' +
+        '<button class="btn btn-sm" type="button" data-tpl-all="open">Раскрыть все разделы</button>' +
+        '<button class="btn btn-sm" type="button" data-tpl-all="close">Свернуть все</button>' +
+      "</div></div>";
 
     var cards = groups.map(function (gr) {
       return '<section class="tpl-group" data-group="' + esc(gr.g) + '">' +
-        '<button class="tpl-group-head" type="button" data-tpl-group-toggle="' + esc(gr.g) + '" aria-expanded="false">' +
+        '<h2 class="tpl-group-h"><button class="tpl-group-head" type="button" data-tpl-group-toggle="' + esc(gr.g) + '" aria-expanded="false">' +
           '<span class="tpl-group-t">' + esc(gr.g) + "</span>" +
           '<span class="small muted">' + gr.items.length + "</span>" +
           '<span class="tpl-group-chev" aria-hidden="true">▸</span>' +
-        "</button>" +
+        "</button></h2>" +
         '<div class="tpl-group-body" hidden>' +
           '<div class="grid grid-2">' + gr.items.map(function (t) {
             var hay = (t.t + " " + (t.basis || "") + " " + (t.group || "")).toLowerCase();
@@ -7674,13 +7697,7 @@
 
     /* Сворачивание/разворачивание группы шаблонов */
     function setTplGroup(sec, open) {
-      var btn = sec.querySelector("[data-tpl-group-toggle]");
-      var body = sec.querySelector(".tpl-group-body");
-      if (!btn || !body) return;
-      btn.setAttribute("aria-expanded", open ? "true" : "false");
-      sec.classList.toggle("open", open);
-      if (open) body.removeAttribute("hidden");
-      else body.setAttribute("hidden", "");
+      setGroupOpen(sec, "[data-tpl-group-toggle]", ".tpl-group-body", open);
     }
 
     /* поиск по шаблонам: фильтруем карточки, пустые разделы прячем */
@@ -7714,8 +7731,16 @@
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         var sec = btn.closest(".tpl-group");
-        var open = btn.getAttribute("aria-expanded") !== "true";
-        setTplGroup(sec, open);
+        setTplGroup(sec, btn.getAttribute("aria-expanded") !== "true");
+      });
+    });
+
+    /* «Раскрыть все разделы / Свернуть все» — только для видимых групп */
+    $$("#view [data-tpl-all]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var open = btn.getAttribute("data-tpl-all") === "open";
+        $$("#view .tpl-group").forEach(function (sec) { if (!sec.hidden) setTplGroup(sec, open); });
       });
     });
 

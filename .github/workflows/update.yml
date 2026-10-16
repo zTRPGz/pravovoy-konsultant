@@ -76,19 +76,29 @@ jobs:
 
       - name: Лента изменений (вкладка «Новое»)
         run: |
+          set -o pipefail
           node tools/build-changelog.js | tee changelog.log
 
       # Проверки — на изменённых данных. Если хоть одна красная, задача
       # падает и коммита не происходит: в основную ветку попадает только то,
       # что прошло аудит, сверку и прогон интерфейса.
+      #
+      # `set -o pipefail` обязателен: без него код возврата конвейера берётся
+      # у `tee` (всегда 0), и красная проверка ночную сборку НЕ останавливает.
       - name: Аудит данных
-        run: node tools/audit.js | tee audit.log
+        run: |
+          set -o pipefail
+          node tools/audit.js | tee audit.log
 
       - name: Сверка данных
-        run: node tools/verify-data.js | tee verify.log
+        run: |
+          set -o pipefail
+          node tools/verify-data.js | tee verify.log
 
       - name: Прогон интерфейса
-        run: node tools/smoke-test.js | tee smoke.log
+        run: |
+          set -o pipefail
+          node tools/smoke-test.js | tee smoke.log
 
       # Отметка времени сборки (built_at) меняется каждый прогон, даже если в
       # законах ничего не изменилось. Нейтрализуем её и сравниваем СОДЕРЖИМОЕ

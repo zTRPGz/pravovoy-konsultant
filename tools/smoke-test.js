@@ -1093,6 +1093,28 @@ server.listen(0, "127.0.0.1", async () => {
   ok("блок «Мои реквизиты» на месте", !!$("#view .prof") && $$("#view [data-prof]").length === 4,
     $$("#view [data-prof]").length + " поля");
 
+  /* группы шаблонов свёрнуты по умолчанию и раскрываются нажатием */
+  const tplGroupBodies = $$("#view .tpl-group .tpl-group-body");
+  ok("группы шаблонов свёрнуты по умолчанию",
+    tplGroupBodies.length > 0 && tplGroupBodies.every(b => b.hasAttribute("hidden")),
+    tplGroupBodies.filter(b => b.hasAttribute("hidden")).length + " из " + tplGroupBodies.length);
+  ok("заголовок группы шаблонов — кнопка внутри h2 (доступность)",
+    !!$("#view .tpl-group h2.tpl-group-h > button.tpl-group-head"));
+  $("#view .tpl-group .tpl-group-head").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(60);
+  ok("группа шаблонов раскрывается нажатием",
+    $$("#view .tpl-group .tpl-group-body:not([hidden])").length === 1,
+    $$("#view .tpl-group .tpl-group-body:not([hidden])").length + " раскрыто");
+  $("#view [data-tpl-all='open']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(60);
+  ok("«Раскрыть все разделы» раскрывает группы шаблонов",
+    $$("#view .tpl-group .tpl-group-body:not([hidden])").length === tplGroupBodies.length,
+    $$("#view .tpl-group .tpl-group-body:not([hidden])").length + " из " + tplGroupBodies.length);
+  $("#view [data-tpl-all='close']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(60);
+  ok("«Свернуть все» закрывает группы шаблонов",
+    $$("#view .tpl-group .tpl-group-body:not([hidden])").length === 0);
+
   /* фильтр по шаблонам: карточки, разделы и сообщение «ничего не найдено» */
   const findEl = $("#tplFind");
   findEl.value = "протокол";
@@ -1113,6 +1135,22 @@ server.listen(0, "127.0.0.1", async () => {
   await wait(80);
   ok("очистка поиска возвращает все шаблоны",
     $$("#view .card").filter(el => !el.hidden).length === tplList.length);
+
+  /* карточки шаблонов свёрнуты по умолчанию и раскрываются нажатием */
+  const tplBody0 = $("#view .tpl-card .tpl-body");
+  ok("шаблон свёрнут по умолчанию", !!tplBody0 && tplBody0.hasAttribute("hidden"));
+  $("#view .tpl-card .tpl-head").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(60);
+  const tplPrev = $("#view .tpl-card.open .tpl-body:not([hidden]) .doc-sheet.tpl-preview");
+  ok("шаблон раскрывается с предпросмотром документа",
+    !!tplPrev && tplPrev.children.length > 0,
+    tplPrev ? tplPrev.children.length + " блоков" : "нет предпросмотра");
+  ok("раскрыта ровно одна карточка шаблона", $$("#view .tpl-card.open").length === 1);
+  ok("в предпросмотре нет незаполненных подстановок",
+    !tplPrev || tplPrev.textContent.indexOf("{{") === -1);
+  const tplOpenLink = $("#view .tpl-card.open .tpl-body .tpl-open");
+  ok("ссылка на страницу шаблона в теле", !!tplOpenLink &&
+    tplOpenLink.getAttribute("data-go").indexOf("#/template/") === 0);
 
   /* реквизиты сохраняются и подставляются во все документы */
   const profFio = $("#view [data-prof='fio']");
@@ -2128,14 +2166,14 @@ server.listen(0, "127.0.0.1", async () => {
   ok("роль «Адвокат» присутствует", $$('[data-role="adv"]').length === 1);
   ok("роль «Госорган» присутствует", $$('[data-role="gos"]').length === 1);
 
-  const roleOrder1 = $$("#view .card[data-go^='#/template/']").map(el => el.getAttribute("data-go"));
+  const roleOrder1 = $$("#view .card[data-tpl-id]").map(el => "#/template/" + el.getAttribute("data-tpl-id"));
   $$('[data-role="adv"]')[0].dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
   await wait(300);
   ok("роль сохраняется в localStorage",
     (w.localStorage.getItem("rflaws.role") || "").indexOf("adv") !== -1,
     w.localStorage.getItem("rflaws.role"));
   ok("кнопка роли помечена активной", $$('[data-role="adv"].on').length === 1);
-  const roleOrder2 = $$("#view .card[data-go^='#/template/']").map(el => el.getAttribute("data-go"));
+  const roleOrder2 = $$("#view .card[data-tpl-id]").map(el => "#/template/" + el.getAttribute("data-tpl-id"));
   ok("порядок карточек меняется под роль",
     JSON.stringify(roleOrder1) !== JSON.stringify(roleOrder2),
     (roleOrder1[0] || "-") + " → " + (roleOrder2[0] || "-"));
@@ -2268,6 +2306,71 @@ server.listen(0, "127.0.0.1", async () => {
     ok("после перерисовки граф снова построен", $$("#view .graph-node").length === gNodes.length);
   }
 
+  section = "22. Термины"; console.log("\n" + section);
+  const termAll = w.RF_TERMS || [];
+  await nav("#/terms", 400);
+  ok("раздел терминов открывается", /Термины/.test(T("#view h1") || ""), T("#view h1"));
+  const termCards = $$("#view .term-item");
+  ok("карточки терминов отрисованы", termCards.length === termAll.length,
+    termCards.length + " карточек из " + termAll.length);
+  const termBranches = Array.from(new Set(termAll.map(t => t.b)));
+  ok("термины сгруппированы по разделам", $$("#view .term-group").length === termBranches.length,
+    $$("#view .term-group").length + " разделов из " + termBranches.length);
+  ok("есть поиск по терминам", !!$("#termFind"));
+
+  /* группы отраслей свёрнуты по умолчанию и раскрываются нажатием */
+  const termGroupBodies = $$("#view .term-group .term-group-body");
+  ok("группы терминов свёрнуты по умолчанию",
+    termGroupBodies.length > 0 && termGroupBodies.every(b => b.hasAttribute("hidden")),
+    termGroupBodies.filter(b => b.hasAttribute("hidden")).length + " из " + termGroupBodies.length);
+  ok("заголовок группы терминов — кнопка внутри h2 (доступность)",
+    !!$("#view .term-group h2.term-group-h > button.term-group-head"));
+  $("#view .term-group .term-group-head").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(60);
+  ok("группа терминов раскрывается нажатием",
+    $$("#view .term-group .term-group-body:not([hidden])").length === 1,
+    $$("#view .term-group .term-group-body:not([hidden])").length + " раскрыто");
+  const termExpandBtn = $("#view [data-term-all='open']");
+  termExpandBtn.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(60);
+  ok("«Раскрыть все разделы» раскрывает группы терминов",
+    $$("#view .term-group .term-group-body:not([hidden])").length === termGroupBodies.length,
+    $$("#view .term-group .term-group-body:not([hidden])").length + " из " + termGroupBodies.length);
+  $("#view [data-term-all='close']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(60);
+  ok("«Свернуть все» закрывает группы терминов",
+    $$("#view .term-group .term-group-body:not([hidden])").length === 0);
+
+  /* карточки терминов свёрнуты и раскрываются нажатием на заголовок */
+  const termBody0 = $("#view .term-item .term-body");
+  ok("термин свёрнут по умолчанию", !!termBody0 && termBody0.hasAttribute("hidden"));
+  $("#view .term-item .term-head").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(60);
+  ok("термин раскрывается с определением",
+    $$("#view .term-item.open .term-body:not([hidden]) .term-item-d").length === 1,
+    $$("#view .term-item.open .term-body:not([hidden]) .term-item-d").length + " определений");
+  ok("раскрыта ровно одна карточка термина", $$("#view .term-item.open").length === 1);
+  const termOpenLink = $("#view .term-item.open .term-body .term-open");
+  ok("ссылка на страницу термина в теле", !!termOpenLink &&
+    termOpenLink.getAttribute("data-go").indexOf("#/term/") === 0);
+  await nav(termOpenLink.getAttribute("data-go"), 300);
+  ok("страница термина открывается", $$("#view .term-norm").length > 0,
+    $$("#view .term-norm").length + " норм-оснований");
+
+  /* фильтр по терминам: совпадения по названию, пустое состояние */
+  await nav("#/terms", 400);
+  const tf = $("#termFind");
+  tf.value = "обыск";
+  tf.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(80);
+  const shownTerms = $$("#view .term-item").filter(el => !el.hidden).length;
+  ok("фильтр оставляет подходящие термины", shownTerms > 0 && shownTerms < termAll.length,
+    shownTerms + " из " + termAll.length);
+  tf.value = "";
+  tf.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(80);
+  ok("очистка поиска возвращает все термины",
+    $$("#view .term-item").filter(el => !el.hidden).length === termAll.length);
 
   section = "23. Памятки оперативнику"; console.log("\n" + section);
   const navScen = $$('.nav-item[data-nav="scenarios"]');

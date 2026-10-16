@@ -702,7 +702,12 @@ h3 { font-size: var(--fs-6); margin: 18px 0 8px; font-weight: 650; }
 .tpl-bar { margin: 0 0 18px; }
 .tpl-bar .input { margin-bottom: 10px; }
 .tpl-nav .chip b { color: var(--text); font-weight: 620; }
+/* Кнопки «Раскрыть все разделы / Свернуть все» под чипами разделов */
+.group-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .tpl-group { margin: 0 0 4px; }
+/* Заголовок раздела остаётся <h2> (навигация по заголовкам для скринридера),
+   а кнопка внутри несёт поведение сворачивания. */
+.tpl-group-h, .term-group-h { margin: 0; }
 .tpl-group-head {
   display: flex; align-items: baseline; gap: 8px; width: 100%;
   padding: 10px 0; background: none; border: 0; text-align: left;
@@ -748,7 +753,7 @@ h3 { font-size: var(--fs-6); margin: 18px 0 8px; font-weight: 650; }
 /* Предпросмотр документа: высота ограничена, лишнее — прокрутка внутри. */
 .tpl-preview {
   margin-top: 10px; max-height: 460px; overflow: auto;
-  font-size: calc(var(--fs-3) - 1px);
+  font-size: var(--fs-2);
 }
 .tpl-open { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; }
 .tpl-open .ic { width: 1em; height: 1em; }
@@ -2772,7 +2777,7 @@ body::-webkit-scrollbar-track { background: transparent; }
 @media print {
   .nav-sub, .kind-title .cnt, .row-act { display: none !important; }
   .sidebar, .topbar, .actions-row, .disclaimer, .no-print,
-  .sidebar-backdrop, .skip-link, .read-menu, .tabs, .crumbs, .scen-go, .to-top,
+  .sidebar-backdrop, .skip-link, .read-menu, .tabs, .crumbs, .to-top,
   .update-bar { display: none !important; }
   body { background: #fff; color: #000; }
   .content { padding: 0; max-width: none; }

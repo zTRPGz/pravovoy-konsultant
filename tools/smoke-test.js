@@ -29,10 +29,11 @@ let lastStep = "старт";
 /* Ожидаемые объёмы базы. Это «замок»: если данные внезапно усохнут, тест
    это заметит. При осознанном добавлении источников значения обновляются
    здесь — в одном месте, а не по всему файлу. */
-const N_SOURCES = 334;    // кодексы 24, законы 109, ФКЗ 14, Конституция, постановления Правительства 6, Пленумы ВС РФ 99, обзоры судебной практики 81
-const N_ARTICLES = 22861;
+const N_SOURCES = 344;    // кодексы 24, законы 115, ФКЗ 14, Конституция, постановления Правительства 10, Пленумы ВС РФ 99, обзоры судебной практики 81
+const N_ARTICLES = 23587;
 const N_PLENUMS = 99;
 const N_REVIEWS = 81;
+const N_DECREES = 10;   // постановления Правительства РФ
 
 function ok(name, cond, extra) {
   lastStep = name;
@@ -162,9 +163,9 @@ server.listen(0, "127.0.0.1", async () => {
     /* Законы считаем как остаток: N_SOURCES задан одной константой выше, а
        остальные виды актов перечислены поимённо — так добавление закона не
        требует правки ещё одной цифры здесь. */
-    const laws = N_SOURCES - 1 - 24 - 14 - 6 - N_PLENUMS - N_REVIEWS;
+    const laws = N_SOURCES - 1 - 24 - 14 - N_DECREES - N_PLENUMS - N_REVIEWS;
     return k.constitution === 1 && k.code === 24 && k.fkz === 14 && k.law === laws &&
-      k.decree === 6 && k.plenum === N_PLENUMS && k.review === N_REVIEWS;
+      k.decree === N_DECREES && k.plenum === N_PLENUMS && k.review === N_REVIEWS;
   })(), (() => { const k = {}; (w.RF_CODES || []).forEach(c => k[c.kind] = (k[c.kind] || 0) + 1); return JSON.stringify(k); })());
   ok("новые источники: ФЗ о ФСБ и постановления Правительства", (() => {
     const by = {}; (w.RF_CODES || []).forEach(c => by[c.id] = c.kind);

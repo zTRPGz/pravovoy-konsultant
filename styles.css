@@ -209,6 +209,42 @@ a:hover { text-decoration: underline; }
 
 button { font: inherit; cursor: pointer; }
 
+/* ---------- нажимаемость: курсор, касания, выделение ----------
+   Одна группа правил на весь интерфейс вместо точечных cursor: pointer по
+   классам: раньше часть ссылок (.lnk, «кнопка» из div, .as-art) показывала
+   курсор ввода — по ним было не понять, что это ссылка. */
+a, [data-go], [data-href], .lnk, .as-art,
+.incoming > summary, .refs-block > summary,
+.help-sec > summary, .concl-why > summary { cursor: pointer; }
+
+/* Телефон: браузер выжидает ~300 мс после касания — не двойное ли это
+   (зум). Снятие ожидания убирает «пролаг» между tap и переходом;
+   прокрутка и щипок работают как прежде. */
+a, button, [data-go], [data-href], [role="button"], [role="tab"],
+.nav-item, .btn, .ibtn, .icon-btn, .chip, .tab, .result,
+.quick-card, .tool-link, .scen-card, .role-item, .code-card,
+.palette-item, .art-row, .term-pill, .term-ref, .term-norm,
+.term-hit-t, .term-item, .cmp-res, .fresh-row, .graph-node,
+.tl-item-title, .case-card, .fav-item, .ncard-t, .rep-item-head,
+.sc-key, .scope-opt, .role-bar-off { touch-action: manipulation; }
+
+/* Текст интерфейса не выделяем: нажатие со сдвигом начинало выделение,
+   клик при этом не срабатывал («ненажимается»), а синее выделение поверх
+   карточек выглядело как покорёженный текст. Текст статей, терминов,
+   памяток и шаблонов выделять можно — их классы сюда не входят. */
+.nav-item, .btn, .ibtn, .icon-btn, .chip, .tab, .tab-n, .tabs,
+.result, .result-head, .result-title, .result-snippet,
+.result-meta, .result-num, .quick-card, .tool-link, .scen-card,
+.role-item, .code-card, .palette-item, .art-row, .as-art,
+.term-pill, .term-ref, .term-norm, .term-hit-t, .term-item,
+.cmp-res, .fresh-row, .tl-item-title, .case-card, .fav-item,
+.ncard-t, .crumbs, .stg-lbl, .sc-key, .hero-cta a, .hero-cta .btn,
+.fav-folder-badge, .badge, .stat, .stat-num, .stat-lbl,
+.tool-grid, .grid-feature, .scope-trigger { user-select: none; }
+
+/* Серая вспышка при касании на Android — лишний визуальный шум. */
+body { -webkit-tap-highlight-color: transparent; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: var(--r-sm); }

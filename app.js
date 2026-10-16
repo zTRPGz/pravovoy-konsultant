@@ -3272,17 +3272,33 @@
       }).join("") + "</div></div>";
 
     var cards = branches.map(function (gr) {
-      return '<section class="term-group" data-branch="' + esc(gr.b) + '">' +
-        "<h2>" + esc(gr.b) + '<span class="small muted">' + gr.items.length + "</span></h2>" +
-        '<div class="grid grid-2">' + gr.items.map(function (t) {
-          var key = termNorm(t.t + " " + (t.a || []).join(" "));
-          var hay = termNorm(t.t + " " + (t.a || []).join(" ") + " " + t.d);
-          return '<div class="card term-item" data-go="#/term/' + esc(t.id) + '" data-term-key="' + esc(key) + '" data-term-hay="' + esc(hay) + '">' +
-            '<div class="term-item-t">' + esc(t.t) + "</div>" +
-            '<div class="term-item-d">' + esc(termShort(t.d, 190)) + "</div>" +
-            termRefs(t) +
-            "</div>";
-        }).join("") + "</div></section>";
+      return '<section class="term-group" data-branch="' + esc(gr.b) + '" data-term-group="' + esc(gr.b) + '">' +
+        '<button class="term-group-head" type="button" data-term-group-toggle="' + esc(gr.b) + '" aria-expanded="false">' +
+          '<span class="term-group-t">' + esc(gr.b) + "</span>" +
+          '<span class="small muted">' + gr.items.length + "</span>" +
+          '<span class="term-group-chev" aria-hidden="true">▸</span>' +
+        "</button>" +
+        '<div class="term-group-body" hidden>' +
+          '<div class="grid grid-2">' + gr.items.map(function (t) {
+            var key = termNorm(t.t + " " + (t.a || []).join(" "));
+            var hay = termNorm(t.t + " " + (t.a || []).join(" ") + " " + t.d);
+            /* Карточка свёрнута: виден только термин и число связанных норм,
+               определение раскрывается нажатием. Страница термина — по явной
+               ссылке «Открыть термин» в раскрытом теле. */
+            return '<div class="card term-item" data-term-id="' + esc(t.id) + '" data-term-key="' + esc(key) + '" data-term-hay="' + esc(hay) + '">' +
+              '<button class="term-head" type="button" data-term-toggle="' + esc(t.id) + '" aria-expanded="false">' +
+                '<span class="term-item-t">' + esc(t.t) + "</span>" +
+                '<span class="term-meta small muted">' + (t.articles || []).length + " " +
+                plural((t.articles || []).length, ["норма", "нормы", "норм"]) + "</span>" +
+                '<span class="term-chev" aria-hidden="true">▸</span>' +
+              "</button>" +
+              '<div class="term-body" hidden>' +
+                '<div class="term-item-d">' + esc(t.d) + "</div>" +
+                termRefs(t) +
+                '<span class="lnk term-open" data-go="#/term/' + esc(t.id) + '">Открыть термин ' + ic("arrow") + "</span>" +
+              "</div></div>";
+          }).join("") + "</div>" +
+        "</div></section>";
     }).join("");
 
     var popular = ["преступление", "необходимая оборона", "исковая давность", "обыск", "алименты",
@@ -3321,16 +3337,17 @@
         });
       }
       var keep = {};
-      byName.forEach(function (c) { keep[c.getAttribute("data-go")] = 1; });
+      byName.forEach(function (c) { keep[c.getAttribute("data-term-id")] = 1; });
       var shown = 0;
       $$("#view .term-group").forEach(function (sec) {
         var n = 0;
         $$(".term-item", sec).forEach(function (card) {
-          var hit = !q || keep[card.getAttribute("data-go")];
+          var hit = !q || keep[card.getAttribute("data-term-id")];
           card.hidden = !hit;
           if (hit) n++;
         });
         sec.hidden = n === 0;
+        if (q && n > 0) setTermGroup(sec, true);
         shown += n;
       });
       var empty = $("#termEmpty");
@@ -3350,6 +3367,27 @@
         } catch (e) {}
       }
     };
+
+    /* Сворачивание/разворачивание группы терминов. Изначально группы
+       закрыты, поэтому поиск по разделам раскрывает группы с совпадениями. */
+    function setTermGroup(sec, open) {
+      var btn = sec.querySelector("[data-term-group-toggle]");
+      var body = sec.querySelector(".term-group-body");
+      if (!btn || !body) return;
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      sec.classList.toggle("open", open);
+      if (open) body.removeAttribute("hidden");
+      else body.setAttribute("hidden", "");
+    }
+    $$("#view [data-term-group-toggle]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var sec = btn.closest(".term-group");
+        var open = btn.getAttribute("aria-expanded") !== "true";
+        setTermGroup(sec, open);
+      });
+    });
+
     find.addEventListener("input", function () { apply(true); });
     find.addEventListener("search", function () { apply(true); });
     find.addEventListener("keydown", function (e) {
@@ -3359,7 +3397,7 @@
       el.addEventListener("click", function () {
         var b = el.getAttribute("data-term-jump");
         var sec = $$("#view .term-group").filter(function (s) { return s.getAttribute("data-branch") === b; })[0];
-        if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (sec) { setTermGroup(sec, true); sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
       });
     });
     /* Пришли по ссылке #/terms/<слово> — сразу отсеиваем список. */
@@ -7520,6 +7558,16 @@
     return (REF.templates || []).filter(function (x) { return x.id === id; })[0];
   }
 
+  /* Образцы значений полей для предпросмотра в списке шаблонов: те же
+     правила подстановки, что и на странице шаблона («Мои реквизиты»,
+     авто-дата, иначе образец-плейсхолдер). */
+  function sampleTplVals(t) {
+    var profile = getProfile();
+    var v = {};
+    (t.fields || []).forEach(function (f) { v[f.k] = tplValue(f, profile); });
+    return v;
+  }
+
   /* --- список шаблонов + «Мои реквизиты» --- */
 
   function viewTemplates() {
@@ -7552,17 +7600,48 @@
 
     var cards = groups.map(function (gr) {
       return '<section class="tpl-group" data-group="' + esc(gr.g) + '">' +
-        "<h2>" + esc(gr.g) + '<span class="small muted">' + gr.items.length + "</span></h2>" +
-        '<div class="grid grid-2">' + gr.items.map(function (t) {
-          var hay = (t.t + " " + (t.basis || "") + " " + (t.group || "")).toLowerCase();
-          return '<div class="card' + (roleOff(t.t + " " + (t.basis || "")) ? " role-off" : "") + '" data-go="#/template/' + t.id + '" data-tpl-hay="' + esc(hay) + '" style="cursor:pointer">' +
-            '<div style="font-weight:620">' + esc(t.t) + "</div>" +
-            '<div class="small muted" style="margin-top:4px">' + esc(t.basis || "") + "</div>" +
-            '<div class="small muted" style="margin-top:8px">' + (t.fields || []).length + " " +
-            plural((t.fields || []).length, ["поле", "поля", "полей"]) +
-            ((t.articles || []).length ? " · " + (t.articles || []).length + " " +
-              plural((t.articles || []).length, ["статья", "статьи", "статей"]) : "") + "</div></div>";
-        }).join("") + "</div></section>";
+        '<button class="tpl-group-head" type="button" data-tpl-group-toggle="' + esc(gr.g) + '" aria-expanded="false">' +
+          '<span class="tpl-group-t">' + esc(gr.g) + "</span>" +
+          '<span class="small muted">' + gr.items.length + "</span>" +
+          '<span class="tpl-group-chev" aria-hidden="true">▸</span>' +
+        "</button>" +
+        '<div class="tpl-group-body" hidden>' +
+          '<div class="grid grid-2">' + gr.items.map(function (t) {
+            var hay = (t.t + " " + (t.basis || "") + " " + (t.group || "")).toLowerCase();
+            var arts = (t.articles || []).map(function (aid) { return byId[aid]; }).filter(Boolean);
+            var off = roleOff(t.t + " " + (t.basis || ""));
+            /* Карточка свёрнута: видны название, основание и счётчики. При
+               первом раскрытии тело наполняется предпросмотром документа с
+               подставленными образцами полей. Переход на страницу шаблона —
+               по явной ссылке «Открыть шаблон». */
+            return '<div class="card tpl-card' + (off ? " role-off" : "") + '" data-tpl-id="' + esc(t.id) +
+              '" data-tpl-hay="' + esc(hay) + '">' +
+              '<button class="tpl-head" type="button" data-tpl-toggle="' + esc(t.id) + '" aria-expanded="false">' +
+                '<span class="tpl-htxt">' +
+                  '<span class="tpl-title">' + esc(t.t) + "</span>" +
+                  '<span class="tpl-basis">' + esc(t.basis || "") + "</span>" +
+                "</span>" +
+                '<span class="tpl-meta">' + (t.fields || []).length + " " +
+                  plural((t.fields || []).length, ["поле", "поля", "полей"]) +
+                  ((t.articles || []).length ? " · " + (t.articles || []).length + " " +
+                    plural((t.articles || []).length, ["статья", "статьи", "статей"]) : "") +
+                "</span>" +
+                '<span class="tpl-chev" aria-hidden="true">▸</span>' +
+              "</button>" +
+              '<div class="tpl-body" hidden>' +
+                '<div class="doc-sheet tpl-preview"></div>' +
+                (arts.length ? '<div class="chips" style="margin-top:10px">' + arts.map(function (a) {
+                  var c = codeById(a.c) || { short: a.c, color: "#888" };
+                  return '<span class="chip" data-go="#/article/' + encodeURIComponent(a.id) + '"><b>' + esc(cite(a)) + "</b> · " + esc(a.t) + "</span>";
+                }).join("") + "</div>" : "") +
+                '<div class="actions-row">' +
+                  (arts.length ? '<button class="btn" data-col-batch="' + esc((t.articles || []).join(",")) + '">' +
+                    ic("clip") + " Статьи в подборку</button>" : "") +
+                  '<span class="lnk tpl-open" data-go="#/template/' + esc(t.id) + '">Открыть шаблон ' + ic("arrow") + "</span>" +
+                "</div>" +
+              "</div></div>";
+          }).join("") + "</div>" +
+        "</div></section>";
     }).join("");
 
     return "<h1>Шаблоны документов</h1>" +
@@ -7593,6 +7672,17 @@
       setProfile({}); toast("Реквизиты очищены"); render();
     });
 
+    /* Сворачивание/разворачивание группы шаблонов */
+    function setTplGroup(sec, open) {
+      var btn = sec.querySelector("[data-tpl-group-toggle]");
+      var body = sec.querySelector(".tpl-group-body");
+      if (!btn || !body) return;
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      sec.classList.toggle("open", open);
+      if (open) body.removeAttribute("hidden");
+      else body.setAttribute("hidden", "");
+    }
+
     /* поиск по шаблонам: фильтруем карточки, пустые разделы прячем */
     var find = $("#tplFind");
     if (find) {
@@ -7607,6 +7697,7 @@
             if (hit) n++;
           });
           sec.hidden = n === 0;
+          if (q && n > 0) setTplGroup(sec, true);
           shown += n;
         });
         var empty = $("#tplEmpty");
@@ -7619,12 +7710,21 @@
       });
     }
 
+    $$("#view [data-tpl-group-toggle]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var sec = btn.closest(".tpl-group");
+        var open = btn.getAttribute("aria-expanded") !== "true";
+        setTplGroup(sec, open);
+      });
+    });
+
     /* переход к разделу списка */
     $$("#view [data-tpl-jump]").forEach(function (el) {
       el.addEventListener("click", function () {
         var g = el.getAttribute("data-tpl-jump");
         var sec = $$("#view .tpl-group").filter(function (s) { return s.getAttribute("data-group") === g; })[0];
-        if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (sec) { setTplGroup(sec, true); sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
       });
     });
   }
@@ -12606,6 +12706,55 @@
         if (body) {
           if (open) body.removeAttribute("hidden");
           else body.setAttribute("hidden", "");
+        }
+        return;
+      }
+
+      /* Термин в списке: заголовок сворачивает и разворачивает определение.
+         Карточка не ведёт на страницу термина — переход по ссылке
+         «Открыть термин» в раскрытом теле. */
+      var tmTg = e.target.closest("[data-term-toggle]");
+      if (tmTg) {
+        e.preventDefault();
+        var tcard = tmTg.closest(".term-item");
+        if (!tcard) return;
+        var tbody = tcard.querySelector(".term-body");
+        var topen = tmTg.getAttribute("aria-expanded") !== "true";
+        tmTg.setAttribute("aria-expanded", topen ? "true" : "false");
+        tcard.classList.toggle("open", topen);
+        if (tbody) {
+          if (topen) tbody.removeAttribute("hidden");
+          else tbody.setAttribute("hidden", "");
+        }
+        return;
+      }
+
+      /* Шаблон в списке: заголовок сворачивает и разворачивает карточку.
+         При первом раскрытии тело наполняется предпросмотром. Карточка не
+         ведёт на страницу шаблона — переход по ссылке «Открыть шаблон». */
+      var tpTg = e.target.closest("[data-tpl-toggle]");
+      if (tpTg) {
+        e.preventDefault();
+        var tpcard = tpTg.closest(".tpl-card");
+        if (!tpcard) return;
+        var tpbody = tpcard.querySelector(".tpl-body");
+        var tpopen = tpTg.getAttribute("aria-expanded") !== "true";
+        tpTg.setAttribute("aria-expanded", tpopen ? "true" : "false");
+        tpcard.classList.toggle("open", tpopen);
+        if (tpopen && tpbody) {
+          tpbody.removeAttribute("hidden");
+          if (tpbody.getAttribute("data-tpl-rendered") !== "1") {
+            var tpPrev = tpbody.querySelector(".tpl-preview");
+            if (tpPrev && tpcard.getAttribute("data-tpl-id")) {
+              var tpT = tplById(tpcard.getAttribute("data-tpl-id"));
+              if (tpT) {
+                tpPrev.innerHTML = docHtml(tpT.blocks, sampleTplVals(tpT), false);
+                tpbody.setAttribute("data-tpl-rendered", "1");
+              }
+            }
+          }
+        } else if (tpbody) {
+          tpbody.setAttribute("hidden", "");
         }
         return;
       }

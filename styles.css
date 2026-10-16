@@ -150,35 +150,56 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Атмосфера: четыре мягких цветных пятна по углам рабочей области — синее,
-   фиолетовое, циановое и тёплое янтарное. Они дрейфуют медленно, поэтому
-   фон живой, но не отвлекает. Держим на ::before фиксированным слоем —
-   иначе при прокрутке длинной статьи градиент «уезжает» и фон выглядит
-   грязным. Масштаб в ключевых кадрах (>1) нужен, чтобы при сдвиге не
-   оголился край экрана. */
+/* Атмосфера: многослойный mesh-фон из мягких цветных пятен, диагонального
+   сияния и редких бликов-боке. Пятна крупнее и разнообразнее, движение
+   плавное и неравномерное — фон ощущается объёмным, но не конкурирует
+   с текстом. Слой фиксирован, иначе при прокрутке длинной статьи градиент
+   «уезжает». */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(1000px 560px at 10% -10%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 62%),
-    radial-gradient(860px 500px at 102% -4%, color-mix(in srgb, var(--accent-2) 12%, transparent), transparent 60%),
-    radial-gradient(900px 600px at 50% 120%, color-mix(in srgb, var(--accent-3) 7%, transparent), transparent 65%),
-    radial-gradient(760px 480px at -4% 104%, color-mix(in srgb, var(--tone-amber) 8%, transparent), transparent 60%);
-  animation: bgDrift 52s ease-in-out infinite alternate;
+    /* виньетка: удерживает цвет ближе к центру, темнеет к краям */
+    radial-gradient(ellipse at 50% 50%, transparent 28%, color-mix(in srgb, var(--bg) 88%, transparent) 88%),
+    /* крупные пятна по углам и сторонам */
+    radial-gradient(1200px 700px at 8% -8%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 64%),
+    radial-gradient(1100px 640px at 104% -4%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 62%),
+    radial-gradient(1000px 720px at 50% 124%, color-mix(in srgb, var(--accent-3) 11%, transparent), transparent 68%),
+    radial-gradient(860px 520px at -4% 108%, color-mix(in srgb, var(--tone-amber) 11%, transparent), transparent 62%),
+    radial-gradient(780px 460px at 96% 96%, color-mix(in srgb, var(--tone-rose) 9%, transparent), transparent 60%),
+    radial-gradient(640px 420px at 4% 48%, color-mix(in srgb, var(--tone-teal) 8%, transparent), transparent 60%),
+    /* широкая диагональная полоса полярного сияния */
+    linear-gradient(118deg, transparent 26%, color-mix(in srgb, var(--accent-2) 9%, transparent) 42%,
+      color-mix(in srgb, var(--accent) 7%, transparent) 51%,
+      color-mix(in srgb, var(--tone-teal) 6%, transparent) 60%, transparent 76%),
+    /* мелкие блики-боке разного размера, мозаика на разных шагах */
+    radial-gradient(3px 3px at 36px 48px, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%),
+    radial-gradient(5px 5px at 180px 120px, color-mix(in srgb, var(--accent-2) 13%, transparent), transparent 70%),
+    radial-gradient(2px 2px at 260px 60px, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    radial-gradient(4px 4px at 420px 200px, color-mix(in srgb, var(--tone-amber) 11%, transparent), transparent 70%);
+  background-size: auto, auto, auto, auto, auto, auto, auto, auto, 300px 260px, 380px 320px, 240px 200px, 520px 360px;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat, repeat, repeat;
+  animation: bgDrift 60s ease-in-out infinite alternate;
 }
 @keyframes bgDrift {
-  from { transform: scale(1.04) translate3d(0, 0, 0); }
-  to   { transform: scale(1.04) translate3d(-26px, 18px, 0); }
+  0%   { transform: scale(1.04) translate3d(0, 0, 0) rotate(0deg); }
+  33%  { transform: scale(1.06) translate3d(18px, -14px, 0) rotate(.4deg); }
+  66%  { transform: scale(1.05) translate3d(-12px, 20px, 0) rotate(-.2deg); }
+  100% { transform: scale(1.04) translate3d(-24px, 10px, 0) rotate(0deg); }
 }
-/* тонкая сетка поверх фона: даёт «рабочему столу» фактуру вместо ровной
-   заливки. Едва заметна (4 %), поэтому тексту не мешает. */
+/* Фактура: тонкая сетка и зерно плёнки поверх фона — дают «рабочему столу»
+   глубину вместо ровной заливки. Сетка едва заметна (4 %), зерно — 5 %
+   серого, одинаково незаметного на тёмной и светлой темах. */
 body::after {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background-image:
+    /* виньетка поверх фактуры — края темнее */
+    radial-gradient(ellipse at 50% 50%, transparent 32%, color-mix(in srgb, var(--bg) 82%, transparent) 88%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"),
     linear-gradient(color-mix(in srgb, var(--text) 4%, transparent) 1px, transparent 1px),
     linear-gradient(90deg, color-mix(in srgb, var(--text) 4%, transparent) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(1200px 700px at 50% 0%, #000 30%, transparent 78%);
-  -webkit-mask-image: radial-gradient(1200px 700px at 50% 0%, #000 30%, transparent 78%);
+  background-size: auto, 140px 140px, 44px 44px, 44px 44px;
+  mask-image: radial-gradient(1200px 820px at 50% 0%, #000 24%, transparent 84%);
+  -webkit-mask-image: radial-gradient(1200px 820px at 50% 0%, #000 24%, transparent 84%);
 }
 [data-theme="light"] body::before { opacity: .8; }
 [data-theme="light"] body::after { opacity: .5; }
@@ -249,7 +270,8 @@ a, button, [data-go], [data-href], [role="button"], [role="tab"],
 .cmp-res, .fresh-row, .tl-item-title, .case-card, .fav-item,
 .ncard-t, .crumbs, .stg-lbl, .sc-key, .hero-cta a, .hero-cta .btn,
 .fav-folder-badge, .badge, .stat, .stat-num, .stat-lbl,
-.tool-grid, .grid-feature, .scope-trigger { user-select: none; }
+.tool-grid, .grid-feature, .scope-trigger,
+.term-group-head, .tpl-group-head { user-select: none; }
 /* Серая вспышка при касании на Android — лишний визуальный шум. */
 body { -webkit-tap-highlight-color: transparent; }
 
@@ -681,9 +703,55 @@ h3 { font-size: var(--fs-6); margin: 18px 0 8px; font-weight: 650; }
 .tpl-bar .input { margin-bottom: 10px; }
 .tpl-nav .chip b { color: var(--text); font-weight: 620; }
 .tpl-group { margin: 0 0 4px; }
-.tpl-group h2 { display: flex; align-items: baseline; gap: 8px; }
+.tpl-group-head {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 10px 0; background: none; border: 0; text-align: left;
+  font: inherit; color: var(--text); cursor: pointer;
+  font-size: var(--fs-7); font-weight: 650; line-height: 1.3;
+}
+.tpl-group-head:hover { color: var(--accent); }
+.tpl-group-head .tpl-group-t { flex: 1; }
+.tpl-group-chev {
+  flex: 0 0 auto; color: var(--muted); font-size: var(--fs-4); line-height: 1;
+  transition: transform .14s ease, color .14s ease;
+}
+.tpl-group-head[aria-expanded="true"] .tpl-group-chev { transform: rotate(90deg); color: var(--accent); }
+.tpl-group-body { margin-top: 4px; }
+.tpl-group-body[hidden] { display: none; }
 .tpl-group[hidden],
 .tpl-group .card[hidden] { display: none; }
+
+/* ---------- карточки шаблонов: свёрнуты, раскрываются нажатием ----------
+   Заголовок-кнопка показывает название, основание и счётчики; при первом
+   раскрытии тело наполняется предпросмотром документа. Переход на полную
+   страницу шаблона — по ссылке «Открыть шаблон» в раскрытом теле. */
+.tpl-card { padding: 0; overflow: hidden; }
+.tpl-card.open { border-color: color-mix(in srgb, var(--accent) 42%, var(--border)); }
+.tpl-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 13px 15px; background: none; border: 0; text-align: left;
+  font: inherit; color: var(--text); cursor: pointer;
+}
+.tpl-head:hover { background: var(--bg-3); }
+.tpl-htxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.tpl-title { font-weight: 650; font-size: var(--fs-5); line-height: 1.35; }
+.tpl-basis { color: var(--muted); font-size: var(--fs-3); line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpl-meta { flex: 0 0 auto; color: var(--muted); font-size: var(--fs-2); white-space: nowrap; }
+.tpl-chev {
+  flex: 0 0 auto; color: var(--muted); font-size: var(--fs-4); line-height: 1;
+  transition: transform .14s ease, color .14s ease;
+}
+.tpl-head[aria-expanded="true"] .tpl-chev { transform: rotate(90deg); color: var(--accent); }
+.tpl-body { padding: 2px 15px 15px; border-top: 1px solid var(--border); }
+.tpl-body[hidden] { display: none; }
+/* Предпросмотр документа: высота ограничена, лишнее — прокрутка внутри. */
+.tpl-preview {
+  margin-top: 10px; max-height: 460px; overflow: auto;
+  font-size: calc(var(--fs-3) - 1px);
+}
+.tpl-open { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; }
+.tpl-open .ic { width: 1em; height: 1em; }
 
 .badge {
   display: inline-block; font-size: var(--fs-1); padding: 2px 9px; border-radius: var(--r-pill);
@@ -2608,13 +2676,47 @@ body::-webkit-scrollbar-track { background: transparent; }
    переходы. Правила свои, а не общий класс, — потому что карточка термина
    показывает выдержку определения, а не набор полей. */
 .term-group { margin: 0 0 4px; }
-.term-group h2 { display: flex; align-items: baseline; gap: 8px; }
+.term-group-head {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 10px 0; background: none; border: 0; text-align: left;
+  font: inherit; color: var(--text); cursor: pointer;
+  font-size: var(--fs-7); font-weight: 650; line-height: 1.3;
+}
+.term-group-head:hover { color: var(--accent); }
+.term-group-head .term-group-t { flex: 1; }
+.term-group-chev {
+  flex: 0 0 auto; color: var(--muted); font-size: var(--fs-4); line-height: 1;
+  transition: transform .14s ease, color .14s ease;
+}
+.term-group-head[aria-expanded="true"] .term-group-chev { transform: rotate(90deg); color: var(--accent); }
+.term-group-body { margin-top: 4px; }
+.term-group-body[hidden] { display: none; }
 .term-group[hidden],
 .term-group .card[hidden] { display: none; }
 
-.term-item { cursor: pointer; }
-.term-item-t { font-weight: 620; }
+/* Карточка термина свёрнута: заголовок-кнопка показывает термин и число
+   связанных норм, определение раскрывается нажатием. Полная страница
+   термина — по ссылке «Открыть термин» в раскрытом теле. */
+.term-item { padding: 0; overflow: hidden; }
+.term-item.open { border-color: color-mix(in srgb, var(--accent) 42%, var(--border)); }
+.term-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 12px 14px; background: none; border: 0; text-align: left;
+  font: inherit; color: var(--text); cursor: pointer;
+}
+.term-head:hover { background: var(--bg-3); }
+.term-item-t { flex: 1; min-width: 0; font-weight: 620; }
+.term-meta { flex: 0 0 auto; white-space: nowrap; }
+.term-chev {
+  flex: 0 0 auto; color: var(--muted); font-size: var(--fs-4); line-height: 1;
+  transition: transform .14s ease, color .14s ease;
+}
+.term-head[aria-expanded="true"] .term-chev { transform: rotate(90deg); color: var(--accent); }
+.term-item .term-body { padding: 2px 14px 14px; border-top: 1px solid var(--border); }
+.term-body[hidden] { display: none; }
 .term-item-d { margin-top: 6px; font-size: var(--fs-3); color: var(--text-2); line-height: 1.5; }
+.term-open { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; }
+.term-open .ic { width: 1em; height: 1em; }
 
 /* Ссылки на нормы подчёркнуты точками, а не линией: их бывает по пять
    подряд, и сплошное подчёркивание превратило бы строку в забор. */

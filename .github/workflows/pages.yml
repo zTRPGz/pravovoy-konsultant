@@ -35,17 +35,22 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Явная 24.04 вместо ubuntu-latest: с 19.10.2026 метка latest переезжает
+    # на Ubuntu 26.04 (объявлено как breaking change — другой systemd, ядро,
+    # Docker). Переезд идёт волной до 19.11.2026, то есть день выкладки заранее
+    # неизвестен. Фиксируем проверенную версию; на 26.04 перейдём отдельно,
+    # прогнав сборку и проверки на нём.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Получение репозитория
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -56,13 +61,13 @@ jobs:
         run: node tools/build-dist.js
 
       - name: Настройка Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Загрузка каталога
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
       - name: Выкладка
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

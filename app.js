@@ -365,6 +365,38 @@
     "фз": "fz", "закон": "fz", "полиции": "fz", "орд": "fz", "прокуратуре": "fz"
   };
 
+  /* Слова-указатели, по которым разбирается словесная ссылка на норму:
+     «статья 33 69-фз», «ст 33 фз 69», «69 статья 33 фз». После слова из
+     ART_WORD число — это номер статьи; рядом со словом из LAW_WORD — номер
+     самого акта. Без этого «69 статья 33 фз» не находило ничего: «статья»
+     служебное слово, «фз» — родовой указатель, а оба числа оставались
+     равноправными, и выдача получалась случайной. */
+  var ART_WORD = {
+    "ст": 1, "стать": 1, "статья": 1, "статьи": 1, "статье": 1, "статью": 1, "статей": 1,
+    "п": 1, "пункт": 1, "пункта": 1, "пункте": 1, "пункту": 1, "пунктом": 1,
+    "ч": 1, "часть": 1, "части": 1, "частью": 1, "частями": 1
+  };
+  var LAW_WORD = {
+    "фз": 1, "фкз": 1, "закон": 1, "закона": 1, "законе": 1, "законом": 1, "законы": 1, "законов": 1
+  };
+
+  /* Номер акта («69-ФЗ», «195-ФЗ», «1032-I») -> id источника. По нему запрос
+     сужается до конкретного закона, а не ищет статью 33 по всем федеральным
+     законам сразу. Ключи нормализованы так же, как запрос (нижний регистр,
+     без пробелов). Одинаковый номер у нескольких актов — обычное дело
+     (63-ФЗ это и УК РФ, и закон об адвокатуре), поэтому значение — массив. */
+  var SOURCE_BY_NUMBER = (function () {
+    var m = {};
+    CODES.forEach(function (c) {
+      var n = String(c.number || "").toLowerCase().replace(/\s+/g, "");
+      if (!n || !/^\d+-(фз|фкз|i|ii|iii|iv|v|vi|vii|viii|ix|x)$/.test(n)) return;
+      (m[n] = m[n] || []).push(c.id);
+    });
+    return m;
+  })();
+  /* Токен-ссылка на акт: «69-фз», «69фз», «195-фз», «1032-i» */
+  var SRC_NUM_RE = /^(\d+)[- ]?(фз|фкз|i|ii|iii|iv|v|vi|vii|viii|ix|x)$/;
+
   /* Служебные слова, не несущие поисковой нагрузки */
   var STOP = {
     "ст": 1, "стать": 1, "статья": 1, "статьи": 1, "статье": 1, "статью": 1, "статей": 1,
@@ -490,14 +522,69 @@
       return " ";
     });
     var tokens = src.split(" ").filter(Boolean);
-    var numbers = [], words = [], must = [], not = [], code = null;
+    /* Знаки «+»/«-»/«!» снимаем заранее: дальше нужен чистый список токенов,
+       чтобы разбирать словесную ссылку по соседям («69 статья 33 фз»). */
+    var clean = [];
     tokens.forEach(function (t) {
       var sign = "";
       if (t.charAt(0) === "+" || t.charAt(0) === "-" || t.charAt(0) === "!") {
         sign = t.charAt(0); t = t.slice(1);
       }
-      if (!t) return;
-      if (/^\d+(?:[.-]\d+)*$/.test(t)) { if (sign !== "-") numbers.push(t); return; }
+      if (t) clean.push({ w: t, sign: sign });
+    });
+
+    /* Шаг 1. Токен-ссылка на акт с суффиксом: «69-фз», «195-фз», «1032-i».
+       Это точное указание источника, догадки не нужны. Токен вынимаем из
+       потока: иначе он попал бы в «слова» и не нашёл бы ничего. Если акта с
+       таким номером в реестре нет — токен отбрасываем, чтобы не мусорить. */
+    var srcIds = [];
+    var kept = [];
+    clean.forEach(function (x) {
+      if (x.sign === "-") { kept.push(x); return; }
+      var m = SRC_NUM_RE.exec(x.w);
+      if (!m) { kept.push(x); return; }
+      var ids = SOURCE_BY_NUMBER[m[1] + "-" + m[2]];
+      if (!ids) return;
+      ids.forEach(function (id) { if (srcIds.indexOf(id) === -1) srcIds.push(id); });
+    });
+
+    /* Шаг 2. Число сразу после слова-указателя на статью — номер статьи. */
+    var artAt = {};
+    kept.forEach(function (x, i) {
+      if (!/^\d+(?:[.-]\d+)*$/.test(x.w)) return;
+      var prev = kept[i - 1];
+      if (prev && ART_WORD[prev.w]) artAt[i] = 1;
+    });
+
+    /* Шаг 3. Словесная ссылка на акт: «фз 69», «закон 69», «69 статья 33 фз».
+       Номером акта становится число рядом со словом «фз»/«закон»; если такого
+       соседства нет, но число-кандидат ровно одно — берём его (в «69 статья
+       33 фз» «69» стоит в начале, а «33» уже занято статьёй). */
+    if (kept.some(function (x) { return LAW_WORD[x.w]; })) {
+      var cands = [];
+      kept.forEach(function (x, i) {
+        if (!/^\d+(?:[.-]\d+)*$/.test(x.w) || artAt[i]) return;
+        var near = (kept[i - 1] && LAW_WORD[kept[i - 1].w]) || (kept[i + 1] && LAW_WORD[kept[i + 1].w]);
+        cands.push({ i: i, w: x.w, near: !!near });
+      });
+      var nearC = cands.filter(function (c) { return c.near; });
+      var pick = nearC.length === 1 ? nearC[0] : (cands.length === 1 ? cands[0] : null);
+      if (pick) {
+        var ids2 = SOURCE_BY_NUMBER[pick.w + "-фз"] || SOURCE_BY_NUMBER[pick.w + "-фкз"];
+        if (ids2) {
+          ids2.forEach(function (id) { if (srcIds.indexOf(id) === -1) srcIds.push(id); });
+          artAt[pick.i] = -1;   /* это номер акта, а не номер статьи */
+        }
+      }
+    }
+
+    var numbers = [], words = [], must = [], not = [], code = null;
+    kept.forEach(function (x, i) {
+      var t = x.w, sign = x.sign;
+      if (/^\d+(?:[.-]\d+)*$/.test(t)) {
+        if (sign !== "-" && artAt[i] !== -1) numbers.push(t);
+        return;
+      }
       if (CODE_ALIASES[t]) { if (!code && sign !== "-") code = CODE_ALIASES[t]; return; }
       if (t.length < 3) return;
       if (sign === "-") { not.push(t); return; }
@@ -518,10 +605,10 @@
        («похитили 150 кг бивня мамонта») числа — не номера: иначе помощник
        выдавал статьи 150 УК, 150 УПК, 150 ГК, 150 ТК и так далее по всему
        реестру, и ответ выглядел случайным. */
-    var useNums = numbers.length > 0 && (!!code || (words.length === 0 && !phrases.length));
+    var useNums = numbers.length > 0 && (!!code || srcIds.length > 0 || (words.length === 0 && !phrases.length));
     var res = {
       raw: norm(q), tokens: words, must: must, not: not, phrases: phrases,
-      numbers: numbers, useNums: useNums, code: code, syn: expandSyn(words)
+      numbers: numbers, useNums: useNums, code: code, srcIds: srcIds, syn: expandSyn(words)
     };
     if (_pqCache.size > 256) _pqCache.clear();
     _pqCache.set(q, res);
@@ -701,10 +788,22 @@
       return r;
     }
     var p = parseQuery(q);
-    if (!p.tokens.length && !p.numbers.length) return done([]);
+    /* «69-фз» без номера статьи — это ссылка на акт целиком, а не пустой
+       запрос: показываем его статьи. Для родового указателя («ук», «гк»)
+       поведение прежнее — пустую выдачу перехватывает viewSearch и открывает
+       страницу источника со всеми главами. */
+    var onlySrc = !p.tokens.length && !p.numbers.length;
+    if (onlySrc && !p.srcIds.length) return done([]);
 
     var pool = arts;
-    if (p.code) {
+    if (p.srcIds.length) {
+      /* Номер акта сужает выдачу до него. Одинаковый номер у нескольких
+         актов («63-фз» — и УК РФ, и закон об адвокатуре) даёт объединение:
+         пусть решает релевантность, а не порядок в реестре. */
+      var union = [];
+      p.srcIds.forEach(function (id) { union = union.concat(byCode[id] || []); });
+      if (union.length) pool = union;
+    } else if (p.code) {
       var sub = byCode[p.code];
       if (sub && sub.length) pool = sub;
     }
@@ -720,6 +819,13 @@
     if (opt.scope) {
       var sids = String(opt.scope).split(",");
       pool = pool.filter(function (a) { return sids.indexOf(a.c) !== -1; });
+    }
+    /* Запрос состоял только из номера акта: отдаём его статьи в порядке
+       следования — это оглавление, а не поиск по релевантности. */
+    if (onlySrc) {
+      return done(pool.slice().sort(cmpArticles).map(function (a) {
+        return { a: a, s: 1, cov: 0, num: false, why: [], topic: "", role: "" };
+      }));
     }
 
     var qStems = FT ? FT.stems(p.tokens.join(" ")) : [];
@@ -1295,7 +1401,8 @@
         if (!row) return;
         var a = byId[row[0] + "-" + row[1]];
         if (!a) return;
-        if (opt.code && a.c !== opt.code) return;
+        if (opt.codes && opt.codes.length) { if (opt.codes.indexOf(a.c) === -1) return; }
+        else if (opt.code && a.c !== opt.code) return;
         if (seen[a.id]) return;
         if (notStemsAll.length && notStemsAll.some(function (s) { return hasStem(s, id); })) return;
         if (mustGroups.length && !mustGroups.every(function (g) { return groupHit(g, id); })) return;
@@ -2774,6 +2881,7 @@
           "<h3 style=\"margin-top:0\">Что понимает поиск</h3>" +
           '<ul class="list">' +
             "<li><b>Номер статьи и кодекс:</b> «ст 105 УК», «статья 91 УПК», «19.7.10-1 КоАП», «ст 333.19 НК».</li>" +
+            "<li><b>Статья и номер закона:</b> «ст 33 69-ФЗ», «69-ФЗ статья 33», «69 статья 33 фз» — все три записи находят статью 33 Федерального закона № 69-ФЗ. Один только номер акта («69-ФЗ») открывает его содержание.</li>" +
             "<li><b>Слова из текста:</b> «не позднее трех суток», «сбыт наркотиков» — ищется и внутри полного текста статьи.</li>" +
             "<li><b>Точная фраза:</b> «\"тайное хищение чужого имущества\"» в кавычках — слова подряд и в этом порядке.</li>" +
             "<li><b>Обязательное слово:</b> «+обыск жилище» — слово с плюсом обязано быть в статье.</li>" +
@@ -2782,7 +2890,7 @@
           '<p class="small muted" style="margin-bottom:0">Опечатки исправляются автоматически: «наркоти» найдёт «наркотическ», «обыскк» — «обыск».</p>' +
         "</div>" +
         '<div class="chips">' +
-          ["ст 105 УК", "статья 91 УПК", "19.7 КоАП", "обыск в жилище", "получение взятки", "сбыт наркотиков",
+          ["ст 105 УК", "статья 91 УПК", "ст 33 69-ФЗ", "19.7 КоАП", "обыск в жилище", "получение взятки", "сбыт наркотиков",
            "срок предварительного следствия", "контроль переговоров", "моральный вред", "прогул",
            "\"тайное хищение чужого имущества\"", "стража -несовершеннолетних"].map(function (x) {
             return '<div class="chip" data-go="#/search/' + encodeURIComponent(x) + '">' + esc(x) + "</div>";
@@ -2790,9 +2898,16 @@
         "</div>";
     }
     var p = parseQuery(q);
-    if (p.code && !p.tokens.length && !p.numbers.length) {
-      return '<div class="info-box" style="margin-bottom:16px">Запрос распознан как указание на источник — показано его содержание.</div>' +
-        viewCode(p.code);
+    /* Родовой указатель («ук») и номер акта без номера статьи («69-фз») —
+       это указание на источник, а не поисковый запрос: открываем сам акт. */
+    if (!p.tokens.length && !p.numbers.length && (p.code || p.srcIds.length === 1)) {
+      var onlyId = p.code || p.srcIds[0];
+      var oc = codeById(onlyId);
+      return '<div class="info-box" style="margin-bottom:16px">' +
+        (p.code ? "Запрос распознан как указание на источник"
+                : "Запрос распознан как ссылка на акт — " + esc(oc ? oc.short : onlyId)) +
+        ": показано его содержание.</div>" +
+        viewCode(onlyId);
     }
     var all = search(q, { skipRepealed: searchOpts.skipRepealed });
     /* Фильтр по источнику применяем после отсечки «хвоста»: иначе выбор
@@ -2801,7 +2916,7 @@
     if (searchOpts.sort === "src") {
       res = res.slice().sort(function (x, y) { return cmpArticles(x.a, y.a); });
     }
-    var c = p.code ? codeById(p.code) : null;
+    var c = p.code ? codeById(p.code) : (p.srcIds.length === 1 ? codeById(p.srcIds[0]) : null);
 
     var counts = {};
     all.forEach(function (x) { counts[x.a.c] = (counts[x.a.c] || 0) + 1; });
@@ -2825,6 +2940,8 @@
 
     var head = '<h1>Результаты поиска</h1><p class="lead">Запрос: <b>' + esc(q) + "</b> — найдено " + res.length + " " +
       plural(res.length, ["статья", "статьи", "статей"]) + (c ? " · источник: " + esc(c.short) : "") + "</p>" +
+      (p.srcIds.length > 1 ? '<p class="small muted">Номер акта совпал у нескольких источников: ' +
+        esc(p.srcIds.map(function (id) { var cc = codeById(id); return cc ? cc.short : id; }).join(", ")) + "</p>" : "") +
       (p.phrases.length ? '<p class="small muted">Точная фраза: ' + esc(p.phrases.map(function (x) { return "«" + x + "»"; }).join(", ")) + "</p>" : "") +
       (p.must.length ? '<p class="small muted">Обязательные слова: ' + esc(p.must.join(", ")) + "</p>" : "") +
       (p.not.length ? '<p class="small muted">Исключены слова: ' + esc(p.not.join(", ")) + "</p>" : "") +
@@ -2930,7 +3047,7 @@
     box.innerHTML = '<div class="loading" style="margin-top:20px">Ищем по полным текстам статей…</div>';
 
     ftSearch(q, {
-      code: p.code, limit: 240, syn: p.syn, parsed: p,
+      code: p.code, codes: p.srcIds, limit: 240, syn: p.syn, parsed: p,
       skipRepealed: searchOpts.skipRepealed
     }, function (err, list, info) {
       if (state.route.name !== "search") return;

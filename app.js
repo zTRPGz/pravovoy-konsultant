@@ -30,7 +30,12 @@
   /* ------------------------------------------------------------------ утилиты */
 
   function norm(s) {
-    return String(s == null ? "" : s)
+    /* Пустая строка — самый частый вход: у большинства статей нет ни
+       аннотации, ни ключевых слов, а searchable() зовёт norm() семь раз на
+       каждую из 24 855 записей при запуске. Пять проходов регулярками на
+       пустом месте стоили заметной доли времени открытия сайта. */
+    if (s == null || s === "") return "";
+    return String(s)
       .toLowerCase()
       .replace(/ё/g, "е")
       .replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000\ufeff]/g, " ")
@@ -2311,6 +2316,21 @@
     }
   }
 
+  /* Живой поиск: обновляет ту же страницу выдачи, не добавляя запись в
+     историю. Иначе «Назад» пришлось бы нажимать по буквам — по одной
+     записи на каждую паузу в наборе. */
+  function goSearchLive(q) {
+    var h = "#/search/" + encodeURIComponent(q);
+    if (state.route.name !== "search") { go(h); return; }
+    try {
+      history.replaceState(history.state, "", location.pathname + location.search + h);
+      navStack[navPos] = h;
+      render();
+    } catch (e) {
+      try { location.replace(h); } catch (e2) {}
+    }
+  }
+
   /* Браузерная «Назад»/«Вперёд»: адрес уже изменён, остаётся показать
      раздел и поставить указатель своего стека на то же место — иначе
      следующая кнопка в панели прыгнула бы не туда. Мини-окно статьи могло
@@ -2450,6 +2470,8 @@
     headBottom: 0,      /* до какого места документа тянется шапка статьи */
     barShown: false,
     topShown: false,
+    barOff: false,      /* верхняя панель уехала (прокрутка вниз на телефоне) */
+    lastY: 0,
     lastPct: -1,
     raf: 0,
     idle: 0,
@@ -2460,7 +2482,18 @@
      полоса статьи. Считается при запуске и при изменении размера — не в
      кадре прокрутки. */
   var topbarH = 0;
+  /* Докуда липнут полосы. Когда панель уехала вверх, они встают к самому
+     краю — иначе между ними и экраном осталась бы дыра. */
+  var stickTop = -1;
   var sideW = -1;
+
+  function applyStickTop() {
+    var v = SUI.barOff ? 0 : topbarH;
+    if (v === stickTop) return;
+    stickTop = v;
+    document.documentElement.style.setProperty("--stick-top", v + "px");
+  }
+
   function syncTopbarH() {
     var tb = $(".topbar");
     if (!tb) return;
@@ -2470,6 +2503,7 @@
       topbarH = h;
       document.documentElement.style.setProperty("--topbar-h", h + "px");
     }
+    applyStickTop();
     /* Левый край содержимого: на широком экране он сдвинут боковой панелью,
        а при свёрнутой панели — нет. Полоса статьи выравнивается по нему. */
     var l = Math.round(r.left);
@@ -2515,6 +2549,31 @@
     if (wantBar && SUI.pct) {
       var pct = Math.round(p * 100);
       if (pct !== SUI.lastPct) { SUI.lastPct = pct; SUI.pct.textContent = pct + "%"; }
+    }
+
+    /* Верхняя панель на телефоне: при прокрутке вниз уезжает, при прокрутке
+       вверх возвращается. Экран не прыгает — двигается только transform,
+       содержимое остаётся на месте. Пока в поле поиска стоит курсор, панель
+       не прячем: иначе клавиатура останется, а поле исчезнет. */
+    var mobile = window.innerWidth <= 900;
+    if (!mobile) {
+      if (SUI.barOff) { SUI.barOff = false; document.body.classList.remove("topbar-off"); applyStickTop(); }
+      SUI.lastY = y;
+      return;
+    }
+    var act = document.activeElement;
+    var typing = !!(act && act.closest && act.closest(".topbar"));
+    var dy = y - SUI.lastY;
+    /* lastY двигаем только когда порог пройден: иначе мелкие подрагивания
+       пальца сбрасывали бы накопленное смещение и направление не читалось. */
+    if (Math.abs(dy) > 6 && !typing) {
+      var off = dy > 0 && y > 140;
+      if (off !== SUI.barOff) {
+        SUI.barOff = off;
+        document.body.classList.toggle("topbar-off", off);
+        applyStickTop();
+      }
+      SUI.lastY = y;
     }
   }
 
@@ -2766,6 +2825,15 @@
     /* Полоса прогресса и контекст статьи зависят от нового содержимого:
        высота страницы изменилась, прежние значения недействительны. */
     updateScrollUI();
+
+    /* Крошка «глава» из статьи: кодекс уже нарисован — встаём на главу. */
+    if (pendingChapter && r.name === "code" && pendingChapter.src === r.arg) {
+      var pc = pendingChapter;
+      pendingChapter = null;
+      gotoChapter(pc.i, true);
+    } else if (r.name !== "code") {
+      pendingChapter = null;
+    }
 
     /* Плавная смена раздела. Ключ включает и аргумент маршрута, поэтому
        анимируются и переходы внутри раздела (статья → статья, вкладка
@@ -3773,6 +3841,7 @@
     var inCases = casesWith(id);
 
     return changeBanner(id) +
+      articleCrumbs(a, c) +
       head +
       statusBox(id) +
       (annot ? '<div class="article-body"><div class="section-label">Справочная аннотация</div>' + annot + "</div>" : "") +
@@ -3799,6 +3868,32 @@
       }).join("") + "</div>" : "") +
       '<h2>Проверить сроки</h2><div class="chips"><div class="chip" data-go="#/deadlines">Калькулятор процессуальных сроков</div>' +
       '<div class="chip" data-go="#/assistant">Разобрать в Помощнике</div></div>';
+  }
+
+  /* Хлебные крошки: где я и как вернуться. Крошка главы не просто называет
+     раздел — она открывает кодекс и встаёт на него (иначе от неё нет пользы,
+     ведь глава в адресе не выражается). */
+  function articleCrumbs(a, c) {
+    var chIx = chapterIndexOf(a);
+    var out = '<div class="crumbs">' +
+      '<span class="lnk" data-go="#/sources">Источники</span>' +
+      '<span class="crumb-sep">→</span>' +
+      '<span class="lnk" data-go="#/code/' + encodeURIComponent(a.c) + '">' + esc(c.short) + "</span>";
+    if (a.g) {
+      out += '<span class="crumb-sep">→</span>' + (chIx >= 0
+        ? '<span class="lnk crumb-ch" data-goto-chapter="' + esc(a.c) + "|" + chIx +
+          '" title="Открыть главу в тексте кодекса">' + esc(a.g) + "</span>"
+        : '<span class="crumb-here">' + esc(a.g) + "</span>");
+    }
+    return out + '<span class="crumb-sep">→</span>' +
+      '<span class="crumb-here">ст. ' + esc(a.dn) + "</span></div>";
+  }
+
+  function codeCrumbs(c) {
+    return '<div class="crumbs">' +
+      '<span class="lnk" data-go="#/sources">Источники</span>' +
+      '<span class="crumb-sep">→</span>' +
+      '<span class="crumb-here">' + esc(c.short) + "</span></div>";
   }
 
   /* Наполняет полосу контекста статьи (#artBar): какой акт и какая статья
@@ -4314,7 +4409,7 @@
 
     var body = buildCodeBody(raw);
 
-    return '<h1 style="color:' + c.color + '">' + esc(c.short) + "</h1>" +
+    return codeCrumbs(c) + '<h1 style="color:' + c.color + '">' + esc(c.short) + "</h1>" +
       '<p class="lead">' + esc(c.full) + (c.req ? " · " + esc(c.req) : "") + "</p>" +
       '<div class="grid grid-4" style="margin-bottom:16px">' +
         stat(list.length, isPl ? "пунктов разъяснений" : "статей") +
@@ -4405,6 +4500,14 @@
     return groups.map(function (g, i) {
       /* внутри раздела — по номерам пунктов */
       var items = g.items.slice().sort(cmpArticles);
+      /* Переход к соседней главе в конце каждой: дочитав раздел, человек
+         хочет продолжить, а не возвращаться к оглавлению наверху. */
+      var nav = '<div class="ch-nav">' +
+        (i > 0 ? '<button class="btn btn-sm" type="button" data-chjump="' + (i - 1) + '" title="' +
+          esc(groups[i - 1].title) + '">← <span>' + esc(groups[i - 1].title) + "</span></button>" : "") +
+        (i < groups.length - 1 ? '<button class="btn btn-sm ch-next" type="button" data-chjump="' + (i + 1) + '" title="' +
+          esc(groups[i + 1].title) + '"><span>' + esc(groups[i + 1].title) + "</span> →</button>" : "") +
+        "</div>";
       return '<details class="chapter" id="ch-' + i + '"' + (i === 0 ? " open" : "") + ">" +
         "<summary><span>" + esc(g.title) + '</span><span class="cnt">' + items.length + "</span></summary>" +
         '<div class="chapter-body">' + items.map(function (a) {
@@ -4415,8 +4518,41 @@
             (s ? '<span class="art-st">' + esc(s.title) + "</span>" : "") +
             (ANNOT[a.id] ? '<span class="art-badge" title="есть справочная аннотация">аннотация</span>' : "") +
             "</div>";
-        }).join("") + "</div></details>";
+        }).join("") + (groups.length > 1 ? nav : "") + "</div></details>";
     }).join("");
+  }
+
+  /* Переход к главе: раскрыть, подсветить чип, подвести экран. Один и тот же
+     путь для оглавления, кнопок в конце главы и хлебных крошек статьи. */
+  function gotoChapter(i, smooth) {
+    var ch = document.getElementById("ch-" + i);
+    if (!ch) return;
+    if (ch.tagName === "DETAILS" && !ch.open) ch.open = true;
+    var toc = $("#codeToc");
+    if (toc) {
+      var chip = toc.querySelector('.ct-chip[data-ch="' + i + '"]');
+      if (chip) setTocActive($$(".ct-chip", toc), chip);
+    }
+    var beh = (smooth && !reduceMotion) ? "smooth" : "auto";
+    try { ch.scrollIntoView({ behavior: beh, block: "start" }); }
+    catch (e) {
+      var top = ch.getBoundingClientRect().top + (window.pageYOffset || 0) - (topbarH + (toc ? toc.offsetHeight : 0) + 8);
+      try { window.scrollTo(0, Math.max(0, top)); } catch (e2) {}
+    }
+  }
+
+  /* Номер группы, в которой лежит статья: порядок тот же, что у тела кодекса
+     (первое появление главы), иначе крошка привела бы не туда. */
+  function chapterIndexOf(a) {
+    if (!a || !a.g) return -1;
+    var list = byCode[a.c] || [], seen = {}, n = -1;
+    for (var i = 0; i < list.length; i++) {
+      var k = list[i].g || "Без главы";
+      if (seen[k]) continue;
+      seen[k] = 1; n++;
+      if (k === a.g) return n;
+    }
+    return -1;
   }
 
   /* --- оглавление источника ------------------------------------------------
@@ -4426,6 +4562,9 @@
      Порядок глав берётся из того же списка, что и у тела, — иначе номера
      кнопок разошлись бы с id разделов. */
   var tocObs = null;
+  /* Глава, к которой надо перейти после отрисовки кодекса: пришла из
+     крошки статьи. Живёт до первой отрисовки нужного источника. */
+  var pendingChapter = null;
 
   function codeTocHtml(list) {
     var order = [], seen = {};
@@ -4471,16 +4610,7 @@
       toc.addEventListener("click", function (e) {
         var b = e.target.closest(".ct-chip");
         if (!b) return;
-        var ch = document.getElementById("ch-" + b.getAttribute("data-ch"));
-        if (!ch) return;
-        /* закрытая глава сначала раскрывается: иначе переход в пустоту */
-        if (ch.tagName === "DETAILS" && !ch.open) ch.open = true;
-        setTocActive($$(".ct-chip", toc), b);
-        try { ch.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }); }
-        catch (e2) {
-          var top = ch.getBoundingClientRect().top + (window.pageYOffset || 0) - (topbarH + toc.offsetHeight + 8);
-          try { window.scrollTo(0, Math.max(0, top)); } catch (e3) {}
-        }
+        gotoChapter(parseInt(b.getAttribute("data-ch"), 10) || 0, true);
       });
     }
     observeTocChapters();
@@ -10704,8 +10834,13 @@
           toast("Проверка за сегодня: обновлений — " + dailyFresh.newer);
         }
       }
+      /* Значок в панели обновляем всегда, а раздел перерисовываем только
+         тогда, когда он этот значок и показывает. Тихая проверка стартует
+         через секунду после запуска — если она перерисовывала раздел
+         целиком, человек, успевший прокрутить страницу или раскрыть главу,
+         отбрасывался к началу (сброс прокрутки и открытых разделов). */
       buildNav();
-      render();
+      if (state.route.name === "freshness") render();
     });
   }
 
@@ -13210,6 +13345,24 @@
         return;
       }
 
+      /* конец главы кодекса: переход к соседней главе */
+      var chj = e.target.closest("[data-chjump]");
+      if (chj) {
+        e.preventDefault();
+        gotoChapter(parseInt(chj.getAttribute("data-chjump"), 10) || 0, true);
+        return;
+      }
+
+      /* крошка «глава» на странице статьи: открыть кодекс и встать на неё */
+      var gc = e.target.closest("[data-goto-chapter]");
+      if (gc) {
+        e.preventDefault();
+        var gcParts = (gc.getAttribute("data-goto-chapter") || "").split("|");
+        pendingChapter = { src: gcParts[0], i: parseInt(gcParts[1], 10) || 0 };
+        go("#/code/" + encodeURIComponent(gcParts[0]));
+        return;
+      }
+
       /* «Продолжить чтение»: запомнить, куда вернуть прокрутку в статье.
          Дальше сработает общая ветка [data-go] — переход делает она. */
       var resEl = e.target.closest("[data-resume]");
@@ -13334,12 +13487,52 @@
     });
 
     var si = $("#searchInput");
+    var liveTmr = 0;
     si.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
+        clearTimeout(liveTmr);
         var q = si.value.trim();
         if (q) go("#/search/" + encodeURIComponent(q));
       }
     });
+    /* Живой поиск: пока человек печатает, выдача обновляется сама — Enter
+       больше не обязателен. Задержка 300 мс гасит перерисовку на каждой
+       букве; один знак не ищем — по нему в выдачу попадает пол-базы. */
+    si.addEventListener("input", function () {
+      clearTimeout(liveTmr);
+      var q = si.value.trim();
+      var onSearch = state.route.name === "search";
+      if (onSearch && q === (state.route.q || "")) return;
+      if (!q) {
+        if (onSearch) liveTmr = setTimeout(function () { goSearchLive(""); }, 300);
+        return;
+      }
+      if (q.length < 2) return;
+      liveTmr = setTimeout(function () { goSearchLive(q); }, 300);
+    });
+
+    /* Предзагрузка полного текста при наведении: пока курсор идёт от строки
+       списка к статье, файл источника уже скачивается, и статья открывается
+       мгновенно. Только на устройствах с настоящим указателем: на телефоне
+       «наведения» нет, а качать текст по случайному касанию нельзя. */
+    var canHover = true;
+    try {
+      canHover = !window.matchMedia || window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    } catch (e) {}
+    if (canHover) {
+      var hoverTmr = 0, hoverSrc = "";
+      document.addEventListener("pointerover", function (e) {
+        var el = e.target && e.target.closest ? e.target.closest('[data-go^="#/article/"]') : null;
+        if (!el) return;
+        var a = byId[(el.getAttribute("data-go") || "").slice(10)];
+        if (!a || a.note || hasFull(a.c) || a.c === hoverSrc) return;
+        hoverSrc = a.c;
+        clearTimeout(hoverTmr);
+        hoverTmr = setTimeout(function () {
+          if (!hasFull(a.c)) loadFull(a.c, function () {});
+        }, 140);
+      }, { passive: true });
+    }
 
     /* Горячие клавиши ← / → на странице статьи — шаг по смежным статьям
        того же источника. Не срабатывают в полях ввода и при модификаторах. */
@@ -13630,7 +13823,7 @@
     });
 
     /* Ежедневный контроль актуальности: проверяем «день в день», но только
-       один раз за календарный день и после того, как интерфейс отрисован. */
+       один раз за календарный день. */
     loadDaily();
     buildNav();
     /* Пункты боковой панели размечаем один раз здесь: render() теперь
@@ -13640,11 +13833,19 @@
     /* автообновление базы: тихий опрос data/version.json и уведомление,
        если на хостинге появилась новая сборка (см. checkBuild) */
     startBuildWatch();
+
+    /* Раздел рисуем сразу, не дожидаясь проверки актуальности. Проверка ходит
+       в сеть, а её ответа на медленном канале (или без сети, пока не сработает
+       таймаут) можно ждать секундами — и всё это время человек видел экран
+       «Загружаем базу», хотя данные уже лежали в памяти. Замер в Edge: первый
+       заход за день показывал содержимое через 6,2 с вместо 1 с. Проверка
+       тихая: ответит — обновит значок в панели, а раздел «Актуальность»
+       перерисует только если он открыт (см. runDailyCheck). */
+    render();
     if (dailyCheckDue()) {
       setTimeout(function () { runDailyCheck(false); }, 1200);
     } else {
       freshState.checkedAt = dailyFresh.at ? new Date(dailyFresh.at) : freshState.checkedAt;
-      render();
     }
 
     /* вступительный экран — показывается при каждом открытии: он коротко

@@ -95,8 +95,11 @@
 
   /* Высота верхней панели. По ней закрепляются оглавление источника и
      полоса контекста статьи; значение уточняет app.js при запуске и при
-     изменении размера окна (панель на телефоне выше, чем на мониторе). */
+     изменении размера окна (панель на телефоне выше, чем на мониторе).
+     --stick-top — та же величина, но обнуляется, когда панель уехала
+     вверх при прокрутке: полосы встают к самому краю экрана. */
   --topbar-h: 60px;
+  --stick-top: 60px;
 }
 
 [data-theme="light"] {
@@ -2560,6 +2563,11 @@ body::-webkit-scrollbar-track { background: transparent; }
   .split { grid-template-columns: 1fr; }
   .content { padding: 18px 14px 60px; }
   .topbar { padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top, 0px)); padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); gap: 9px; }
+  /* Прокрутка вниз — панель уезжает, вверх — возвращается (класс ставит
+     app.js). Двигается только transform: содержимое под панелью не прыгает,
+     раскладка не пересчитывается. */
+  .topbar { transition: transform .2s ease; }
+  body.topbar-off .topbar { transform: translateY(-100%); pointer-events: none; }
   /* шапка главной на планшете и телефоне: меньше внутренних отступов,
      иначе текст упирается в края карточки */
   .hero { padding: 24px 20px 22px; }
@@ -3172,7 +3180,7 @@ body.modal-open { overflow: hidden; }
    поэтому на широком экране полоса не заезжает под меню. */
 .art-bar {
   position: fixed; z-index: 19;
-  top: var(--topbar-h); left: var(--side-w, 0px); right: 0;
+  top: var(--stick-top); left: var(--side-w, 0px); right: 0;
   display: flex; align-items: center; gap: 4px;
   padding: 5px 12px;
   padding-left: max(12px, env(safe-area-inset-left, 0px));
@@ -3181,7 +3189,7 @@ body.modal-open { overflow: hidden; }
   border-bottom: 1px solid var(--border);
   box-shadow: 0 8px 18px -16px rgba(0,0,0,.9);
   opacity: 0; visibility: hidden; transform: translateY(-8px);
-  transition: opacity .16s ease, transform .16s ease, visibility .16s;
+  transition: opacity .16s ease, transform .16s ease, visibility .16s, top .18s ease;
   pointer-events: none;
 }
 .art-bar.show { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
@@ -3214,7 +3222,7 @@ body.modal-open { overflow: hidden; }
    Полоса глав кодекса. Липнет под верхней панелью и прокручивается вбок:
    у УК РФ больше сорока глав, в одну строку они не влезают. */
 .code-toc {
-  position: sticky; top: var(--topbar-h); z-index: 16;
+  position: sticky; top: var(--stick-top); z-index: 16;
   display: flex; align-items: center; gap: 6px;
   margin: 0 0 14px; padding: 8px 2px;
   overflow-x: auto; overflow-y: hidden;
@@ -3222,6 +3230,7 @@ body.modal-open { overflow: hidden; }
   scroll-snap-type: x proximity;
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   border-bottom: 1px solid var(--border);
+  transition: top .18s ease;
 }
 .code-toc::-webkit-scrollbar { display: none; }
 .code-toc[hidden] { display: none; }
@@ -3290,3 +3299,46 @@ body.modal-open { overflow: hidden; }
 .resume-go { flex: 0 0 auto; color: var(--muted); display: grid; place-items: center; }
 .resume-go .ic { width: 16px; height: 16px; }
 .resume:hover .resume-go { color: var(--accent); }
+
+/* ---------- хлебные крошки ----------
+   «Источники → УК РФ → Глава 1 → ст. 105». Крошка главы ведёт в текст
+   кодекса и встаёт на нужный раздел, поэтому она кликабельна, а не просто
+   подпись. */
+.crumbs {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 7px;
+  margin-bottom: 6px; font-size: var(--fs-3); color: var(--muted);
+}
+.crumb-sep { color: var(--border-2); }
+.crumb-here { color: var(--text-2); }
+.crumb-ch {
+  max-width: min(100%, 420px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ---------- переход к соседней главе ----------
+   В конце раздела кодекса: дочитал главу — идёшь дальше, не возвращаясь
+   к оглавлению наверху. Название главы обрезается, кнопка не растягивает
+   страницу. */
+.ch-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; }
+.ch-nav .btn { min-width: 0; max-width: 100%; }
+.ch-nav .btn > span {
+  display: inline-block; max-width: 240px; vertical-align: bottom;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ch-nav .ch-next { margin-left: auto; }
+
+/* ---------- экран загрузки ----------
+   Виден один кадр, пока разбирается база. Без него на медленном телефоне
+   пустая область содержимого читается как «страница не открылась». */
+.boot {
+  display: grid; place-items: center; gap: 10px;
+  padding: 18vh 20px 40px; text-align: center; color: var(--muted);
+}
+.boot-spin {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--border-2); border-top-color: var(--accent);
+  animation: bootSpin .9s linear infinite;
+}
+@keyframes bootSpin { to { transform: rotate(360deg); } }
+.boot-t { font-size: var(--fs-6); font-weight: 650; color: var(--text-2); }
+.boot-s { font-size: var(--fs-3); max-width: 46ch; line-height: 1.55; }

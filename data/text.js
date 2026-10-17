@@ -66,29 +66,64 @@
 
   var MIN_STEM = 3;   // минимальная длина основы
 
+  /* Окончания, разложенные по последней букве. Подойти слову может только
+     окончание с той же последней буквой, поэтому перебирать весь список
+     (около 120 строк) на каждое слово незачем. Замер запуска приложения:
+     перебор всех окончаний со сравнением через slice() съедал больше
+     секунды только на названиях и главах 24 855 статей — это была самая
+     дорогая операция при открытии сайта. */
+  var END_BY_LAST = (function () {
+    var m = {};
+    for (var i = 0; i < END.length; i++) {
+      var e = END[i], k = e.charAt(e.length - 1);
+      (m[k] || (m[k] = [])).push(e);
+    }
+    return m;
+  })();
+
+  /* Основы слов повторяются постоянно: «статья», «право», «суд», «лицо» и
+     сотни других встречаются в тысячах названий. Основа слова не зависит от
+     контекста, поэтому считаем её один раз. Предел держит память под
+     контролем: словарь полного текста всех кодексов больше, чем нужно
+     держать целиком. */
+  var STEM_CACHE = {}, STEM_CACHE_MAX = 60000, stemCached = 0;
+
   /* Основа одного слова */
   function stem(w) {
     if (!w || w.length < 4) return w;
+    var hit = STEM_CACHE[w];
+    if (hit !== undefined) return hit;
+    var res = stemRaw(w);
+    if (stemCached >= STEM_CACHE_MAX) { STEM_CACHE = {}; stemCached = 0; }
+    STEM_CACHE[w] = res;
+    stemCached++;
+    return res;
+  }
+
+  function stemRaw(w) {
     var orig = w;
 
     /* возвратная частица снимается отдельно */
-    if (/с[яь]$/.test(w) && w.length - 2 >= MIN_STEM) w = w.slice(0, -2);
+    if ((w.endsWith("ся") || w.endsWith("сь")) && w.length - 2 >= MIN_STEM) w = w.slice(0, -2);
 
-    /* самое длинное подходящее окончание */
-    var best = null;
-    for (var i = 0; i < END.length; i++) {
-      var e = END[i];
-      if (w.length - e.length < MIN_STEM) continue;
-      if (w.slice(w.length - e.length) !== e) continue;
-      if (!best || e.length > best.length) best = e;
+    /* самое длинное подходящее окончание — из тех, что подходят по последней
+       букве; сравниваем через endsWith, без создания подстроки */
+    var best = null, cand = END_BY_LAST[w.charAt(w.length - 1)];
+    if (cand) {
+      for (var i = 0; i < cand.length; i++) {
+        var e = cand[i];
+        if (w.length - e.length < MIN_STEM) continue;
+        if (!w.endsWith(e)) continue;
+        if (!best || e.length > best.length) best = e;
+      }
     }
     if (best) w = w.slice(0, w.length - best.length);
 
     /* мягкий знак в конце основы */
-    if (/ь$/.test(w) && w.length - 1 >= MIN_STEM) w = w.slice(0, -1);
+    if (w.endsWith("ь") && w.length - 1 >= MIN_STEM) w = w.slice(0, -1);
 
     /* удвоенная «н» (ответственн- -> ответствен-) */
-    if (/нн$/.test(w) && w.length - 1 >= MIN_STEM + 1) w = w.slice(0, -1);
+    if (w.endsWith("нн") && w.length - 1 >= MIN_STEM + 1) w = w.slice(0, -1);
 
     return w.length >= MIN_STEM ? w : orig;
   }
@@ -130,7 +165,13 @@
   var MIN_LEN = 3;
 
   function tokenize(text) {
-    var s = String(text == null ? "" : text).toLowerCase().replace(/ё/g, "е");
+    /* Пустой текст — частый вход: searchable() зовёт stems() шесть раз на
+       каждую статью, а у большинства статей заполнены только название и
+       глава. Без этой строки на пустом месте всё равно строилась строка,
+       снимались «ё» и запускалась регулярка — десятки тысяч раз при
+       открытии сайта. */
+    if (!text) return [];
+    var s = String(text).toLowerCase().replace(/ё/g, "е");
     var m = s.match(/[а-я]+/g);
     if (!m) return [];
     var out = [];

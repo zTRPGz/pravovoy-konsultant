@@ -762,6 +762,13 @@ h3 { font-size: var(--fs-6); margin: 18px 0 8px; font-weight: 650; }
   display: inline-block; font-size: var(--fs-1); padding: 2px 9px; border-radius: var(--r-pill);
   background: var(--bg-3); color: var(--muted); border: 1px solid var(--border);
   white-space: nowrap;
+  /* Плашка не должна быть шире родителя. `short` у источника — не всегда
+     короткое: у Пленумов ВС РФ это полное название постановления (до 424
+     знаков), у части постановлений — 80+ знаков. С nowrap такая плашка
+     раздувалась до 474 px, вылезала за экран телефона (документ становился
+     486 px при вьюпорте 390) и отнимала всю строку у соседнего текста.
+     Теперь длинная подпись обрезается многоточием по краю родителя. */
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
 }
 .badge-code { font-weight: 600; }
 
@@ -1588,8 +1595,15 @@ body.has-crash .toast { bottom: 104px; }
   min-width: 0;
 }
 .related-item:hover { background: var(--accent-bg); }
-.related-item .badge { flex: none; }
-.related-t { font-size: var(--fs-4); line-height: 1.35; min-width: 0; overflow-wrap: anywhere; }
+/* Плашка источника занимает не больше 40 % строки, остальное — тексту.
+   Было `flex: none`: при длинном `short` плашка забирала всю ширину, а
+   `.related-t` сжимался до нуля — и текст выстраивался в колонку по одной
+   букве (высота такого пункта доходила до 1470 px вместо ~40).
+   `flex: 0 0 auto` (а не `0 1 auto`): плашка не сжимается вместе с текстом,
+   иначе от неё остаётся многоточие в 30 px; длинное название ограничивает
+   только max-width. */
+.related-item .badge { flex: 0 0 auto; max-width: 40%; }
+.related-t { flex: 1 1 auto; font-size: var(--fs-4); line-height: 1.35; min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- помощник: разбор ситуации ---------- */
 .help-card { border-color: color-mix(in srgb, var(--accent) 26%, var(--border)); }
@@ -2623,9 +2637,13 @@ body::-webkit-scrollbar-track { background: transparent; }
      под ними; требование по цене иска — название шире, сумма уже */
   .calc-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; }
   .claim-row { grid-template-columns: minmax(0,1fr) 112px auto; }
-  /* название акта в бейдже бывает длиннее экрана: разрешаем перенос,
-     иначе бейдж растягивает строку и уводит страницу за край */
-  .badge-code { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
+  /* Название акта в бейдже бывает длиннее экрана. Раньше здесь разрешали
+     перенос (white-space: normal) — и в узкой колонке overflow-wrap:anywhere
+     ломал подпись по ОДНОЙ букве: плашка вытягивалась в столбик высотой до
+     460 px, а соседний текст сжимался в ноль. Держим одну строку и обрезаем
+     многоточием: полное название и так есть в шапке статьи (.article-cite)
+     и в карточке источника. */
+  .badge-code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .hc-row { grid-template-columns: 1fr; gap: 3px; }
   .intro-card { padding: 24px 18px 22px; }
   .intro-title { font-size: var(--fs-8); }

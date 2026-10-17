@@ -2316,6 +2316,14 @@
      следующая кнопка в панели прыгнула бы не туда. Мини-окно статьи могло
      быть открыто поверх раздела: переход по истории его закрывает, а адрес
      возврата забываем — он относится к записи, которую мы покинули. */
+  /* Возврат по истории поднимает ДВА события — popstate и hashchange.
+     Первое восстанавливает прокрутку, второе перерисовывало раздел ещё раз
+     и сбрасывало её к началу. Поэтому hashchange, совпадающий с адресом,
+     который только что показал popstate, пропускаем: запоминаем сам адрес,
+     а не флаг «следующий пропустить» — иначе при переходе между записями с
+     одинаковым хешем флаг съел бы уже настоящий переход. */
+  var hashFromPop = null;
+
   window.addEventListener("popstate", function () {
     var m = $("#artModal");
     if (m && !m.hidden) { m.hidden = true; document.body.classList.remove("modal-open"); }
@@ -2323,6 +2331,10 @@
     var h = location.hash || "#/home";
     var at = navStack.indexOf(h);
     if (at !== -1) navPos = at;
+    /* Возврат по истории — единственный случай, когда прокрутку надо
+       восстановить: человек шёл из списка в статью и вернулся туда же. */
+    restoreNext = scrollMemoHash[h] != null ? scrollMemoHash[h] : -1;
+    hashFromPop = h;
     render();
   });
 
@@ -2423,6 +2435,138 @@
 
   var lastViewName = null;
 
+  /* ------------------------------------------------------------ прокрутка
+     Один слушатель scroll на всю страницу и один кадр на всё: раньше на
+     каждое событие прокрутки браузер писал атрибут hidden кнопке «наверх»,
+     то есть пересчитывал стили по шестьдесят раз в секунду — на телефоне
+     это заметные рывки. Теперь событие только поднимает флаг, а работу
+     делает requestAnimationFrame: читает положение один раз и пишет лишь
+     то, что действительно изменилось.
+
+     Здесь же живёт полоса контекста статьи (#artBar): её видимость зависит
+     от того, ушла ли шапка статьи за верх экрана. */
+  var SUI = {
+    fill: null, bar: null, cite: null, num: null, pct: null, prev: null, next: null, toTop: null,
+    headBottom: 0,      /* до какого места документа тянется шапка статьи */
+    barShown: false,
+    topShown: false,
+    lastPct: -1,
+    raf: 0,
+    idle: 0,
+    bound: false
+  };
+
+  /* Высота верхней панели: по ней закрепляются оглавление источника и
+     полоса статьи. Считается при запуске и при изменении размера — не в
+     кадре прокрутки. */
+  var topbarH = 0;
+  var sideW = -1;
+  function syncTopbarH() {
+    var tb = $(".topbar");
+    if (!tb) return;
+    var r = tb.getBoundingClientRect();
+    var h = Math.round(r.height);
+    if (h && h !== topbarH) {
+      topbarH = h;
+      document.documentElement.style.setProperty("--topbar-h", h + "px");
+    }
+    /* Левый край содержимого: на широком экране он сдвинут боковой панелью,
+       а при свёрнутой панели — нет. Полоса статьи выравнивается по нему. */
+    var l = Math.round(r.left);
+    if (l !== sideW) {
+      sideW = l;
+      document.documentElement.style.setProperty("--side-w", l + "px");
+    }
+  }
+
+  function scrollTopSmooth() {
+    try { window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }); }
+    catch (e) { try { window.scrollTo(0, 0); } catch (e2) {} }
+  }
+
+  function updateScrollUI() {
+    SUI.raf = 0;
+    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    var p = max > 8 ? y / max : 0;
+    if (p < 0) p = 0; else if (p > 1) p = 1;
+
+    if (SUI.fill) SUI.fill.style.transform = "scaleX(" + (Math.round(p * 400) / 400) + ")";
+
+    /* Кнопка «наверх»: два порога — иначе у границы она мигала бы. */
+    var wantTop = y > (SUI.topShown ? 360 : 520);
+    if (wantTop !== SUI.topShown) {
+      SUI.topShown = wantTop;
+      if (SUI.toTop) {
+        if (wantTop) SUI.toTop.removeAttribute("hidden");
+        else SUI.toTop.setAttribute("hidden", "");
+      }
+    }
+
+    /* Полоса контекста статьи. */
+    var wantBar = state.route.name === "article" && SUI.headBottom > 0 && y > SUI.headBottom;
+    if (wantBar !== SUI.barShown) {
+      SUI.barShown = wantBar;
+      if (SUI.bar) {
+        SUI.bar.classList.toggle("show", wantBar);
+        SUI.bar.setAttribute("aria-hidden", wantBar ? "false" : "true");
+      }
+    }
+    if (wantBar && SUI.pct) {
+      var pct = Math.round(p * 100);
+      if (pct !== SUI.lastPct) { SUI.lastPct = pct; SUI.pct.textContent = pct + "%"; }
+    }
+  }
+
+  function onScrollEvent() {
+    if (!SUI.raf) SUI.raf = requestAnimationFrame(updateScrollUI);
+    /* Пока идёт прокрутка, дрейф фона на паузе: анимированный слой под
+       полупрозрачной панелью заставляет браузер каждый кадр пересчитывать
+       размытие — самый дорогой источник рывков на телефоне. */
+    if (SUI.idle) clearTimeout(SUI.idle);
+    else document.body.classList.add("is-scrolling");
+    SUI.idle = setTimeout(function () {
+      SUI.idle = 0;
+      document.body.classList.remove("is-scrolling");
+    }, 180);
+  }
+
+  function bindScrollUI() {
+    if (SUI.bound) return;
+    SUI.bound = true;
+    SUI.fill = $("#scrollProgFill");
+    SUI.bar = $("#artBar");
+    SUI.cite = $("#abCite");
+    SUI.num = $("#abNum");
+    SUI.pct = $("#abPct");
+    SUI.toTop = $("#toTop");
+    SUI.prev = $('#artBar [data-art-nav="-1"]');
+    SUI.next = $('#artBar [data-art-nav="1"]');
+    var up = $("#abUp");
+    if (up) up.addEventListener("click", scrollTopSmooth);
+    var mid = $("#abTop");
+    if (mid) mid.addEventListener("click", function () {
+      var head = $(".article-head");
+      if (!head) { scrollTopSmooth(); return; }
+      try { head.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }); }
+      catch (e) { scrollTopSmooth(); }
+    });
+    window.addEventListener("scroll", onScrollEvent, { passive: true });
+    /* Уход со страницы: место чтения надо записать до того, как вкладку
+       закроют (на телефоне pagehide приходит не всегда — дублируем
+       событием видимости). */
+    window.addEventListener("pagehide", rememberReading);
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "hidden") rememberReading();
+    });
+    window.addEventListener("resize", function () {
+      syncTopbarH();
+      if (!SUI.raf) SUI.raf = requestAnimationFrame(updateScrollUI);
+    });
+    syncTopbarH();
+    updateScrollUI();
+  }
+
   /* ------------------------------------------------- перемещение по разделам
      Кнопки «Назад»/«Вперёд» в верхней панели ходят по истории браузера — той
      же, что и кнопки браузера. Раньше это был отдельный список в памяти, а
@@ -2432,6 +2576,14 @@
      и можно ли идти назад или вперёд. */
   var navStack = [], navPos = -1;
   var NAV_MAX = 60;
+
+  /* Куда вернуть прокрутку при переходе «Назад»/«Вперёд». Позиция
+     запоминается для каждого раздела отдельно: вернувшись из статьи в
+     список кодекса или в выдачу поиска, читатель должен увидеть то же
+     место, а не начало страницы. При обычном переходе (клик по меню)
+     позиция не восстанавливается — новый раздел открывается сверху. */
+  var scrollMemoHash = {};
+  var restoreNext = -1;
 
   /* Умеет ли окружение работать с историей. На http(s) — умеет, и тогда
      кнопки в панели ходят через history.go, оставаясь заодно с кнопками
@@ -2469,10 +2621,35 @@
     syncNavBtns();
   }
 
+  /* «Продолжить чтение» на главной: запомнить статью и позицию в ней.
+     Пишем только когда человек реально читал — переход в статью и сразу
+     назад не должен оставлять закладку на первой строке. Вызывается и при
+     смене раздела, и при уходе со страницы: иначе закрытая вкладка теряла
+     бы место чтения. */
+  function rememberReading() {
+    var r = state.route;
+    if (!r || r.name !== "article" || !r.arg) return;
+    var y = window.pageYOffset || 0;
+    if (y <= 200) return;
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    LS.set("lastArt", {
+      id: r.arg,
+      y: y,
+      pct: max > 8 ? Math.min(99, Math.round(y / max * 100)) : 0,
+      at: Date.now()
+    });
+  }
+
   function render() {
     /* запомнить позицию на уходящей странице статьи */
     var prev = state.route;
-    if (prev && prev.name === "article" && prev.arg) scrollMemo[prev.arg] = window.pageYOffset || 0;
+    if (prev && prev.name === "article" && prev.arg) {
+      var prevY = window.pageYOffset || 0;
+      scrollMemo[prev.arg] = prevY;
+      rememberReading();
+    }
+    /* и позицию любого раздела — для возврата по «Назад»/«Вперёд» */
+    if (prev && prev.name) scrollMemoHash[routeHash(prev)] = window.pageYOffset || 0;
     /* граф: смена фокуса внутри раздела сохраняет прокрутку */
     if (prev && prev.name === "graph") graphScroll = window.pageYOffset || 0;
     var keepGraphScroll = !!prev && prev.name === "graph";
@@ -2499,6 +2676,9 @@
     }
     var v = $("#view");
     var r = state.route;
+    /* Разметка раздела сейчас будет заменена — наблюдатель за главами
+       держал бы ссылки на удалённые узлы. */
+    if (tocObs) { tocObs.disconnect(); tocObs = null; }
     setSidebar(false);
     toggleReadMenu(false);
     toggleRoleMenu(false);
@@ -2545,16 +2725,28 @@
     }
 
     /* Граф перерисовывается при смене фокуса — там прокрутку не сбрасываем. */
+    var backTo = restoreNext; restoreNext = -1;
     if (keepGraphScroll && r.name === "graph" && graphScroll) {
       requestAnimationFrame(function () {
         var max = document.documentElement.scrollHeight - window.innerHeight;
         window.scrollTo(0, Math.max(0, Math.min(graphScroll, max > 0 ? max : graphScroll)));
       });
+    } else if (backTo > 0 && r.name !== "article") {
+      /* Возврат по истории: встаём туда, откуда ушли. Статья — особый
+         случай: её текст подгружается позже, позицию вернёт restoreScroll. */
+      requestAnimationFrame(function () {
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        try { window.scrollTo(0, max > 0 ? Math.min(backTo, max) : backTo); } catch (e) {}
+        updateScrollUI();
+      });
     } else {
       try { window.scrollTo(0, 0); } catch (e) {}
     }
     markNav();
-    a11yNav();
+    /* Доступность размечаем только внутри раздела: в боковой панели это
+       уже сделано один раз при запуске, а перебирать три сотни пунктов
+       меню на каждой отрисовке незачем. */
+    a11yNav(v);
     syncColCount();
     bindRoleSwitch();
     syncRoleSwitch();
@@ -2570,6 +2762,10 @@
     /* Кнопки перемещения — после отрисовки: их состояние зависит от того,
        куда встал указатель стека (в том числе при переходе «Назад»). */
     syncNavBtns();
+
+    /* Полоса прогресса и контекст статьи зависят от нового содержимого:
+       высота страницы изменилась, прежние значения недействительны. */
+    updateScrollUI();
 
     /* Плавная смена раздела. Ключ включает и аргумент маршрута, поэтому
        анимируются и переходы внутри раздела (статья → статья, вкладка
@@ -2604,18 +2800,34 @@
   /* Вернуть пользователя туда, где он остановился в статье.
      Позиция восстанавливается только после загрузки полного текста — иначе
      страница ещё короткая и прокрутка упрётся в предел. */
+  /* Возврат к месту чтения с главной: карточка «Продолжить чтение» помнит
+     статью и позицию, но точную прокрутку задаёт только что нажатая
+     карточка — иначе закладка тянула бы читателя назад при каждом заходе. */
+  var resumeId = "", resumeY = 0;
+
   function restoreScroll(id) {
-    var y = scrollMemo[id];
+    var y = (resumeId && resumeId === id) ? resumeY : scrollMemo[id];
+    resumeId = ""; resumeY = 0;
     if (!y) return;
     requestAnimationFrame(function () {
       var max = document.documentElement.scrollHeight - window.innerHeight;
       if (max <= 0) return;
       window.scrollTo(0, Math.min(y, max));
+      updateScrollUI();
     });
   }
 
+  /* Подсветка текущего пункта меню. Перебор идёт по трём с половиной сотням
+     пунктов источников, поэтому запоминаем, для какого маршрута уже
+     размечали: перерисовка того же раздела (сохранение заметки, смена роли)
+     больше не трогает меню вовсе. Сброс кэша — в buildNav: он заменяет
+     разметку списка источников целиком. */
+  var markNavKey = "";
   function markNav() {
     var n = state.route.name;
+    var key = n + "|" + (state.route.arg || "");
+    if (key === markNavKey) return;
+    markNavKey = key;
     $$(".nav-item[data-nav]").forEach(function (el) {
       var k = el.getAttribute("data-nav");
       var on = (k === n) || (k === "code" && n === "code") ||
@@ -2732,6 +2944,26 @@
     return out;
   }
 
+  /* Карточка «Продолжить чтение» на главной: одна строка про статью, на
+     которой читатель остановился, и процент пройденного. Данные лежат в
+     localStorage (lastArt), поэтому переживают перезапуск браузера — в
+     отличие от позиций в памяти сеанса. */
+  function lastArtHtml() {
+    var la = LS.get("lastArt", null);
+    if (!la || !la.id) return "";
+    var a = byId[la.id];
+    if (!a) return "";
+    var c = codeById(a.c) || { short: a.c };
+    return '<div class="resume" data-resume="' + (la.y || 0) + '" data-go="#/article/' + encodeURIComponent(a.id) + '">' +
+      '<span class="resume-ico">' + ic("book") + "</span>" +
+      '<span class="resume-body">' +
+        '<span class="resume-t">Продолжить чтение</span>' +
+        '<span class="resume-s">' + esc(c.short) + " · ст. " + esc(a.dn) + ". " + esc(a.t) + "</span>" +
+      "</span>" +
+      '<span class="resume-pct">' + (la.pct || 0) + "%</span>" +
+      '<span class="resume-go">' + ic("arrow") + "</span></div>";
+  }
+
   function viewHome() {
     var withText = CODES.filter(function (c) { return !c.note; });
     var nCodes = CODES.filter(function (c) { return (c.kind || "code") === "code"; }).length;
@@ -2756,6 +2988,8 @@
           '<button class="btn btn-lg" type="button" data-go="#/calc">' + ic("calculator") + "Калькуляторы</button>" +
         "</div>" +
       "</header>" +
+
+      lastArtHtml() +
 
       '<div class="grid grid-4">' +
         stat(arts.length.toLocaleString("ru-RU"), "статей и пунктов", "file", 1) +
@@ -3567,10 +3801,36 @@
       '<div class="chip" data-go="#/assistant">Разобрать в Помощнике</div></div>';
   }
 
+  /* Наполняет полосу контекста статьи (#artBar): какой акт и какая статья
+     открыты, где заканчивается шапка и есть ли соседние статьи. Полоса —
+     постоянная разметка в index.html: пересоздавать её на каждой статье
+     незачем, меняются только подписи и состояние кнопок. */
+  function syncArtBar(a) {
+    if (!SUI.bound) return;
+    var c = codeById(a.c) || { short: a.c };
+    if (SUI.cite) SUI.cite.textContent = c.short;
+    if (SUI.num) SUI.num.textContent = "ст. " + a.dn;
+    SUI.lastPct = -1;
+    var head = $(".article-head");
+    SUI.headBottom = head ? Math.round(head.getBoundingClientRect().bottom + (window.pageYOffset || 0)) : 0;
+    /* На краях источника соседней статьи нет — кнопка не должна обещать
+       переход, которого не будет. */
+    var list = byCode[a.c] || [];
+    var idx = -1;
+    for (var i = 0; i < list.length; i++) { if (list[i].id === a.id) { idx = i; break; } }
+    if (SUI.prev) SUI.prev.disabled = idx <= 0;
+    if (SUI.next) SUI.next.disabled = idx < 0 || idx >= list.length - 1;
+  }
+
   function afterArticle(id) {
     var a = byId[id];
     var box = $("#artText");
     if (!a || !box) return;
+
+    /* Полоса контекста статьи: реквизиты для полосы и точка, после которой
+       она выходит. Позицию считаем сразу после отрисовки — она не зависит
+       от текущей прокрутки (к ней прибавляется pageYOffset). */
+    syncArtBar(a);
 
     /* выбор дела — связываем до отрисовки текста, потому что ниже есть return */
     var sel = $("#casePick");
@@ -4082,6 +4342,7 @@
           (isPl ? "15, кража, проникновение" : "91, обыск, срок") + '" autocomplete="off"></div>' +
         '<div class="small muted" style="margin-top:8px" id="codeFilterInfo"></div>' +
       "</div>" +
+      codeTocHtml(raw) +
       '<div id="codeList">' + body + "</div>" +
       '<div class="disclaimer">' +
         (isPl ? "Текст постановления приведён по действующей редакции: " + fmtRed(c.redaction || c.adopted) +
@@ -4094,6 +4355,7 @@
   }
 
   function afterCode(id) {
+    bindCodeToc();
     var inp = $("#codeFilter");
     if (!inp) return;
     var list = byCode[id] || [];
@@ -4111,7 +4373,12 @@
   function applyFilter(raw, box, list) {
     var q = norm(raw);
     if (!box) return;
-    if (!q) { box.innerHTML = buildCodeBody(list); return; }
+    /* При фильтре состав и порядок разделов другие — полоса оглавления к
+       ним не подходит, прячем её. Сняли фильтр — полоса возвращается. */
+    var toc = $("#codeToc");
+    if (toc) toc.hidden = !!q;
+    if (!q) { box.innerHTML = buildCodeBody(list); bindCodeToc(); return; }
+    if (tocObs) { tocObs.disconnect(); tocObs = null; }
     var hit = list.filter(function (a) {
       return a._t.indexOf(q) !== -1 || a._n.indexOf(q) !== -1 || a._g.indexOf(q) !== -1 || (a._k && a._k.indexOf(q) !== -1);
     }).sort(cmpArticles);
@@ -4138,7 +4405,7 @@
     return groups.map(function (g, i) {
       /* внутри раздела — по номерам пунктов */
       var items = g.items.slice().sort(cmpArticles);
-      return '<details class="chapter"' + (i === 0 ? " open" : "") + ">" +
+      return '<details class="chapter" id="ch-' + i + '"' + (i === 0 ? " open" : "") + ">" +
         "<summary><span>" + esc(g.title) + '</span><span class="cnt">' + items.length + "</span></summary>" +
         '<div class="chapter-body">' + items.map(function (a) {
           var s = artStatus(a.id);
@@ -4151,6 +4418,92 @@
         }).join("") + "</div></details>";
     }).join("");
   }
+
+  /* --- оглавление источника ------------------------------------------------
+     В кодексе десятки глав: чтобы дойти до нужной, приходилось прокручивать
+     экраны вслепую. Полоса глав закрепляется под верхней панелью, глава
+     открывается одним нажатием, а текущая подсвечивается при прокрутке.
+     Порядок глав берётся из того же списка, что и у тела, — иначе номера
+     кнопок разошлись бы с id разделов. */
+  var tocObs = null;
+
+  function codeTocHtml(list) {
+    var order = [], seen = {};
+    list.forEach(function (a) {
+      var k = a.g || "Без главы";
+      if (!seen[k]) { seen[k] = { title: k, n: 0 }; order.push(seen[k]); }
+      seen[k].n++;
+    });
+    /* «Без главы» — служебная группа (преамбула, приложения). В оглавлении
+       она занимает первый чип и только сбивает: к ней и так ведёт начало
+       списка. Номера остальных глав не сдвигаются — data-ch это индекс
+       группы в теле, а не порядковый номер чипа. */
+    var chips = [];
+    order.forEach(function (g, i) {
+      if (g.title === "Без главы") return;
+      chips.push('<button class="ct-chip" type="button" data-ch="' + i + '" title="' + esc(g.title) + '">' +
+        "<span>" + esc(g.title) + "</span><i>" + g.n + "</i></button>");
+    });
+    if (chips.length < 2) return "";
+    return '<nav class="code-toc" id="codeToc" aria-label="Оглавление источника">' +
+      chips.join("") + "</nav>";
+  }
+
+  function setTocActive(chips, active) {
+    chips.forEach(function (c) { c.classList.toggle("on", c === active); });
+    var toc = $("#codeToc");
+    if (!toc || !active) return;
+    /* активная глава должна быть видна в полосе — иначе подсветка бесполезна */
+    var left = active.offsetLeft - (toc.clientWidth - active.offsetWidth) / 2;
+    left = Math.max(0, left);
+    try { toc.scrollTo({ left: left, behavior: reduceMotion ? "auto" : "smooth" }); }
+    catch (e) { toc.scrollLeft = left; }
+  }
+
+  function bindCodeToc() {
+    var toc = $("#codeToc");
+    if (!toc) return;
+    /* Слушатель ставим один раз на элемент: фильтр прячет и снова
+       показывает ту же полосу, и повторная привязка дала бы двойные
+       переходы по одному нажатию. */
+    if (!toc._bound) {
+      toc._bound = true;
+      toc.addEventListener("click", function (e) {
+        var b = e.target.closest(".ct-chip");
+        if (!b) return;
+        var ch = document.getElementById("ch-" + b.getAttribute("data-ch"));
+        if (!ch) return;
+        /* закрытая глава сначала раскрывается: иначе переход в пустоту */
+        if (ch.tagName === "DETAILS" && !ch.open) ch.open = true;
+        setTocActive($$(".ct-chip", toc), b);
+        try { ch.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }); }
+        catch (e2) {
+          var top = ch.getBoundingClientRect().top + (window.pageYOffset || 0) - (topbarH + toc.offsetHeight + 8);
+          try { window.scrollTo(0, Math.max(0, top)); } catch (e3) {}
+        }
+      });
+    }
+    observeTocChapters();
+  }
+
+  /* Подсветка текущей главы. Пересчёт по прокрутке читал бы положение
+     десятков разделов каждый кадр; IntersectionObserver делает то же
+     средствами браузера. Нет его — полоса просто без подсветки. */
+  function observeTocChapters() {
+    if (tocObs) { tocObs.disconnect(); tocObs = null; }
+    var toc = $("#codeToc");
+    if (!toc || typeof IntersectionObserver !== "function") return;
+    tocObs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        var i = (en.target.id || "").replace("ch-", "");
+        var b = toc.querySelector('.ct-chip[data-ch="' + i + '"]');
+        if (b) setTocActive($$(".ct-chip", toc), b);
+      });
+    }, { rootMargin: "-96px 0px -62% 0px", threshold: 0 });
+    $$("#codeList .chapter").forEach(function (el) { tocObs.observe(el); });
+  }
+
 
   /* --- раздел «Источники»: реестр актов одним списком --------------------
      Отдельная вкладка, чтобы открыть один кодекс, закон или постановление
@@ -12857,6 +13210,14 @@
         return;
       }
 
+      /* «Продолжить чтение»: запомнить, куда вернуть прокрутку в статье.
+         Дальше сработает общая ветка [data-go] — переход делает она. */
+      var resEl = e.target.closest("[data-resume]");
+      if (resEl) {
+        resumeId = (resEl.getAttribute("data-go") || "").replace("#/article/", "");
+        resumeY = parseInt(resEl.getAttribute("data-resume"), 10) || 0;
+      }
+
       var goEl = e.target.closest("[data-go]");
       if (goEl) {
         /* внутри результата есть кнопки — не переходим при клике по ним.
@@ -13018,6 +13379,10 @@
         navHidden = !navHidden;
         LS.set("navHidden", navHidden);
         applyNav();
+        /* панель свернулась — у содержимого другой левый край, полоса
+           статьи должна встать по нему */
+        syncTopbarH();
+        updateScrollUI();
         return;
       }
       var open = !sidebarIsOpen();
@@ -13029,19 +13394,8 @@
     var back = $("#sideBackdrop");
     if (back) back.addEventListener("click", function () { setSidebar(false); });
 
-    /* --- кнопка «наверх» --- */
-    var toTop = $("#toTop");
-    if (toTop) {
-      toTop.addEventListener("click", function () {
-        try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { try { window.scrollTo(0, 0); } catch (e2) {} }
-      });
-      var syncTop = function () {
-        var show = (window.pageYOffset || document.documentElement.scrollTop || 0) > 480;
-        if (show) toTop.removeAttribute("hidden"); else toTop.setAttribute("hidden", "");
-      };
-      window.addEventListener("scroll", syncTop, { passive: true });
-      syncTop();
-    }
+    /* --- кнопка «наверх» и вся прокрутка: один слушатель на страницу
+           (см. bindScrollUI — там же полоса прогресса и полоса статьи) --- */
 
     /* нижняя панель на телефоне: «Меню» открывает боковую панель */
     var bnMenu = $("#bnMenu");
@@ -13137,12 +13491,23 @@
       else if (e.key === "Enter") { e.preventDefault(); paletteChoose(pal.sel); }
     });
 
-    window.addEventListener("hashchange", render);
+    window.addEventListener("hashchange", function () {
+      /* см. hashFromPop: парное событие к popstate уже отрисовано */
+      if (hashFromPop !== null) {
+        var same = hashFromPop === (location.hash || "#/home");
+        hashFromPop = null;
+        if (same) return;
+      }
+      render();
+    });
   }
 
   /* ------------------------------------------------------------------ инициализация */
 
   function buildNav() {
+    /* список источников перерисован — подсветку активного пункта надо
+       разметить заново (см. markNav) */
+    markNavKey = "";
     $("#totalCount").textContent = arts.length;
     var rp = $("#repCount");
     if (rp) rp.textContent = STATUS_META.total || 0;
@@ -13220,6 +13585,7 @@
 
     bindGlobal();
     bindSwipe();
+    bindScrollUI();
     /* Адрес начальной записи приводим к каноническому виду и помечаем её
        нулевой точкой стека: дальше go() добавляет записи, и «Назад» браузера
        идёт ровно по ним. Через replaceState, а не присваиванием location.hash:
@@ -13267,6 +13633,9 @@
        один раз за календарный день и после того, как интерфейс отрисован. */
     loadDaily();
     buildNav();
+    /* Пункты боковой панели размечаем один раз здесь: render() теперь
+       трогает только содержимое раздела, а не всё меню целиком. */
+    a11yNav($("#sidebar"));
 
     /* автообновление базы: тихий опрос data/version.json и уведомление,
        если на хостинге появилась новая сборка (см. checkBuild) */

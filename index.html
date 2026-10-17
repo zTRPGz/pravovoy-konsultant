@@ -52,6 +52,11 @@
 
 <a class="skip-link" href="#view">Перейти к содержимому</a>
 
+<!-- Полоса прогресса чтения: сколько страницы уже пройдено. Внутри один
+     <i>, длину меняем через transform: scaleX — при прокрутке браузер не
+     пересчитывает раскладку (width заставлял бы делать это каждый кадр). -->
+<div class="scroll-prog" id="scrollProg" aria-hidden="true"><i id="scrollProgFill"></i></div>
+
 <noscript>
   <div class="info-box nf-note" style="margin:16px">
     <b>Для работы приложения нужен JavaScript.</b>
@@ -239,6 +244,22 @@
   </main>
 
   <button class="to-top" id="toTop" type="button" aria-label="Наверх" title="Наверх" hidden><span class="ico" data-ico="up"></span></button>
+
+  <!-- Полоса контекста статьи. В длинной статье заголовок уезжает за верх
+       экрана, и становится непонятно, что открыто и далеко ли до конца.
+       Полоса появляется только после того, как шапка скрылась: слева и
+       справа — соседние статьи, в середине — к началу статьи, справа —
+       наверх. Нажатия ловит общий обработчик [data-art-nav] в app.js. -->
+  <div class="art-bar" id="artBar" aria-hidden="true">
+    <button class="ab-btn ab-prev" type="button" data-art-nav="-1" aria-label="Предыдущая статья" title="Предыдущая статья (←)"><span class="ico" data-ico="arrow"></span></button>
+    <button class="ab-mid" id="abTop" type="button" title="К началу статьи">
+      <span class="ab-cite" id="abCite"></span>
+      <span class="ab-num" id="abNum"></span>
+      <span class="ab-pct" id="abPct"></span>
+    </button>
+    <button class="ab-btn ab-next" type="button" data-art-nav="1" aria-label="Следующая статья" title="Следующая статья (→)"><span class="ico" data-ico="arrow"></span></button>
+    <button class="ab-btn ab-up" id="abUp" type="button" aria-label="Наверх" title="Наверх"><span class="ico" data-ico="up"></span></button>
+  </div>
 
   <nav class="bottomnav" id="bottomnav" aria-label="Основная навигация (телефон)">
     <button class="bn-item nav-item" type="button" data-nav="home" data-go="#/home" aria-label="Главная"><span class="ico" data-ico="home"></span><span class="bn-lbl">Главная</span></button>

@@ -2599,6 +2599,7 @@
     SUI.num = $("#abNum");
     SUI.pct = $("#abPct");
     SUI.toTop = $("#toTop");
+    if (SUI.toTop) SUI.toTop.addEventListener("click", scrollTopSmooth);
     SUI.prev = $('#artBar [data-art-nav="-1"]');
     SUI.next = $('#artBar [data-art-nav="1"]');
     var up = $("#abUp");

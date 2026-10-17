@@ -499,6 +499,7 @@ body { -webkit-tap-highlight-color: transparent; }
   background: var(--bg-2); border: 1px solid var(--border-2); color: var(--text-2);
   display: grid; place-items: center; cursor: pointer;
   box-shadow: var(--shadow);
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   transition: color .14s ease, border-color .14s ease, transform .14s ease;
 }
 .to-top[hidden] { display: none; }

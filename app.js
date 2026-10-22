@@ -1557,7 +1557,12 @@
     favMeta: LS.get("favMeta", {}), // метки избранного: { id: { folder, tags[] } }
     col: LS.get("col", []),        // подборка: [{ id, note }]
     cases: LS.get("cases", []),    // дела: [{ id, title, desc, created, updated, items:[{id,note}], notes:[{id,text,created}] }]
-    theme: LS.get("theme", "dark"),
+    /* Тема: сохранённый выбор, иначе — системная (prefers-color-scheme).
+       Раньше всегда был «dark»: на устройствах с светлой системной темой
+       приложение вспыхивало тёмным и не совпадало с остальным интерфейсом.
+       <head> страницы уже поставил data-theme и theme-color до отрисовки,
+       здесь просто синхронизируем состояние с тем же правилом. */
+    theme: LS.get("theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"),
     read: LS.get("read", { fs: 15, lh: 1.65, w: 0, zen: false }),  // настройки чтения текста (zen — режим чтения)
     role: LS.get("role", ""),       // роль: "" | sle || adv | gos
     newSeen: LS.get("newSeen", 0),  // прежний счётчик (миграция): сколько записей ленты «Новое» показано
@@ -13814,6 +13819,7 @@
       document.documentElement.setAttribute("data-theme", state.theme);
       LS.set("theme", state.theme);
       $("#themeBtn").innerHTML = ic(state.theme === "dark" ? "sun" : "moon");
+      setThemeColor();
     });
 
     /* --- кнопка-бургер: на широком экране сворачивает панель, на узком
@@ -13992,9 +13998,18 @@
     if (fchip) fchip.innerHTML = freshnessChip();
   }
 
+  /* Цвет окна браузера / статус-бара телефона под тему: иначе системная
+     рамка оставалась тёмной даже в светлом режиме. Значения — фон приложения
+     из styles.css: #080b12 (dark), #eef2f9 (light). */
+  function setThemeColor() {
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute("content", state.theme === "dark" ? "#080b12" : "#eef2f9");
+  }
+
   function init() {
     document.documentElement.setAttribute("data-theme", state.theme);
     $("#themeBtn").innerHTML = ic(state.theme === "dark" ? "sun" : "moon");
+    setThemeColor();
     applyRead();
     paintIcons();
 

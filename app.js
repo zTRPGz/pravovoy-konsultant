@@ -626,9 +626,7 @@
      и «вред» → «вредительство». */
   function stemHit(list, t) {
     for (var i = 0; i < list.length; i++) {
-      var d = list[i];
-      if (d === t) return true;
-      if (t.length >= 4 && d.length >= 4 && (d.indexOf(t) === 0 || t.indexOf(d) === 0)) return true;
+      if (stemPair(list[i], t)) return true;
     }
     return false;
   }
@@ -5296,11 +5294,86 @@
 
      Возвращает силу совпадения: 2 — все основы совпали точно, 1 — совпадение
      неполное (по началу слова), 0 — совпадения нет. */
-  function trigHit(k, txtStems, txtWords) {
+  /* Сверка слова признака со словом текста по основам. Основа признака в
+     данных часто усечена («похит», «взятк», «задержа»), поэтому совпадение по
+     началу нужно — но только как словоизменение, а не как «общий корень».
+
+     Раньше правило было широким: любые две основы от 4 букв, у которых одна
+     является началом другой. Из-за этого основа текста «работ» (из «не
+     работает») совпадала с признаком «работодател», «водител» (из
+     «водительского удостоверения») — с «водитель», и описание управления без
+     прав уходило в разбор ДТП. Теперь началом может считаться только основа,
+     от которой отличается окончание: не больше двух букв остатка. */
+  function stemPair(trig, text) {
+    if (trig === text) return 2;
+    if (trig.length < 4 || text.length < 4) return 0;
+    var shorter = trig.length <= text.length ? trig : text;
+    var longer = trig.length <= text.length ? text : trig;
+    if (longer.indexOf(shorter) !== 0) return 0;
+    /* Остаток — это окончание, а не новый корень: «похит»+«ил», «задерж»+«а»,
+       «угрож»+«ал». Три и более буквы сверх основы — уже другое слово:
+       «водител»+«ьск» (водительское) — это не «водитель», а «работ»+«одател»
+       — не «работодатель». */
+    return longer.length - shorter.length <= 2 ? 1 : 0;
+  }
+
+  /* Одно слово признака против одного слова текста (для фраз) */
+  function wordPair(pw, tw) {
+    if (pw === tw) return 2;
+    if (!FT) return 0;
+    var a = FT.stem(pw), b = FT.stem(tw);
+    if (a === b) return 2;
+    return stemPair(a, b);
+  }
+
+  /* Совпадение признака с текстом.
+
+     Признак из НЕСКОЛЬКИХ слов сверяется как последовательность: его слова
+     должны идти в тексте подряд (допускается одно слово между ними). Раньше
+     они искались по отдельности в любом месте описания — и фраза «деньги за»
+     срабатывала на любом упоминании денег («взял в долг деньги», «магазин
+     вернул деньги»), а ответом становилось взяточничество. Хуже было со
+     служебными словами: стеммер их выбрасывает, и «опасное для жизни»
+     превращалось в набор «опасн»+«жизн», который находился в «опасалась за
+     жизнь». Поэтому фраза сверяется по словам на своих местах, а не по набору
+     основ.
+
+     Возвращает силу совпадения: 2 — все слова совпали точно, 1 — неполное
+     (по началу слова), 0 — совпадения нет. */
+  function trigHit(k, txtStems, txtWords, txtAll) {
     var nk = norm(k);
     if (!nk) return 0;
     var parts = nk.split(" ").filter(Boolean);
     if (!parts.length) return 0;
+
+    if (parts.length > 1) {
+      if (!txtAll || !txtAll.length) return 0;
+      /* ищем последовательность: слова признака по порядку, с зазором не
+         больше одного слова (падежные вставки вроде «показал сотруднику
+         паспорт» допускаются, «угрожал убийством, держал нож» — нет) */
+      for (var i = 0; i < txtAll.length; i++) {
+        var exactAll = true, ok = true, pos = i;
+        for (var j = 0; j < parts.length; j++) {
+          if (pos >= txtAll.length) { ok = false; break; }
+          var hit = wordPair(parts[j], txtAll[pos]);
+          if (!hit && j > 0 && pos + 1 < txtAll.length) {
+            /* одно слово пропуска */
+            pos++;
+            hit = wordPair(parts[j], txtAll[pos]);
+          }
+          if (!hit) { ok = false; break; }
+          if (hit === 1) exactAll = false;
+          pos++;
+        }
+        /* Отрицание перед фразой снимает совпадение: «насилие, не опасное для
+           жизни» — это грабёж (ст. 161 УК РФ), а не разбой. Без этой проверки
+           признак «опасное для жизни» срабатывал ровно на отрицании. */
+        if (ok && i > 0 && /^(не|без|ни)$/.test(txtAll[i - 1])) ok = false;
+        if (ok) return exactAll ? 2 : 1;
+      }
+      return 0;
+    }
+
     var need = FT ? FT.stems(nk) : parts;
     var byStem = need.length > 0 && need.every(function (st) { return stemHit(txtStems, st); });
     var byWord = !!txtWords && parts.every(function (p) {
@@ -5336,6 +5409,9 @@
   function helpScore(low) {
     var txtStems = FT ? FT.stems(low) : [];
     var txtWords = FT ? FT.tokenize(low) : [];
+    /* слова текста по порядку — для многословных признаков: фраза должна
+       найтись подряд, а не «где-то в описании» (см. trigHit) */
+    var txtAll = low.split(" ").filter(Boolean);
     var out = (REF.help || []).map(function (h) {
       var hits = [], score = 0, strong = false, anchorHit = false;
       /* Корни уже зачтённых признаков. Словоформы одного корня («задержан»,
@@ -5347,7 +5423,7 @@
       var anchor = norm((h.triggers || [])[0] || "");
       (h.triggers || []).forEach(function (k) {
         var nk = norm(k);
-        var hit = trigHit(k, txtStems, txtWords);
+        var hit = trigHit(k, txtStems, txtWords, txtAll);
         if (!hit) return;
         var root = nk.slice(0, 5);
         if (seenRoot[root]) return;
@@ -5477,6 +5553,7 @@
   function assistantScore(low) {
     var txtStems = FT ? FT.stems(low) : [];
     var txtWords = FT ? FT.tokenize(low) : [];
+    var txtAll = low.split(" ").filter(Boolean);
     var out = (REF.intents || []).map(function (it) {
       var kws = it.keywords || [];
       var primary = kws.length ? norm(kws[0]) : "";
@@ -5486,7 +5563,7 @@
       var seenRoot = {};
       kws.forEach(function (k) {
         var nk = norm(k);
-        var hit = trigHit(k, txtStems, txtWords);
+        var hit = trigHit(k, txtStems, txtWords, txtAll);
         if (!hit) return;
         var root = nk.slice(0, 5);
         if (seenRoot[root]) return;
@@ -5522,8 +5599,12 @@
     var top = help[0] || null, second = help[1] || null;
     if (top) {
       var margin = second ? top.score / Math.max(1, second.score) : 2;
+      /* Одно совпавшее слово — это не разбор, а догадка. Раньше такая
+         ситуация получала «среднюю» надёжность, потому что слово оказалось
+         длинным, и ответ читался как заключение: «задержал передачу
+         квартиры» → разбор задержания подозреваемого. */
       var level = (top.n >= 3 && top.strong && margin >= 1.3) ? "высокая"
-        : (top.strong || top.n >= 2) ? "средняя" : "низкая";
+        : (top.n >= 2 && (top.strong || top.n >= 2)) ? "средняя" : "низкая";
       return { level: level, label: level, cls: level === "высокая" ? "high" : level === "средняя" ? "mid" : "low",
         pct: level === "высокая" ? 90 : level === "средняя" ? 70 : 45,
         reason: "Ситуация сопоставлена с разбором «" + top.h.t + "» по " + top.n + " " +
@@ -5597,7 +5678,11 @@
      подозреваемого по ст. 91 УПК РФ. */
   function assistantPrimary(help, scored) {
     var prim = help.length ? { kind: "help", x: help[0] } : null;
-    if (scored.length && (!prim || scored[0].score > prim.x.score * 1.25)) {
+    /* Правило вытесняет разбор только при явном перевесе: одного-двух общих
+       слов для этого мало. При пороге 1,25 на описании «угрожал ножом и
+       забрал деньги» ответом становилось взяточничество — правило цеплялось
+       за слово «деньги», — хотя разбор ситуации был про разбой. */
+    if (scored.length && scored[0].n >= 2 && (!prim || scored[0].score > prim.x.score * 1.6)) {
       prim = { kind: "intent", x: scored[0] };
     }
     return prim;
@@ -5666,7 +5751,35 @@
     /* истязание — это систематические побои; признак самостоятельный и
        сильнее прочих, поэтому проверяется независимо от тяжести */
     if (has(/истязан/) || has(/систематическ[а-яё]*\s+(?:побои|удары|избива|наносил)/)) k = "torture";
-    return k ? { degree: k } : {};
+    /* Побои без установленной тяжести: удары, ссадины, синяки. Отдельный
+       признак нужен потому, что с 2016 года такие побои — административное
+       правонарушение (ст. 6.1.1 КоАП РФ), а ст. 116 УК РФ осталась только для
+       хулиганских побуждений и мотивов ненависти. Без этого ответом на
+       учебную задачу «нанёс удары, повреждений не зафиксировано» становилась
+       уголовная статья. */
+    if (!k && has(/побои|ударил|удары|избил|избива|ссадин|синяк|пощёчин|толкнул/)) k = "poboi";
+    /* Опьянение водителя названо прямо — оно меняет квалификацию сильнее
+       тяжести последствий: «пьяный за рулём, тяжкий вред» — это ч. 4 ст. 264
+       УК РФ, а не ч. 1. Ключ «drunk» совпадает с вариантом уточняющего
+       вопроса «Водитель был в состоянии опьянения?» из данных сайта. */
+    var drunk = has(/(?:состояни[а-яё]*|в)\s+опьянени/) || has(/опьянени[а-яё]*\s+(?:водител|лица)/) ||
+      has(/нетрезв/) || has(/(?:^|[^а-яё])(?:пьян(?:ый|ым|ого|ой|ая|ое|ые)?)(?:[^а-яё]|$)/) ||
+      has(/алкогол[а-яё]*\s+опьянени/) || has(/отказал[а-яё]*\s+от\s+(?:медосвид|освидетельствован)/);
+    var res = {};
+    if (k) res.degree = k;
+    if (drunk) res.state = "drunk";
+    /* Хулиганский мотив назван прямо — тогда побои квалифицируются по
+       ст. 116 УК РФ, а не по ст. 6.1.1 КоАП РФ (ключ совпадает с вариантом
+       вопроса «Мотив?»). */
+    if (has(/хулиганск[а-яё]*\s+(?:побуждени|мотив)/)) res.motive = "hooligan";
+    /* Отказ одного из соучастников при совершённом преступлении. Проверяем
+       обычными регулярками, а не has(): в такой фабуле почти всегда есть «не»
+       («не стал выполнять свою роль»), и проверка отрицания глушила признак. */
+    if (/(?:передумал|отказал[а-яё]*\s+(?:от участия|участвовать)|не стал[а-яё]*\s+выполнять)/.test(t) &&
+        /(?:похитил|похитили|похищение|совершил[а-яё]*\s+преступление|довёл|довел|забрал)/.test(t)) {
+      res.failed = "quit";
+    }
+    return res;
   }
 
   /* --- спецсубъект при исполнении и правомерность применённой силы --------
@@ -5886,13 +5999,20 @@
       primKind = "help";
       area = h.area;
       var quals = h.qual || [], chosen = null;
-      /* сначала — подтверждённая ответами на уточняющие вопросы, затем базовая */
+      /* сначала — подтверждённая ответами на уточняющие вопросы, затем базовая.
+         Из подходящих вариантов берём САМЫЙ КОНКРЕТНЫЙ (с наибольшим числом
+         условий), а не первый по списку: в разборе ДТП первым идёт
+         «ст. 12.8 КоАП РФ — опьянение», и при пьяном водителе с тяжким вредом
+         ответом становилось административное правонарушение вместо ч. 3–4
+         ст. 264 УК РФ, где условий два: опьянение и тяжкие последствия. */
+      var base = null, match = null;
       quals.forEach(function (q) {
-        if (chosen) return;
-        if (!q.need || !q.need.length) { chosen = q; return; }
-        if (q.need.every(function (k) { return picked[k]; })) chosen = q;
+        var need = q.need || [];
+        if (!need.length) { if (!base) base = q; return; }
+        if (need.every(function (k) { return picked[k]; }) &&
+            (!match || need.length > ((match.need || []).length))) match = q;
       });
-      if (!chosen && quals.length) chosen = quals[0];
+      chosen = match || base || quals[0];
       if (chosen) qualText = chosen.t;
       prove = (h.prove || []).slice(0, 3);
     } else if (prim) {
@@ -12163,21 +12283,31 @@
       freshState.error = e; cb(e); return;
     }
     Promise.all(jobs).then(function (res) {
-      var live = {}, known = {};
+      /* Манифест — словарь «отпечаток содержимого -> карточка документа».
+         Отпечаток меняется вместе с редакцией, поэтому искать документ по нему
+         нельзя: обновившийся акт просто исчезал из словаря, и проверка
+         показывала «актуально» вместо «доступно обновление». Ищем по
+         устойчивым признакам — redid (номер документа на портале) и slug. */
+      var byHash = {}, byRedid = {}, bySlug = {}, known = {};
       [res[0], res[1]].forEach(function (man) {
         Object.keys(man || {}).forEach(function (h) {
-          live[h] = man[h].redaction_date;
-          known[h] = man[h];
+          var m = man[h] || {};
+          m.hash = h;
+          byHash[h] = m;
+          if (m.redid) byRedid[String(m.redid)] = m;
+          if (m.slug) bySlug[m.slug] = m;
+          known[h] = m;
         });
       });
 
       var newer = 0;
       Object.keys(FRESH.docs).forEach(function (id) {
         var d = FRESH.docs[id];
-        if (!d.hash || live[d.hash] === undefined) { delete updates[id]; return; }
-        var liveRed = fmtCompact(live[d.hash]);
+        var m = (d.redid && byRedid[String(d.redid)]) || (d.slug && bySlug[d.slug]) || (d.hash && byHash[d.hash]);
+        if (!m) { delete updates[id]; return; }
+        var liveRed = fmtCompact(m.redaction_date);
         if (liveRed && d.redaction && liveRed > d.redaction) {
-          updates[id] = { redaction: liveRed, hash: d.hash };
+          updates[id] = { redaction: liveRed, hash: m.hash, slug: m.slug || d.slug };
           newer++;
         } else {
           delete updates[id];
@@ -12185,11 +12315,20 @@
       });
 
       // документы, появившиеся в наборе данных после сборки снимка
-      var ours = {};
-      Object.keys(FRESH.docs).forEach(function (id) { if (FRESH.docs[id].hash) ours[FRESH.docs[id].hash] = 1; });
+      var ours = {}, oursRedid = {}, oursSlug = {};
+      Object.keys(FRESH.docs).forEach(function (id) {
+        var d = FRESH.docs[id];
+        if (d.hash) ours[d.hash] = 1;
+        if (d.redid) oursRedid[String(d.redid)] = 1;
+        if (d.slug) oursSlug[d.slug] = 1;
+      });
       var newDocs = [];
       Object.keys(known).forEach(function (h) {
-        if (!ours[h]) newDocs.push({ hash: h, slug: known[h].slug, number: known[h].number, redaction: fmtCompact(known[h].redaction_date) });
+        var m = known[h];
+        /* обновившийся документ — это НЕ новый документ: у него тот же redid
+           или slug. Раньше он попадал в «новые» и путал ленту. */
+        if (ours[h] || (m.redid && oursRedid[String(m.redid)]) || (m.slug && oursSlug[m.slug])) return;
+        newDocs.push({ hash: h, slug: m.slug, number: m.number, redaction: fmtCompact(m.redaction_date) });
       });
 
       freshState.checkedAt = new Date();
@@ -12220,7 +12359,8 @@
       PARSE.dedupeNumbers(res.arts);
       var rows = res.arts.map(function (a) { return [a.n, a.t, a.g, a.red, a.text]; });
       var ov = {
-        id: id, redaction: raw.redaction_date || "", hash: d.hash,
+        id: id, redaction: fmtCompact(raw.redaction_date) || d.redaction || "",
+        hash: (updates[id] && updates[id].hash) || d.hash,
         articles: rows, updated_at: new Date().toISOString(), source: url
       };
       /* снимок прежней редакции — чтобы её можно было сравнить и вернуть */
@@ -12237,6 +12377,11 @@
       }, function () {
         applyOverride(id, rows, ov.redaction);
         overrides[id] = ov;
+        /* Снимок актуальности — источник истины для следующей проверки.
+           Обновляем его редакцию: иначе ежедневная проверка снова находила бы
+           «доступное обновление» у документа, который уже обновлён вручную. */
+        if (FRESH && FRESH.docs[id]) FRESH.docs[id].redaction = ov.redaction;
+        delete updates[id];
         IDB.put(ov, function () {
           cb(null, { count: rows.length, redaction: ov.redaction });
         });
@@ -12270,17 +12415,24 @@
     var upd = updates[c.id];
     var ov = overrides[c.id];
     var ex = extraCls || "";
+    /* Открытый манифест редакций покрывает кодексы и федеральные законы
+       (группы codes и laws). Остальные акты — ФКЗ, постановления, Пленумы,
+       обзоры — в него не входят, и писать про них «актуально» было неправдой:
+       их редакция сверяется только при сборке базы. */
+    var d0 = FRESH && FRESH.docs[c.id];
+    var covered = !!(d0 && (d0.group === "codes" || d0.group === "laws"));
     var st, act = "";
     if (upd) {
       st = '<span class="st st-warn">доступно обновление</span>';
       act = '<button class="btn btn-sm btn-primary" data-upd="' + c.id + '">Обновить</button>';
     } else if (ov) {
       st = '<span class="st st-ok">обновлено ' + fmtDateTime(new Date(ov.updated_at)) + "</span>";
+    } else if (!covered) {
+      st = '<span class="st st-muted" title="Акт не входит в открытый манифест редакций: его редакция проверяется при ночной сборке базы">сверка при сборке</span>';
     } else {
       st = '<span class="st st-ok">актуально</span>';
     }
-    var inSet = FRESH && FRESH.docs[c.id] && FRESH.docs[c.id].hash;
-    if (!inSet) st += ' <span class="st st-muted">с портала</span>';
+    if (FRESH && !d0) st += ' <span class="st st-muted">с портала</span>';
     if (!n) st += ' <span class="st st-warn">нет статей</span>';
 
     var summary =
@@ -12302,7 +12454,8 @@
           '<div><span class="lbl">Реквизиты</span>' + esc(c.req || "—") + "</div>" +
           '<div><span class="lbl">Редакция в базе</span>' + (c.redaction ? fmtRed(c.redaction) : "—") + "</div>" +
           '<div><span class="lbl">Статей разобрано</span>' + n + "</div>" +
-          (inSet ? "" : '<div><span class="lbl">Источник</span>загружен с портала actual.pravo.gov.ru</div>') +
+          (d0 ? "" : '<div><span class="lbl">Источник</span>загружен с портала actual.pravo.gov.ru</div>') +
+          (d0 && !covered ? '<div><span class="lbl">Сверка редакции</span>открытый манифест акт не содержит — редакция проверяется при ночной сборке</div>' : "") +
           (ov ? '<div><span class="lbl">Локально обновлено</span>' + fmtDateTime(new Date(ov.updated_at)) + "</div>" : "") +
         "</div>" +
         '<div class="fresh-detail-act">' +

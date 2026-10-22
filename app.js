@@ -2530,16 +2530,6 @@
 
     if (SUI.fill) SUI.fill.style.transform = "scaleX(" + (Math.round(p * 400) / 400) + ")";
 
-    /* Кнопка «наверх»: два порога — иначе у границы она мигала бы. */
-    var wantTop = y > (SUI.topShown ? 360 : 520);
-    if (wantTop !== SUI.topShown) {
-      SUI.topShown = wantTop;
-      if (SUI.toTop) {
-        if (wantTop) SUI.toTop.removeAttribute("hidden");
-        else SUI.toTop.setAttribute("hidden", "");
-      }
-    }
-
     /* Полоса контекста статьи. */
     var wantBar = state.route.name === "article" && SUI.headBottom > 0 && y > SUI.headBottom;
     if (wantBar !== SUI.barShown) {
@@ -2547,6 +2537,20 @@
       if (SUI.bar) {
         SUI.bar.classList.toggle("show", wantBar);
         SUI.bar.setAttribute("aria-hidden", wantBar ? "false" : "true");
+      }
+    }
+
+    /* Кнопка «наверх»: два порога — иначе у границы она мигала бы. Пока на
+       экране полоса контекста статьи, у которой своя кнопка «Наверх» (#abUp),
+       отдельную плавающую не показываем: иначе в статье на экране видны сразу
+       две кнопки возврата вверх — плавающая (справа-снизу) и в полосе сверху. */
+    var wantTop = y > (SUI.topShown ? 360 : 520);
+    if (wantBar) wantTop = false;
+    if (wantTop !== SUI.topShown) {
+      SUI.topShown = wantTop;
+      if (SUI.toTop) {
+        if (wantTop) SUI.toTop.removeAttribute("hidden");
+        else SUI.toTop.setAttribute("hidden", "");
       }
     }
     if (wantBar && SUI.pct) {

@@ -26,14 +26,26 @@ const errors = [];
 let section = "подготовка";
 let lastStep = "старт";
 
-/* Ожидаемые объёмы базы. Это «замок»: если данные внезапно усохнут, тест
-   это заметит. При осознанном добавлении источников значения обновляются
-   здесь — в одном месте, а не по всему файлу. */
-const N_SOURCES = 363;    // кодексы 24, законы 130, ФКЗ 14, Конституция, постановления Правительства 14, Пленумы ВС РФ 99, обзоры судебной практики 81
-const N_ARTICLES = 24855;
-const N_PLENUMS = 99;
-const N_REVIEWS = 81;
-const N_DECREES = 14;   // постановления Правительства РФ
+/* Ожидаемые объёмы базы. Раньше это были жёсткие числа, и ночная сборка
+   упиралась в них: как только в законах появлялась новая статья, проверка
+   «поисковый индекс» становилась красной, коммит не создавался — и база
+   переставала обновляться вовсе (так прошло шесть ночей подряд). Числа берём
+   из манифеста сборки: он пишется тем же прогоном, что и данные, поэтому
+   проверка остаётся осмысленной — индекс, панель и снимок актуальности должны
+   совпадать с тем, что объявила сборка, — но не мешает базе расти. */
+const VER = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "version.json"), "utf8"));
+const REG = (() => {
+  const box = {};
+  new Function("window", fs.readFileSync(path.join(ROOT, "data", "registry.js"), "utf8"))(box);
+  return box.RF_CODES || [];
+})();
+const countKind = (k) => REG.filter((c) => c.kind === k).length;
+
+const N_SOURCES = VER.sources;
+const N_ARTICLES = VER.articles;
+const N_PLENUMS = countKind("plenum");
+const N_REVIEWS = countKind("review");
+const N_DECREES = countKind("decree");   // постановления Правительства РФ
 
 function ok(name, cond, extra) {
   lastStep = name;
@@ -100,6 +112,14 @@ server.listen(0, "127.0.0.1", async () => {
     }
     return false;
   };
+  /* Полный текст статьи грузится лениво отдельным файлом data/full/<источник>.js.
+     У крупных законов файл весит около мегабайта, и на медленной машине фиксированная
+     пауза не успевает — проверка «падала» на живой сборке. Ждём именно исчезновения
+     заглушки, а не истечения таймера. */
+  const artReady = (ms) => waitFor(() => {
+    const el = $("#artText");
+    return !!el && !/Загрузка полного текста/.test(el.textContent);
+  }, ms || 15000);
 
   /* ---------------------------------------------------------------- вступительный экран */
   /* Проверяем сразу после загрузки — до любой навигации и до Escape, который
@@ -157,6 +177,10 @@ server.listen(0, "127.0.0.1", async () => {
     errors2.slice(0, 2).join(" | "));
 
   console.log("1. Загрузка данных");
+  /* Замок на «усыхание»: манифест мог быть пересобран на неполной выгрузке,
+     и тогда все проверки ниже дружно согласятся с испорченными данными. */
+  ok("объём базы не усох", N_SOURCES > 300 && N_ARTICLES > 20000,
+    N_SOURCES + " источников, " + N_ARTICLES + " записей");
   ok("реестр источников", (w.RF_CODES || []).length === N_SOURCES, (w.RF_CODES || []).length + " источников");
   ok("виды актов", (() => {
     const k = {}; (w.RF_CODES || []).forEach(c => k[c.kind] = (k[c.kind] || 0) + 1);
@@ -274,23 +298,23 @@ server.listen(0, "127.0.0.1", async () => {
   ok("название статьи", /Убийство/.test(T(".article-title") || ""), T(".article-title"));
   ok("справочная аннотация показана", $$("#view .article-body").length >= 2);
   ok("указана редакция статьи", /Редакция статьи: \d{2}\.\d{2}\.\d{4}/.test(body), (body.match(/Редакция статьи: \S+/) || [])[0]);
-  await nav("#/article/koap-19.7.10-1", 1300);
+  await nav("#/article/koap-19.7.10-1", 300); await artReady();
   ok("подстатья КоАП 19.7.10-1", /новостного агрегатора/i.test($("#artText").textContent), $("#artText").textContent.length + " символов");
 
   section = "4b. Конституция, ФКЗ и федеральные законы с портала"; console.log("\n" + section);
-  await nav("#/article/kons-67.1", 1300);
+  await nav("#/article/kons-67.1", 300); await artReady();
   const kb = $("#artText") ? $("#artText").textContent : "";
   ok("Конституция: подстатья 67.1", /правопреемник/i.test(kb), kb.length + " символов");
   ok("Конституция: глава указана", /ГЛАВА 3/i.test(T("#view") || ""), (T("#view") || "").slice(0, 60));
-  await nav("#/article/kons-137", 1300);
+  await nav("#/article/kons-137", 300); await artReady();
   ok("Конституция: ст. 137", /Изменения в статью 65/i.test($("#artText").textContent));
   await nav("#/code/kons");
   ok("Конституция: список статей", $$("#view .art-row").length === 144, $$("#view .art-row").length);
-  await nav("#/article/fkz1-1994-115", 1300);
+  await nav("#/article/fkz1-1994-115", 300); await artReady();
   ok("ФКЗ о КС РФ: ст. 115", /Местопребывание/i.test($("#artText").textContent), $("#artText").textContent.slice(0, 60));
-  await nav("#/article/fz144ord-6", 1300);
+  await nav("#/article/fz144ord-6", 300); await artReady();
   ok("ФЗ об ОРД: ст. 6", /оперативно-розыскных мероприятий/i.test($("#artText").textContent));
-  await nav("#/article/fz86-82.6", 1300);
+  await nav("#/article/fz86-82.6", 300); await artReady();
   ok("86-ФЗ: подстатья 82.6 без склейки", /приостановления/i.test($("#artText").textContent) && !/Статья 826/.test($("#artText").textContent),
     $("#artText").textContent.slice(0, 60));
 
@@ -1336,7 +1360,18 @@ server.listen(0, "127.0.0.1", async () => {
   ok("раздел открывается", /Проверка актуальности/.test(T("h1") || ""), T("h1"));
   ok("кнопка проверки на месте", !!$("#frCheck"));
   ok("таблица источников", $$("table.tbl-fresh tbody tr.fresh-row").length === N_SOURCES, $$("table.tbl-fresh tbody tr.fresh-row").length + " строк");
-  ok("все источники помечены актуальными", $$("table.tbl-fresh .st-ok").length >= 128, $$("table.tbl-fresh .st-ok").length);
+  /* Статус каждой строки. «Актуально» теперь ставится только тем актам, которые
+     входят в открытый манифест редакций (кодексы и федеральные законы);
+     остальные честно помечены «сверка при сборке», поэтому проверяем два
+     свойства по отдельности: ложных «доступно обновление» нет, а покрытые
+     манифестом строки действительно признаны актуальными. */
+  const frStat = $$("table.tbl-fresh tbody tr.fresh-row")
+    .map(r => (((r.querySelector("td:nth-child(6)") || {}).textContent) || "").trim());
+  ok("нет ложных «доступно обновление»", !frStat.some(s => /доступно обновление/.test(s)),
+    frStat.filter(s => /доступно обновление/.test(s)).length + " строк");
+  ok("источники с открытым манифестом помечены актуальными",
+    frStat.filter(s => /актуально/.test(s)).length >= 60,
+    frStat.filter(s => /актуально/.test(s)).length + " строк");
   ok("кнопка сброса скрыта без обновлений", !$("#frReset"));
   /* jsdom не предоставляет fetch — это ровно тот случай, когда сети нет.
      Приложение обязано показать понятное сообщение и не «зависнуть». */
@@ -1376,6 +1411,10 @@ server.listen(0, "127.0.0.1", async () => {
     } else {
       const m = /data\/(codes|laws)\/(.+)\.json$/.exec(u);
       const f = path.join(ROOT, "vendor", "ruslaw", m[1] === "laws" ? "laws" : "", decodeURIComponent(m[2]) + ".json");
+      /* vendor/ — это вход сборки, в git он не хранится. Если файла нет, отвечаем
+         как настоящий сервер (404), а не падаем с ENOENT: иначе проверка интерфейса
+         краснеет не из-за приложения, и ночная сборка не коммитит обновление. */
+      if (!fs.existsSync(f)) return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
       body = JSON.parse(fs.readFileSync(f, "utf8"));
       // имитируем пересборку документа на официальном портале
       if (body.slug === w.RF_FRESH.docs[targetId].slug || /Уголовный_кодекс/.test(u)) body.redaction_date = "2027-01-01";

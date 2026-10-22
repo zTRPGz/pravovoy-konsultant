@@ -551,8 +551,8 @@ server.listen(0, "127.0.0.1", async () => {
   await wait(1800);
   ok("квалификация следует за названной тяжестью вреда",
     /ст\.\s*115/.test(T("#asOut .concl-answer .ca-q") || ""), T("#asOut .concl-answer .ca-q"));
-  ok("подпись объясняет выбор по последствиям",
-    /по названным последствиям/.test(T("#asOut .concl-answer .ca-meta") || ""),
+  ok("подпись объясняет, что выбор сделан по описанию",
+    /по признакам из описания/.test(T("#asOut .concl-answer .ca-meta") || ""),
     T("#asOut .concl-answer .ca-meta"));
   ok("второй разбор свёрнут, а не показан карточкой",
     $$("#asOut .as-alt").length === 1 && $$("#asOut .as-alt")[0].open === false,

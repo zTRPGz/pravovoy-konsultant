@@ -4,8 +4,13 @@
 # Раз в сутки: скачивает официальные тексты с actual.pravo.gov.ru и sudact.ru,
 # пересобирает данные, сравнивает с предыдущим снимком (tools/build-changelog.js)
 # и пишет ленту изменений для вкладки «Новое». Если хоть что-то изменилось и
-# все проверки зелёные — коммитит и пушит; коммит подхватывает задача
+# все проверки зелёные — коммитит и пушит, а затем САМ вызывает задачу
 # «Публикация» (.github/workflows/pages.yml) и выкладывает сайт на GitHub Pages.
+# Через событие push это сделать нельзя: коммит уходит через GITHUB_TOKEN, а
+# pushes от GITHUB_TOKEN новые workflow-запуски не создают (документированное
+# поведение GitHub) — из-за этого коммиты автообновления никогда не вызывали
+# «Публикацию», и свежая база не попадала на сайт (так было с 12.10.2026:
+# пять коммитов «Автообновление базы», ни одного запуска «Публикация»).
 #
 # Почему GitHub Actions, а не cron на хостинге: на бесплатных планах Vercel
 # cron запускается раз в сутки и только на платных тарифах доступен чаще,
@@ -35,6 +40,10 @@ concurrency:
 
 permissions:
   contents: write
+  # Нужны вызываемой задаче «Публикация»: выкладка в Pages идёт через OIDC,
+  # и без pages/id-token деплой из ночной сборки упал бы на «Настройка Pages».
+  pages: write
+  id-token: write
 
 jobs:
   update:
@@ -44,6 +53,9 @@ jobs:
     # это лишний источник внезапных падений. Фиксируем проверенную версию.
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    outputs:
+      committed: ${{ steps.commit.outputs.committed }}
+      new_sha: ${{ steps.commit.outputs.new_sha }}
     steps:
       - name: Получение репозитория
         uses: actions/checkout@v7
@@ -137,6 +149,7 @@ jobs:
           echo "files=$real" >> "$GITHUB_OUTPUT"
 
       - name: Коммит и push
+        id: commit
         if: steps.diff.outputs.changed == 'yes' || inputs.force == true
         run: |
           git config user.name "Правовой консультант (бот)"
@@ -144,6 +157,7 @@ jobs:
           git add -- data tools/state/snapshot.json
           # пустой коммит не создаём: нечего фиксировать
           if git diff --cached --quiet; then
+            echo "committed=false" >> "$GITHUB_OUTPUT"
             echo "Нечего коммитить"
             exit 0
           fi
@@ -165,6 +179,8 @@ jobs:
           for i in 1 2 3; do
             if git push; then
               echo "Коммит отправлен (попытка $i)"
+              echo "committed=true" >> "$GITHUB_OUTPUT"
+              echo "new_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "push отклонён — подтягиваю origin/main (попытка $i)"
@@ -185,3 +201,16 @@ jobs:
             changelog.log
           retention-days: 14
           if-no-files-found: ignore
+
+  # Выкладка свежих данных на GitHub Pages. Отдельной задачей, а не расчётом
+  # на push: коммит ночной сборки уходит через GITHUB_TOKEN, а pushes от
+  # GITHUB_TOKEN новые workflow-запуски не создают, поэтому «Публикация» по
+  # событию push на коммиты автообновления не срабатывала никогда. Вызываем
+  # ту же задачу явно и передаём ей новый коммит. Если коммита не было
+  # (в законах ничего не изменилось) — выкладывать нечего, задача пропускается.
+  publish:
+    needs: update
+    if: needs.update.outputs.committed == 'true'
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: ${{ needs.update.outputs.new_sha }}

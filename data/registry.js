@@ -2459,7 +2459,7 @@ window.RF_CODES=[
   "branch": "Административное право",
   "color": "#c9a227",
   "docstate": "Действует с изменениями",
-  "redaction": "2026-06-07",
+  "redaction": "2026-09-30",
   "adopted": "27.07.2004",
   "number": "79-ФЗ",
   "docpassing": "",

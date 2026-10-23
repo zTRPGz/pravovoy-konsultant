@@ -783,7 +783,7 @@
     opt = opt || {};
     var key = JSON.stringify([q, opt.skipRepealed ? 1 : 0,
       opt.cut == null ? 0.4 : opt.cut, opt.need == null ? "" : opt.need,
-      opt.kind || "", opt.scope || ""]);
+      opt.kind || "", opt.scope == null ? "" : String(opt.scope)]);
     if (_searchCache.has(key)) return _searchCache.get(key);
     function done(r) {
       if (_searchCache.size > 48) _searchCache.clear();
@@ -818,9 +818,13 @@
     });
     /* Ограничение выдачи ВЫБРАННЫМИ источниками (Помощник в режиме «только
        эти акты»): отвечаем исключительно нормами выбранных актов. scope —
-       запятами-перечисленные id; пусто или "" — без ограничения. */
-    if (opt.scope) {
-      var sids = String(opt.scope).split(",");
+       массив id или запятая-перечисленные id; пусто, "" или [] — без
+       ограничения. Пустой массив означает «все источники», а не «ни одного»:
+       String([]) даёт "", split(",") — [""], и выдача обнулялась целиком
+       (Помощник на описании без разбора не показывал близкие нормы вовсе). */
+    var sids = opt.scope == null ? []
+      : (Array.isArray(opt.scope) ? opt.scope : String(opt.scope).split(",")).filter(Boolean);
+    if (sids.length) {
       pool = pool.filter(function (a) { return sids.indexOf(a.c) !== -1; });
     }
     /* Запрос состоял только из номера акта: отдаём его статьи в порядке
@@ -5690,6 +5694,27 @@
      становится оно: «задержали на 3 часа, составили административный
      протокол» — это административное задержание, а не задержание
      подозреваемого по ст. 91 УПК РФ. */
+  /* Вариант квалификации, который станет ответом. Та же логика, что в
+     conclusionBox: сначала подтверждённый ответами на уточняющие вопросы,
+     затем базовый, из подходящих — самый конкретный. Вынесено отдельной
+     функцией, потому что по этому тексту Помощник определяет ОТРАСЛЬ ответа:
+     в разборе про побои список норм начинается с УК (ст. 111–118 — градация
+     вреда), а ответ дан по ст. 6.1.1 КоАП РФ, и судебную практику надо искать
+     по КоАП. Без общего помощника пришлось бы повторять выбор и однажды
+     разойтись с настоящим ответом. */
+  function chosenQualText(help, picked) {
+    if (!help || !help.length) return "";
+    var quals = help[0].h.qual || [], base = null, match = null;
+    quals.forEach(function (q) {
+      var need = q.need || [];
+      if (!need.length) { if (!base) base = q; return; }
+      if (need.every(function (k) { return picked[k]; }) &&
+          (!match || need.length > ((match.need || []).length))) match = q;
+    });
+    var chosen = match || base || quals[0];
+    return chosen ? chosen.t : "";
+  }
+
   function assistantPrimary(help, scored) {
     var prim = help.length ? { kind: "help", x: help[0] } : null;
     /* Правило вытесняет разбор только при явном перевесе: одного-двух общих
@@ -6173,10 +6198,10 @@
           "разбор пересчитается.";
     } else {
       var near = [];
-      if (res && res.length) near.push("нормы, близкие к описанию");
+      if (res && res.length) near.push("нормы, подобранные по словам описания");
       if (practice && practice.length) near.push("разъяснения Пленума Верховного Суда РФ");
       lead = "Прямого разбора под этот запрос в базе нет." +
-        (near.length ? " По смыслу описания ближе всего " + near.join(" и ") +
+        (near.length ? " Ближе всего по смыслу " + near.join(" и ") +
           " — они собраны в начале ответа, проверьте их применимость." : "") +
         " Чтобы получить обоснованный вывод, уточните описание: кто участвовал, что именно произошло, " +
         "какие наступили последствия и какой орган принял решение.";
@@ -6552,9 +6577,10 @@
        имущества». По бытовым словам практика не находилась вовсе — «украл» и
        «магазин» в текстах постановлений просто не встречаются. Названия уже
        подобранных норм и разборов переводят описание на язык права.
-       Порог cov >= 2 — не меньше двух точных совпадений основ слов: по одному
-       общему слову («суд», «дело») в практику попадало что угодно. */
-    var practiceQ = keyIds.slice(0, 5).map(function (a) { return a.t; }).join(" ");
+       Порог cov >= 3 — не меньше трёх точных совпадений основ слов: по одному-
+       двум общим словам («суд», «дело», «правонарушение») в практику попадало
+       что угодно. */
+    var practiceQ = keyIds.slice(0, 8).map(function (a) { return a.t; }).join(" ");
     /* Название второго разбора в запрос практики не идёт: вместе с ним в
        «Судебную практику» попадали постановления о совсем других составах —
        на разбор про побои подтягивался Пленум о насилии над представителем
@@ -6572,9 +6598,130 @@
        её блок не показываем: «ответь только по УК» и отдельный «сверху — ещё и
        Пленумы» противоречат друг другу. Пункты нужного Пленума, если он и есть
        выбранный источник, приходят через обычный scoped-поиск (res). */
-    var practice = sc.length ? [] : search(practiceQ, { need: 1, cut: 0.5, kind: "plenum" })
-      .filter(function (x) { return x.cov >= 2; })
-      .slice(0, 3);
+
+    /* Отрасль постановления. Словами её не отличить: на задачу про побои
+       (ст. 6.1.1 КоАП РФ) подтягивались постановления по УК — о насилии над
+       представителем власти, о необходимой обороне, о транспортных средствах:
+       «вред здоровью» совпадало, а отрасль чужая. Зато граф перекрёстных
+       ссылок (data/graph.js) прямо говорит, какой кодекс толкует пленум —
+       ребро «пленум → кодекс» с весом «сколько статей он цитирует».
+       Отрасль берём по норме, которая стала ОТВЕТОМ, а не по первой в списке:
+       в разборе про побои список начинается со ст. 111 УК РФ (градация вреда),
+       а ответ дан по ст. 6.1.1 КоАП РФ. Нет пленумов по этой отрасли — блока
+       практики нет: пустая практика честнее чужой. */
+    var autoPicks = autoQualPicks(text);
+    /* Ключи признаков в picked превращаются в их ЗНАЧЕНИЯ — так же, как это
+       делает conclusionBox (`picked[auto[q]] = 1`). Иначе «degree: light»
+       искал бы вариант с ключом degree, которого в данных нет, и отрасль
+       определялась бы по базовому варианту вместо настоящего ответа. */
+    var pickedAuto = {};
+    Object.keys(autoPicks).forEach(function (q) { if (!asAnswers[q]) pickedAuto[autoPicks[q]] = 1; });
+    Object.keys(asAnswers).forEach(function (q) { pickedAuto[asAnswers[q]] = 1; });
+    var qualTxt = chosenQualText(help, pickedAuto);
+    var anchorCodes = [], anchorCode = "";
+    keyIds.forEach(function (a) {
+      if (anchorCode || !a || !a.n) return;
+      var re = new RegExp("(^|[^0-9.])" + String(a.n).replace(/\./g, "\\.") + "([^0-9.]|$)");
+      if (re.test(qualTxt)) anchorCode = a.c;
+    });
+    if (!anchorCode && keyIds.length && keyIds[0].c) anchorCode = keyIds[0].c;
+    if (anchorCode) anchorCodes.push(anchorCode);
+    var practiceActs = [];
+    (function () {
+      var G = GRAPH_DATA || window.RF_GRAPH || null;
+      if (!G || !G.edges || !anchorCodes.length) return;
+      /* Кодекс считается «своим» для пленума, только если он у него основной —
+         тот, на который ведёт больше всего ссылок. Иначе в КоАП-отрасль
+         попадали уголовные постановления: они тоже цитируют пару статей
+         КоАП, но разбирают УК. */
+      var main = {};
+      G.edges.forEach(function (e) {
+        var c = codeById(e[0]);
+        if (!c || c.kind !== "plenum") return;
+        var n = e[2] || 1;
+        if (!main[e[0]] || n > main[e[0]][1]) main[e[0]] = [e[1], n];
+      });
+      var agg = {};
+      Object.keys(main).forEach(function (pl) {
+        if (anchorCodes.indexOf(main[pl][0]) === -1) return;
+        agg[pl] = main[pl][1];
+      });
+      practiceActs = Object.keys(agg).sort(function (x, y) { return agg[y] - agg[x]; }).slice(0, 60);
+    })();
+
+    var practice = [];
+    if (!sc.length) {
+      if (practiceActs.length) {
+        practice = search(practiceQ, { need: 1, cut: 0.5, kind: "plenum", scope: practiceActs.join(",") })
+          .filter(function (x) { return x.cov >= 3; });
+      } else if (!anchorCodes.length) {
+        /* Нормы не распознаны — отрасль неизвестна. Общий поиск, но с более
+           высоким порогом: по двум общим словам сюда попадало что угодно. */
+        practice = search(practiceQ, { need: 1, cut: 0.6, kind: "plenum" })
+          .filter(function (x) { return x.cov >= 3; });
+      }
+      /* Отсев «пустых» совпадений: пункт должен перекликаться с формулировкой
+         САМОГО ОТВЕТА, а не только с названиями норм из списка. На задачу про
+         побои (ответ — ст. 6.1.1 КоАП РФ) под этот порог проходили пункты о
+         неуплате штрафа (ст. 20.25 КоАП РФ): слова «административное
+         правонарушение» есть и там, и там. После отсева остаётся пункт о
+         потерпевшем, которому причинён физический вред, — он к побоям
+         относится. */
+      if (qualTxt) {
+        /* Ссылки на нормы и кодексы из формулировки убираем: «ст. 6.1.1 КоАП
+           РФ» стоит в любом пункте по КоАП, и по ней проходил любой пункт —
+           в том числе о неуплате штрафа. Остаются содержательные слова
+           («побои», «вред здоровью», «хулиганские побуждения»). */
+        var qAnsText = String(qualTxt)
+          .replace(/(?:ст\.|стать[яию]|статей|ч\.|част[ьи]|п\.|пункт[а-яё]*)\s*[0-9«»"'\-–—,.\s]*/gi, " ")
+          .replace(/(^|[^а-яёa-z0-9])(?:УК|УПК|ГК|ГПК|ТК|КоАП|НК|ЖК|СК|АПК|КАС|ЗК|БК|ФЗ|РФ)(?![а-яёa-z0-9])/gi, "$1 ");
+        var qAnsStems = FT ? FT.stems(qAnsText) : [];
+        if (qAnsStems.length) {
+          practice = practice.filter(function (x) {
+            var a = x.a;
+            var all = (a._T || []).concat(a._K || [], a._S || []);
+            return qAnsStems.some(function (t) { return all.indexOf(t) !== -1; });
+          });
+        }
+      }
+      /* Внутри верного акта пункты всё ещё могут быть про соседний вопрос: на
+         задачу о задержке зарплаты шли пункты о профсоюзе и об опьянении на
+         работе. Причина в том, что «трудового договора» и «статьи 81» стоят
+         почти в каждом пункте Пленума № 2 и весили столько же, сколько редкие
+         «заработной платы» и «процентов (денежной компенсации)». Пересчитываем
+         по редкости: вес слова обратно пропорционален числу пунктов, где оно
+         встречается (обычный IDF по отобранным кандидатам). */
+      if (practice.length > 1) {
+        var pStems = FT ? FT.stems(practiceQ) : [];
+        var df = {}, sets = practice.map(function (x) {
+          var a = x.a, set = {};
+          (a._T || []).concat(a._K || [], a._S || []).forEach(function (t) { set[t] = 1; });
+          Object.keys(set).forEach(function (t) { df[t] = (df[t] || 0) + 1; });
+          return set;
+        });
+        var N = practice.length;
+        var wOf = function (t) { return Math.log(1 + N / (1 + (df[t] || 0))); };
+        var ranked = practice.map(function (x, i) {
+          var w = 0;
+          pStems.forEach(function (t) { if (sets[i][t]) w += wOf(t); });
+          return { x: x, w: w, s: x.s };
+        }).sort(function (p, q) { return q.w - p.w || q.s - p.s; });
+        /* Один акт на блок. Смесь пунктов из разных постановлений читается как
+           случайная подборка: на задачу о ДТП рядом с пунктом Пленума № 25 о
+           нарушении правил шёл пункт Пленума № 14 о нападении на представителя
+           власти — совпало слово «вред здоровью». Показываем пункты только
+           того постановления, чей лучший пункт релевантнее; меньше трёх — не
+           беда, добирать чужим актом хуже, чем показать два пункта. */
+        var groups = [], gIndex = {};
+        ranked.forEach(function (r) {
+          var k = r.x.a.c;
+          if (gIndex[k] === undefined) { gIndex[k] = groups.length; groups.push([]); }
+          groups[gIndex[k]].push(r.x);
+        });
+        practice = groups.length ? groups[0] : [];
+      }
+      practice = practice.slice(0, 3);
+    }
     /* Разбор может назвать «свои» постановления Пленума (h.plenums) — их пункты
        идут первыми. Без этого на разбор о выпуске неисправного транспорта
        первым подтягивался Пленум о военных машинах: совпадали общие слова
@@ -6595,7 +6742,7 @@
     /* Основы для дословных цитат: цитируем текст нормы по тем словам, которые
        действительно сработали в разборе, а не по всему описанию. */
     var qStems = FT ? FT.stems((hitWords.length ? hitWords.join(" ") : low)) : [];
-    var html = conclusionBox(help, scored, res, f.confidence, qStems, keyArts, practice, autoQualPicks(text), sc, fc, low);
+    var html = conclusionBox(help, scored, res, f.confidence, qStems, keyArts, practice, autoPicks, sc, fc, low);
 
     if (help.length) {
       html += '<div class="ground-box"><span class="ico">' + ic("shield") + "</span>" +
@@ -14090,6 +14237,20 @@
       if (!location.hash) location.hash = "#/home";
     }
     render();
+
+    /* Граф перекрёстных ссылок нужен Помощнику, чтобы отбирать судебную
+       практику по отрасли: ребро «пленум → кодекс» показывает, какой кодекс
+       толкует постановление. Раньше граф подгружался только при открытии
+       карточки статьи, и в ответах Помощника его не было — практика шла по
+       совпадению слов и попадала в чужую отрасль. Файл маленький (55 КБ),
+       грузим фоном после первой отрисовки: экран он не задерживает. */
+    if (!GRAPH_DATA && !graphState.loading) {
+      graphState.loading = true;
+      loadGraphData(function (err) {
+        graphState.loading = false;
+        graphState.error = err ? (err.message || String(err)) : "";
+      });
+    }
 
     /* при возврате в браузер (bfcache) меню не должно оставаться открытым */
     window.addEventListener("pageshow", function () { setSidebar(false); applyNav(); });

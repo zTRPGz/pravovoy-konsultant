@@ -2967,6 +2967,7 @@ body::-webkit-scrollbar-track { background: transparent; }
 }
 .nlnk:hover { border-bottom-color: var(--accent); }
 .nlnk-t { color: var(--muted); font-weight: 500; border-bottom: none; }
+.nlnk-dead { color: var(--muted); border-bottom: 1px dotted var(--border); cursor: default; }
 .nsep { color: var(--border); margin: 0 1px; }
 .nmore { color: var(--muted); }
 .nf-label { color: var(--muted); font-size: var(--fs-3); align-self: center; margin-right: 2px; }

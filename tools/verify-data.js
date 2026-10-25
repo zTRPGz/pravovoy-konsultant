@@ -1440,13 +1440,25 @@ check("отметка о прочтении хранится в localStorage",
   /LS\.set\("newSeenKey"/.test(appSrc) && /newSeenKey:\s*LS\.get\("newSeenKey"/.test(appSrc));
 check("значок непрочитанного обновляется после сборки меню",
   /function buildNav\(\)[\s\S]{0,300}syncNewBadge\(\)/.test(appSrc));
-check("ссылки на статьи и документы собираются из id записи",
-  /#\/article\/' \+ encodeURIComponent\(src \+ "-" \+ n\)/.test(appSrc) &&
+check("ссылки ленты проверяются по базе, а не склеиваются из номера",
+  /function artLinkId\(id\)[\s\S]{0,400}byId\[id\]/.test(appSrc) &&
+  /nlnk-dead/.test(appSrc) && /NEW_LIST_MAX/.test(appSrc) && /nmore/.test(appSrc),
+  "иначе номер со сноской «*» или номер снятого документа даёт мёртвую ссылку в «Новом»");
+/* Документ мог исчезнуть из реестра: файл полного текста остаётся лежать,
+   а открыть его нельзя. Название в ленте тогда без ссылки. */
+check("документ, исчезнувший из реестра, в ленте не ссылается",
+  /codeById\(e\.s\)/.test(appSrc) && /Документа нет в реестре/.test(appSrc) &&
   /#\/code\/' \+ esc\(e\.s\)/.test(appSrc));
 check("месяцы в датах прописаны вручную (не зависят от языка системы)",
   /MONTHS_GEN\s*=/.test(appSrc) && /февраля/.test(appSrc) && !/toLocaleDateString/.test(appSrc));
 check("длинные перечни статей обрезаются с пометкой «и ещё»",
   /NEW_LIST_MAX/.test(appSrc) && /nmore/.test(appSrc));
+/* Лента за месяц — до 400 карточек и больше 8000 узлов: на телефоне такой
+   экран подтормаживает. Показываем первую порцию, остальное — по кнопке. */
+check("лента «Новое» показывается порциями с кнопкой «Показать ещё»",
+  /var NEW_SHOW = \d+;/.test(appSrc) && /id="newMoreBtn"/.test(appSrc) &&
+  /data-more="/.test(appSrc) && /newLimit = \(parseInt\(more\.getAttribute\("data-more"\), 10\)/.test(appSrc),
+  "иначе весь месяц изменений рисуется одним куском");
 check("фильтры ленты переходят по хешу (ссылку можно сохранить)",
   /data-nf=/.test(appSrc) && /go\(id === "all" \? "#\/new" : "#\/new\/" \+ id\)/.test(appSrc));
 

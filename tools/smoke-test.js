@@ -2661,7 +2661,8 @@ server.listen(0, "127.0.0.1", async () => {
       entries: [
         { d: "2026-10-12", s: "uk", a: "УК РФ (Уголовный кодекс)", k: "code", red: "2026-10-01", redFrom: "2026-08-15", arts: 538 },
         { d: "2026-10-12", s: "upk", a: "УПК РФ (Уголовно-процессуальный кодекс)", k: "code", add: ["91", "92"], chg: ["108"], del: ["475"], arts: 561 },
-        { d: "2026-10-12", s: "nk2", a: "НК РФ ч. II", k: "law", rep: ["nk2-45", "nk2-46"], res: ["nk2-88"], arts: 210 },
+        { d: "2026-10-12", s: "nk2", a: "НК РФ ч. II", k: "law", rep: ["nk2-143", "nk2-146"], res: ["nk2-163"], arts: 210 },
+        { d: "2026-10-12", s: "obzor-3-2026", a: "Обзор ВС РФ № 3 (2026)", k: "review", add: ["1*", "999"], arts: 52 },
         { d: "2026-10-10", s: "fz44", a: "ФЗ о контрактной системе", k: "law", fresh: 1, arts: 12 },
         { d: "2026-10-01", s: "zz-old", a: "Отменённый закон", k: "law", fresh: -1 }
       ]
@@ -2685,11 +2686,11 @@ server.listen(0, "127.0.0.1", async () => {
     const nav2 = async (hash, ms) => { w2.location.hash = hash; await wait(ms || 200); };
 
     await nav2("#/new", 400);
-    ok("записей в ленте — пять", $$2("#view .ncard").length === 5, $$2("#view .ncard").length + " карточек");
+    ok("записей в ленте — шесть", $$2("#view .ncard").length === 6, $$2("#view .ncard").length + " карточек");
     ok("даты сгруппированы", $$2("#view .ndate").length === 3, $$2("#view .ndate").length + " дат");
     ok("первая дата — 12 октября 2026", /12 октября 2026/.test($2("#view .ndate").textContent || ""), T2("#view .ndate"));
     ok("сводка: редакции, статьи, статусы",
-      /1/.test(T2("#view .grid .stat:nth-child(2)") || "") && /4/.test(T2("#view .grid .stat:nth-child(3)") || "") &&
+      /1/.test(T2("#view .grid .stat:nth-child(2)") || "") && /6/.test(T2("#view .grid .stat:nth-child(3)") || "") &&
       /3/.test(T2("#view .grid .stat:nth-child(4)") || ""),
       [T2("#view .grid .stat:nth-child(2)"), T2("#view .grid .stat:nth-child(3)"), T2("#view .grid .stat:nth-child(4)")].join(" / "));
 
@@ -2708,8 +2709,16 @@ server.listen(0, "127.0.0.1", async () => {
       /2 новые статьи/.test($2("#view").textContent) && /1 изменённая статья/.test($2("#view").textContent) &&
       /1 исключённая статья/.test($2("#view").textContent));
 
+    /* Номер статьи в ленте может не совпасть с индексом: в обзорах ВС РФ номер
+       несёт сноску-маркер «*», и «obzor-3-2026-2-1*» статьи в базе нет — раньше
+       такая ссылка вела в пустоту. И номер 999 в базе тоже отсутствует. */
+    ok("номер со сноской ведёт на настоящую статью", !!$2('#view a[href="#/article/obzor-3-2026-1"]'));
+    ok("ссылки-пустышки со сноской нет", !$2('#view a[href*="obzor-3-2026-1*"]'));
+    ok("несуществующая статья — номер без ссылки",
+      $$2("#view .nlnk-dead").length >= 1 && !$2('#view a[href="#/article/obzor-3-2026-999"]'));
+
     /* статусы норм */
-    ok("норма утратила силу — ссылка на статью", !!$2('#view a[href="#/article/nk2-45"]'));
+    ok("норма утратила силу — ссылка на статью", !!$2('#view a[href="#/article/nk2-143"]'));
     ok("норма снова действует — подпись", /снова действу/.test($2("#view").textContent));
 
     /* документы */
@@ -2718,8 +2727,8 @@ server.listen(0, "127.0.0.1", async () => {
     ok("ссылка на документ ведёт в его раздел", !!$2('#view a[href="#/code/uk"]'));
 
     /* непрочитанное */
-    ok("счётчик непрочитанного в меню", T2("#newCount") === "5", T2("#newCount"));
-    ok("плашка непрочитанного на странице", /Непрочитанных изменений: 5/.test($2("#view").textContent || ""));
+    ok("счётчик непрочитанного в меню", T2("#newCount") === "6", T2("#newCount"));
+    ok("плашка непрочитанного на странице", /Непрочитанных изменений: 6/.test($2("#view").textContent || ""));
     ok("пункт меню помечен как с обновлением",
       !!($2('.nav-item[data-nav="new"]') && $2('.nav-item[data-nav="new"]').classList.contains("has-upd")));
 
@@ -2729,7 +2738,7 @@ server.listen(0, "127.0.0.1", async () => {
     ok("после отметки счётчик очищен", T2("#newCount") === "", JSON.stringify(T2("#newCount")));
     ok("после отметки плашка и точка убраны",
       !$2("#newUnreadBox") && !$2('.nav-item[data-nav="new"]').classList.contains("has-upd"));
-    ok("отметка сохраняется в localStorage", w2.localStorage.getItem("rflaws.newSeen") === "5",
+    ok("отметка сохраняется в localStorage", w2.localStorage.getItem("rflaws.newSeen") === "6",
       w2.localStorage.getItem("rflaws.newSeen"));
 
     /* фильтры */
@@ -2737,7 +2746,7 @@ server.listen(0, "127.0.0.1", async () => {
     ok("фильтр «Новые редакции» оставляет одну запись", $$2("#view .ncard").length === 1,
       $$2("#view .ncard").length + " карточек");
     await nav2("#/new/art", 250);
-    ok("фильтр «Статьи» оставляет одну запись", $$2("#view .ncard").length === 1,
+    ok("фильтр «Статьи» оставляет две записи", $$2("#view .ncard").length === 2,
       $$2("#view .ncard").length + " карточек");
     await nav2("#/new/st", 250);
     ok("фильтр «Статусы норм» оставляет одну запись", $$2("#view .ncard").length === 1,
@@ -2746,7 +2755,11 @@ server.listen(0, "127.0.0.1", async () => {
     ok("фильтр «Документы» оставляет две записи", $$2("#view .ncard").length === 2,
       $$2("#view .ncard").length + " карточек");
     await nav2("#/new", 250);
-    ok("возврат к полной ленте", $$2("#view .ncard").length === 5);
+    ok("возврат к полной ленте", $$2("#view .ncard").length === 6);
+    /* Лента за месяц — до 400 карточек. Маленькая показывается целиком,
+       кнопка «Показать ещё» появляется только когда записи правда не влезли. */
+    ok("небольшая лента показывается целиком", !$2("#view #newMoreBtn"),
+      $2("#view #newMoreBtn") ? "кнопка есть" : "кнопки нет");
 
     /* возвращаемся в основное окно: счётчик непрочитанного не должен был
        измениться от второго окна — оно живёт в другом localStorage */

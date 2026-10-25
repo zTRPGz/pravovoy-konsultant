@@ -13028,6 +13028,13 @@
     { v: "31", lbl: "Месяц" }
   ];
   var newPeriodSel = "31";
+  /* Лента за месяц — это до 400 карточек и больше 8000 узлов разметки: на
+     телефоне такой экран подтормаживает при любой прокрутке. Показываем
+     первую «страницу», остальное — по кнопке «Показать ещё». Счётчик живёт
+     до конца сеанса: раскрыв ленту один раз, человек не должен раскрывать её
+     заново после каждого перехода. */
+  var newLimit = 0;
+  var NEW_SHOW = 60;
 
   /* Число календарных дней между датами «YYYY-MM-DD» (b − a). */
   function daysBetween(a, b) {
@@ -13087,17 +13094,31 @@
     return { ico: "file", cls: "cn-art", lbl: "Статьи" };
   }
 
+  /* Ссылка на статью из ленты. Номер в ленте не всегда совпадает с индексом:
+     в обзорах ВС РФ номер статьи несёт сноску-маркер «*», и «источник-1*» —
+     это не существующая статья, а мёртвая ссылка. Пробуем точный id, затем
+     номер без маркера; если и такой статьи в базе нет (её исключили из
+     акта), возвращаем пустую строку — номер покажем текстом, не ссылкой. */
+  function artLinkId(id) {
+    if (byId[id]) return id;
+    var clean = id.replace(/\*/g, "");
+    return (clean !== id && byId[clean]) ? clean : "";
+  }
+
   /* Номера статей в виде ссылок: «88, 101», «3, 12 и ещё 40».
      Рядом с номером — название статьи из базы, чтобы было видно, какая
      именно норма изменилась, а не весь кодекс целиком. */
   function newArtLinks(src, nums, prefix) {
     if (!nums || !nums.length) return "";
     var html = nums.slice(0, NEW_LIST_MAX).map(function (n) {
-      var a = byId[src + "-" + n];
-      var title = a && a.t ? a.t : "";
-      return '<a class="nlnk" href="#/article/' + encodeURIComponent(src + "-" + n) + '" title="' + esc(title) + '">' +
-        (prefix ? esc(prefix) + "&nbsp;" : "") + esc(n) +
-        (title ? ' <span class="nlnk-t">— ' + esc(title) + "</span>" : "") + "</a>";
+      var aid = artLinkId(src + "-" + String(n));
+      var num = aid ? aid.slice(aid.lastIndexOf("-") + 1) : String(n).replace(/[^\d.]/g, "");
+      var title = aid ? (byId[aid].t || "") : "";
+      var label = (prefix ? esc(prefix) + "&nbsp;" : "") + esc(num) +
+        (title ? ' <span class="nlnk-t">— ' + esc(title) + "</span>" : "");
+      return aid
+        ? '<a class="nlnk" href="#/article/' + encodeURIComponent(aid) + '" title="' + esc(title) + '">' + label + "</a>"
+        : '<span class="nlnk-dead" title="Такой статьи в базе нет">' + label + "</span>";
     }).join("<span class=\"nsep\">,</span> ");
     if (nums.length > NEW_LIST_MAX) {
       html += '<span class="nmore"> и ещё ' + (nums.length - NEW_LIST_MAX) + "</span>";
@@ -13136,7 +13157,11 @@
       rows.push('<div class="nrow"><span class="nrow-l">' + e.rep.length + " " +
         plural(e.rep.length, ["норма утратила силу", "нормы утратили силу", "норм утратили силу"]) +
         '</span><span class="nrow-v">' + e.rep.slice(0, NEW_LIST_MAX).map(function (id) {
-          return '<a class="nlnk" href="#/article/' + encodeURIComponent(id) + '">' + esc(id.slice(id.lastIndexOf("-") + 1)) + "</a>";
+          var aid = artLinkId(id), good = aid || id;
+          var num = esc(good.slice(good.lastIndexOf("-") + 1));
+          return aid
+            ? '<a class="nlnk" href="#/article/' + encodeURIComponent(aid) + '">' + num + "</a>"
+            : '<span class="nlnk-dead" title="Такой статьи в базе нет">' + num + "</span>";
         }).join("<span class=\"nsep\">,</span> ") +
         (e.rep.length > NEW_LIST_MAX ? '<span class="nmore"> и ещё ' + (e.rep.length - NEW_LIST_MAX) + "</span>" : "") +
         "</span></div>");
@@ -13145,16 +13170,26 @@
       rows.push('<div class="nrow"><span class="nrow-l">' + e.res.length + " " +
         plural(e.res.length, ["норма снова действует", "нормы снова действуют", "норм снова действуют"]) +
         '</span><span class="nrow-v">' + e.res.slice(0, NEW_LIST_MAX).map(function (id) {
-          return '<a class="nlnk" href="#/article/' + encodeURIComponent(id) + '">' + esc(id.slice(id.lastIndexOf("-") + 1)) + "</a>";
+          var aid = artLinkId(id), good = aid || id;
+          var num = esc(good.slice(good.lastIndexOf("-") + 1));
+          return aid
+            ? '<a class="nlnk" href="#/article/' + encodeURIComponent(aid) + '">' + num + "</a>"
+            : '<span class="nlnk-dead" title="Такой статьи в базе нет">' + num + "</span>";
         }).join("<span class=\"nsep\">,</span> ") +
         (e.res.length > NEW_LIST_MAX ? '<span class="nmore"> и ещё ' + (e.res.length - NEW_LIST_MAX) + "</span>" : "") +
         "</span></div>");
     }
 
+    /* Документ мог исчезнуть из реестра (обзор сняли с портала). Тогда ссылка
+       на «/code/<id>» ведёт в пустоту — название оставляем текстом. */
+    var docTitle = codeById(e.s) ? esc(e.a)
+      : '<span class="nlnk-dead" title="Документа нет в реестре источников">' + esc(e.a) + "</span>";
     return '<div class="ncard ' + esc(k.cls) + '" data-ns="' + esc(e.s) + '">' +
       '<div class="ncard-h">' +
-        '<span class="ncard-ico">' + ic(k.ico) + "</span>" +
-        '<a class="ncard-t" href="#/code/' + esc(e.s) + '">' + esc(e.a) + "</a>" +
+      '<span class="ncard-ico">' + ic(k.ico) + "</span>" +
+      (codeById(e.s)
+        ? '<a class="ncard-t" href="#/code/' + esc(e.s) + '">' + esc(e.a) + "</a>"
+        : docTitle) +
         '<span class="ncard-kind">' + esc(KIND_TITLE[e.k] || e.k || "") + "</span>" +
         '<span class="ncard-lbl">' + esc(k.lbl) + "</span>" +
       "</div>" +
@@ -13217,9 +13252,14 @@
               "скачивает официальные тексты с actual.pravo.gov.ru и sudact.ru, пересобирает базу и сравнивает её с предыдущим снимком. " +
               "Всё, что изменилось — новые редакции, добавленные и изменённые статьи, нормы, утратившие силу, — попадает сюда.</div>");
     } else {
+      /* Первая «страница» ленты: остальное — по кнопке «Показать ещё».
+         Считаем по отфильтрованному списку, чтобы сводка и кнопка говорили
+         об одном и том же наборе записей. */
+      var shown = list.slice(0, newLimit || NEW_SHOW);
+      var rest = list.length - shown.length;
       /* группировка по дате: даты в ленте отсортированы по убыванию */
       var html = "", lastD = "";
-      list.forEach(function (e) {
+      shown.forEach(function (e) {
         if (e.d !== lastD) {
           if (lastD) html += "</div>";
           html += '<div class="ndate"><span>' + esc(fmtDateLong(e.d)) + "</span></div><div class=\"ngroup\">";
@@ -13227,7 +13267,12 @@
         }
         html += newEntryHtml(e);
       });
-      body = html + "</div>";
+      body = html + "</div>" +
+        (rest > 0
+          ? '<div class="actions-row" style="margin-top:14px">' +
+            '<button class="btn" id="newMoreBtn" data-more="' + (newLimit || NEW_SHOW) + '">Показать ещё ' +
+            Math.min(rest, NEW_SHOW) + " из " + rest + "</button></div>"
+          : "");
     }
 
     return '<h1>Новое</h1>' +
@@ -13290,6 +13335,15 @@
         newPeriodSel = b3.getAttribute("data-np");
         render();
       });
+    });
+
+    /* «Показать ещё»: добираем следующую порцию карточек и перерисовываем.
+       Обработчик один на кнопку, а newLimit растёт — при следующем рендере
+       покажем больше, а кнопка, если записи кончились, просто исчезнет. */
+    var more = $("#newMoreBtn");
+    if (more) more.addEventListener("click", function () {
+      newLimit = (parseInt(more.getAttribute("data-more"), 10) || NEW_SHOW) + NEW_SHOW;
+      render();
     });
 
     syncNewBadge();

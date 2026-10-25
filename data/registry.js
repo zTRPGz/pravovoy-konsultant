@@ -2063,7 +2063,7 @@ window.RF_CODES=[
   "branch": "Административное право",
   "color": "#c9a227",
   "docstate": "Действует с изменениями",
-  "redaction": "2026-10-01",
+  "redaction": "2026-10-25",
   "adopted": "25.07.2002",
   "number": "115-ФЗ",
   "docpassing": "",

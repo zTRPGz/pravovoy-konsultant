@@ -1,0 +1,16 @@
+{
+  "name": "rf-laws-gigachat-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Прокси к GigaChat для сайта «Правовой консультант»: держит client_secret на сервере и не даёт модели выдумывать нормы",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "mock": "GIGACHAT_MOCK=1 node server.js",
+    "test": "node test/smoke.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {}
+}

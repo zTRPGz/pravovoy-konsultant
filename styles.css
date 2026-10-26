@@ -1586,6 +1586,37 @@ body.has-crash .toast { bottom: 104px; }
 }
 .as-export .btn { margin: 0; }
 
+/* --- объяснение простыми словами (GigaChat, опция) -----------------------
+   По умолчанию выключено: блок настроек свёрнут, а карточка «Объяснить»
+   появляется в выводе только при включённой опции. Оформление намеренно
+   тише основного разбора — это черновик, а не вывод. */
+.as-ai { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.as-ai > summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: 7px;
+  font-size: var(--fs-4); color: var(--text-2); padding: 2px 0;
+}
+.as-ai > summary::-webkit-details-marker { display: none; }
+.as-ai > summary::after { content: "▾"; margin-left: auto; opacity: .6; }
+.as-ai[open] > summary::after { content: "▴"; }
+.as-ai > summary svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.as-ai-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  font-size: var(--fs-4); cursor: pointer;
+}
+.as-ai-row input { width: 16px; height: 16px; flex: 0 0 auto; accent-color: var(--accent); }
+
+.as-ai-box { margin-top: 14px; border-style: dashed; background: var(--bg-2); }
+.aib-head {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  font-size: var(--fs-4); margin-bottom: 8px;
+}
+.aib-head svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--text-2); }
+.aib-text { font-size: var(--fs-4); line-height: 1.6; }
+.aib-note {
+  margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border);
+  font-size: var(--fs-5); color: var(--text-2);
+}
+
 /* история изменений статьи на её странице */
 .article-chrono { margin: 18px 0 4px; }
 .article-chrono .chg-list { margin-top: 6px; }

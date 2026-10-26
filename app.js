@@ -5009,6 +5009,19 @@
               esc(x.length > 58 ? x.slice(0, 56) + "…" : x) + "</div>";
           }).join("") +
         "</div>" +
+        '<details class="as-ai">' +
+          "<summary>" + ic("chat") + " Объяснение простыми словами (GigaChat, необязательно)</summary>" +
+          '<div class="small muted" style="margin:6px 0">Сайт разбирает ситуацию сам, офлайн и без передачи данных — ' +
+            "этот блок ничего не меняет. Если его включить, описание ситуации и перечень уже подобранных норм уйдут " +
+            "на ваш прокси-сервер, а он — в GigaChat. Ключ GigaChat хранится на сервере, в браузере его нет. " +
+            "По умолчанию выключено.</div>" +
+          '<label class="as-ai-row"><input type="checkbox" id="asAiOn"' + (aiCfg().on ? " checked" : "") + "> Включить объяснение" +
+            (aiCfg().on ? "" : ' <span class="small muted">— выключено</span>') + "</label>" +
+          '<div class="field" style="margin-top:8px"><label>Адрес прокси</label>' +
+            '<input class="input" id="asAiUrl" type="url" inputmode="url" placeholder="https://ваш-прокси.example" value="' +
+            esc(aiCfg().url) + '"></div>' +
+          '<div class="small" id="asAiState"></div>' +
+        "</details>" +
       "</div>" +
       '<div id="asOut"></div>' +
       '<div class="as-export">' +
@@ -5025,6 +5038,7 @@
       out.innerHTML = assistantResult(input.value);
       markNav();
       enrichAssistant(out);
+      mountAi(out, input.value);
     };
     /* Смена выбранных источников пересобирает только вывод разбора — сам
        раздел не перерисовывается, поэтому пикер остаётся открытым. */
@@ -5151,6 +5165,163 @@
         });
       });
     }
+    bindAiSettings();
+  }
+
+  /* ------------------------------------- объяснение простыми словами (опция)
+
+     Сайт разбирает ситуацию сам: офлайн, по нормам из базы, с датами редакций.
+     Дополнительный слой — короткое объяснение человеческим языком — включает
+     сам читатель, и по умолчанию он выключен.
+
+     Ключ GigaChat в браузере не живёт и не может жить: страница статическая,
+     любой ключ в ней был бы опубликован. Поэтому объяснение идёт через
+     отдельный прокси (`proxy/` в репозитории, деплой — `proxy/README.md`):
+     он держит client_secret, ходит в GigaChat по OAuth и возвращает только
+     текст и id норм.
+
+     Главное ограничение — проверяемость. Модель получает ЗАКРЫТЫЙ перечень
+     норм, которые локальный движок уже подобрал, и обязана ссылаться только на
+     них. Каждый вернувшийся id сверяется с RF_IDX: выдуманные выбрасываются.
+     Объяснение помечено как сгенерированное и не заменяет разбор. */
+
+  function aiCfg() {
+    var c = LS.get("ai", null) || {};
+    return { on: !!c.on, url: String(c.url || "") };
+  }
+  function aiSet(patch) {
+    var c = aiCfg();
+    Object.keys(patch).forEach(function (k) { c[k] = patch[k]; });
+    LS.set("ai", c);
+    return c;
+  }
+  function aiReady() {
+    var c = aiCfg();
+    return !!(c.on && /^https?:\/\//i.test(c.url) && location.protocol !== "file:");
+  }
+
+  /* Что отправляем: описание, выбранную квалификацию и нормы из готового
+     ответа. Нормы читаем из DOM (`.concl-norms .as-art`) — так перечень
+     совпадает с тем, что человек видит на экране, и не приходится повторять
+     логику отбора норм внутри движка. */
+  function aiPayload(out, text) {
+    var q = out.querySelector(".concl-answer .ca-q");
+    var wrap = out.querySelector(".concl-norms") || out;
+    var norms = [], seen = {};
+    Array.prototype.forEach.call(wrap.querySelectorAll(".as-art"), function (el) {
+      var go = el.getAttribute("data-go") || "";
+      var id = decodeURIComponent(go.replace(/^#\/article\//, ""));
+      if (!id || seen[id] || !byId[id]) return;
+      seen[id] = 1;
+      var a = byId[id], c = codeById(a.c) || {};
+      norms.push({ id: id, code: c.short || a.c, num: a.dn, title: a.t });
+    });
+    return {
+      text: String(text || "").slice(0, 2000),
+      qual: q ? q.textContent.trim().slice(0, 400) : "",
+      norms: norms.slice(0, 8)
+    };
+  }
+
+  function askAi(p) {
+    var url = aiCfg().url.replace(/\/+$/, "") + "/ask";
+    var ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 30000);
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(p),
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (r) {
+      return r.text().then(function (s) {
+        var j = null;
+        try { j = JSON.parse(s); } catch (e) {}
+        if (!r.ok) throw new Error((j && j.error) || ("HTTP " + r.status));
+        if (!j) throw new Error("ответ прокси не JSON");
+        return j;
+      });
+    }).finally(function () { clearTimeout(timer); });
+  }
+
+  function renderAi(dst, r, p) {
+    var allow = {};
+    p.norms.forEach(function (n) { allow[n.id] = 1; });
+    /* Повторная проверка на клиенте: прокси уже фильтрует cite, но доверять
+       чужому серверу в вопросе «какие статьи существуют» незачем — сверяем
+       с собственной базой. */
+    var cite = (r.cite || []).filter(function (id) { return allow[id] && byId[id]; });
+    var html = '<div class="aib-text">' + esc(r.plain || "") + "</div>";
+    if (cite.length) {
+      html += '<div class="chips" style="margin-top:10px">' + cite.map(function (id) {
+        var a = byId[id], c = codeById(a.c) || { short: a.c };
+        return '<div class="chip" data-go="#/article/' + encodeURIComponent(id) + '" title="' +
+          esc(a.t) + '">' + esc(c.short) + " · ст. " + esc(a.dn) + "</div>";
+      }).join("") + "</div>";
+    } else {
+      html += '<div class="small muted" style="margin-top:8px">Модель не сослалась ни на одну норму — ' +
+        "это пересказ, а не вывод. Опирайтесь на разбор выше.</div>";
+    }
+    html += '<div class="aib-note">Сгенерировано GigaChat по перечню норм сайта. Не юридическая консультация: ' +
+      "проверьте каждую ссылку — разбор выше и текст статьи важнее.</div>";
+    dst.innerHTML = html;
+  }
+
+  /* Кнопка «Объяснить» появляется только когда объяснение включено, есть сеть
+     и в ответе есть нормы. Ничего не ломается, если прокси недоступен: ошибка
+     показывается в блоке, сам разбор остаётся на месте. */
+  function mountAi(out, text) {
+    if (!out || !aiReady() || !navigator.onLine) return;
+    var p = aiPayload(out, text);
+    if (!p.norms.length) return;
+    var box = document.createElement("div");
+    box.className = "card as-ai-box";
+    box.innerHTML = '<div class="aib-head">' + ic("chat") + " <b>Объяснить простыми словами</b>" +
+      '<span class="small muted">черновик GigaChat по нормам, которые подобрал сайт</span></div>' +
+      '<div class="actions-row" style="margin-top:0">' +
+        '<button class="btn btn-sm" type="button" data-ai-run>Объяснить</button>' +
+        '<span class="small muted">описание уйдёт на сервер только после нажатия</span>' +
+      "</div>" +
+      '<div class="aib-out"></div>';
+    out.appendChild(box);
+    var btn = box.querySelector("[data-ai-run]"), dst = box.querySelector(".aib-out");
+    btn.addEventListener("click", function () {
+      if (dst.getAttribute("data-busy")) return;
+      dst.setAttribute("data-busy", "1");
+      btn.disabled = true;
+      dst.innerHTML = '<div class="small muted">Спрашиваю GigaChat…</div>';
+      askAi(p).then(function (r) {
+        renderAi(dst, r, p);
+      }).catch(function (e) {
+        var msg = String(e && e.message ? e.message : e);
+        if (/abort/i.test(msg)) msg = "сервер не ответил за 30 секунд";
+        dst.innerHTML = '<div class="warn-box">Не получилось: ' + esc(msg) +
+          '. Разбор выше от этого не зависит — он сделан локально.</div>';
+      }).finally(function () {
+        dst.removeAttribute("data-busy");
+        btn.disabled = false;
+      });
+    });
+  }
+
+  function bindAiSettings() {
+    var on = $("#asAiOn"), url = $("#asAiUrl"), st = $("#asAiState");
+    if (!on || !url) return;
+    function sync(save) {
+      var c = aiSet({ on: !!on.checked, url: String(url.value || "").trim() });
+      if (save) {
+        if (c.on && !/^https?:\/\//i.test(c.url)) toast("Укажите адрес прокси — например https://ваш-прокси.example");
+        else toast(c.on ? "Объяснение включено" : "Объяснение выключено");
+      }
+      if (st) {
+        st.textContent = !c.on ? "Объяснение выключено — данные никуда не уходят."
+          : (location.protocol === "file:"
+            ? "На локальном файле прокси недоступен: откройте сайт по https."
+            : (!/^https?:\/\//i.test(c.url) ? "Укажите адрес прокси." : "Включено: " + c.url));
+      }
+    }
+    on.addEventListener("change", function () { sync(true); if (asRefresh) asRefresh(); });
+    url.addEventListener("change", function () { sync(true); if (asRefresh) asRefresh(); });
+    sync(false);
   }
 
   /* ------------------------------------------------------ памятки */
@@ -11037,7 +11208,8 @@
         "<p>Уточняющие вопросы — кнопками под разбором: следователь или адвокат, тяжкий вред или средний, была ли выгода. Ответы сразу пересобирают вывод, вводить текст заново не нужно.</p>" +
         "<p><b>Отвечать только по выбранным источникам.</b> По умолчанию помощник ищет по всей базе. Если вопрос касается одного акта — «что говорит Уголовный кодекс», — откройте список <b>«Источники для ответа»</b> и отметьте нужные: подбор норм и цитаты ограничатся ими, нормы соседних отраслей и общая практика в ответ не попадут. Список с поиском по названию и счётчиком выбранного; выбранные акты видны чипами, снять можно крестиком. Кнопка «Спросить Помощника» на странице кодекса включает этот режим сразу. Выбор действует <b>до конца сеанса</b> — при следующем открытии помощник снова ищет по всей базе.</p>" +
         "<p>Упоминания норм в разборах, памятках и примечаниях — <b>кликабельные ссылки</b>: «ст. 105 УК РФ» или «п. 6 постановления Пленума ВС РФ № 29» ведут прямо на нужный пункт действующей редакции.</p>" +
-        "<p>Разборы охватывают хищения и их формы, вред здоровью, наркотики, оружие, взятки, ДТП, безопасность движения и эксплуатации транспорта, задержание, обыск и выемку, личный досмотр, оперативно-розыскные мероприятия, угон, угрозы, приём заявлений (КУСП), миграцию, трудовые и имущественные споры.</p>" +
+        "<p>Разборы охватывают хищения и их формы, вред здоровью, наркотики, оружие, взятки, ДТП, безопасность движения и эксплуатации транспорта, задержание, обыск и выемку, личный досмотр, оперативно-розыскные мероприятия, угон, угрозы, приём заявлений (КУСП), миграцию, трудовые и имущественные споры. Отдельные разборы — призыв и мобилизация, государственная тайна и допуск к ней, митинги и пикеты, тонировка и техническое состояние машины, просрочка по кредиту и коллекторы, подделка документов и подписи, отказ в перевозке и возврат билета, изображение гражданина и персональные данные, незаконная рубка леса, перепланировка квартиры, уничтожение и повреждение чужого имущества.</p>" +
+        "<p><b>Объяснение простыми словами (необязательно).</b> Под разбором может появиться кнопка «Объяснить»: короткий пересказ ситуации от GigaChat. По умолчанию эта возможность <b>выключена</b> — пока вы не поставили галочку в блоке «Объяснение простыми словами» и не указали адрес своего прокси, из браузера не уходит ни один байт, и разбор целиком считается на устройстве. Модель получает <b>закрытый перечень</b> норм, которые уже подобрал сайт, и не имеет права ссылаться на что-то другое: каждый вернувшийся id сверяется с базой, выдуманные отбрасываются. Такой пересказ помечен как сгенерированный и не заменяет разбор — он нужен, чтобы понять смысл нормы, а не чтобы получить вывод.</p>" +
         "<p>По смыслу запроса помощник также подбирает судебную практику — блок «Судебная практика» под разбором: постановления Пленума ВС РФ и обзоры судебной практики, утверждённые Президиумом ВС РФ. У разбора есть «свои» постановления — они идут первыми. Практика не создаёт норму, а разъясняет, как её применять.</p>" +
         "<p>Если в тексте есть вопросы («есть ли состав», «что повлияет на наказание», «было ли соучастие»), помощник отвечает на каждый отдельной строкой вывода — в дополнение к разбору.</p>") +
 

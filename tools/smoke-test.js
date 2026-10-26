@@ -868,6 +868,31 @@ server.listen(0, "127.0.0.1", async () => {
       T("#asOut .concl-picked") || "нет строки");
   }
 
+  section = "6b5. Объяснение GigaChat: выключено по умолчанию и не ломает разбор"; console.log("\n" + section);
+  /* Опция необязательная: пока читатель не поставил галочку, из браузера не
+     уходит ни один байт и карточки «Объяснить» в выводе быть не должно. Это
+     ровно то свойство, которое легко потерять при правке разметки Помощника. */
+  ok("блок «Объяснение простыми словами» есть в разделе",
+    !!$(".as-ai") && /GigaChat/.test(T(".as-ai") || ""), T(".as-ai > summary") || "нет блока");
+  ok("по умолчанию галочка снята", !$("#asAiOn") || $("#asAiOn").checked === false);
+  ok("при выключенной опции карточки «Объяснить» в выводе нет",
+    !$("#asOut .as-ai-box"), $$("#asOut .as-ai-box").length + " карточек");
+  /* Включаем опцию так, как это делает читатель — через localStorage, — и
+     проверяем, что карточка появляется. Сеть в smoke недоступна: важно, что
+     блок монтируется и разбор остаётся на месте. */
+  w.localStorage.setItem("rflaws.ai", JSON.stringify({ on: true, url: "https://proxy.example" }));
+  await nav("#/assistant");
+  $("#asInput").value = "ударил ножом в живот, тяжкий вред здоровью";
+  $("#asRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(500);
+  ok("при включённой опции появляется карточка «Объяснить»", !!$("#asOut .as-ai-box"));
+  ok("кнопка объяснения подписана и не запускается сама",
+    /Объяснить/.test(T("#asOut [data-ai-run]") || "") && !$("#asOut .aib-text"),
+    T("#asOut [data-ai-run]") || "кнопки нет");
+  ok("разбор от опции не зависит", /ст\. 111 УК/.test(T("#asOut .concl-answer") || ""),
+    (T("#asOut .concl-answer") || "").slice(0, 60));
+  w.localStorage.removeItem("rflaws.ai");
+
   section = "6c. Перемещение по разделам кнопками"; console.log("\n" + section);
   /* Кнопки в панели и кнопка «Назад» браузера ходят по одной и той же истории
      (go() пишет адрес через pushState, navStep — через history.go), а глубина

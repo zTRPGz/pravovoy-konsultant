@@ -5539,13 +5539,25 @@
     }
     var qsShow = (h.qs || []).filter(qRelevant);
     if (qsShow.length) {
-      html += '<div class="section-label">Уточните — разбор пересчитается</div><div class="help-qs">' +
+      /* Вопрос, ответ на который уже подставлен из описания, помечается сразу:
+         иначе человек щёлкает вариант, совпадающий с догадкой движка, не видит
+         никакой перемены и решает, что кнопки не работают. Пунктирная рамка —
+         «движок предположил», сплошная заливка — «выбрали вы». */
+      var anyAuto = qsShow.some(function (q) { return auto && auto[q.id] && !asAnswers[q.id]; });
+      html += '<div class="section-label">Уточните — разбор пересчитается' +
+        (anyAuto ? ' <span class="hq-hint">(пунктиром — что уже учтено из описания)</span>' : "") +
+        '</div><div class="help-qs">' +
         qsShow.map(function (q) {
+          var autoK = auto && !asAnswers[q.id] ? auto[q.id] : null;
           return '<div class="help-q" data-help-q="' + esc(q.id) + '"><div class="hq-q">' + esc(q.q) + "</div>" +
             '<div class="chips">' + q.opts.map(function (o) {
               var on = asAnswers[q.id] === o.k;
-              return '<button type="button" class="chip help-opt' + (on ? " on" : "") + '" data-help-opt="' +
-                esc(q.id + ":" + o.k) + '">' + (on ? ic("check") : "") + esc(o.v) + "</button>";
+              var guessed = !on && autoK === o.k;
+              return '<button type="button" class="chip help-opt' + (on ? " on" : "") + (guessed ? " guess" : "") +
+                '" data-help-opt="' + esc(q.id + ":" + o.k) + '"' +
+                (guessed ? ' title="так определено по описанию — нажмите, чтобы подтвердить"' : "") + ">" +
+                (on ? ic("check") : "") + esc(o.v) + (guessed ? ' <span class="opt-tag">из описания</span>' : "") +
+                "</button>";
             }).join("") + "</div></div>";
         }).join("") + "</div>";
     }
@@ -6260,6 +6272,25 @@
       rows.push(["Надёжность вывода",
         '<span class="conf conf-' + esc(conf.cls) + '">' + esc(conf.label) + "</span>" +
         '<span class="conf-why">' + esc(conf.reason) + "</span>"]);
+    }
+    /* Что именно человек уточнил. Раньше выбор варианта перестраивал только
+       список квалификаций в карточке: строка «Ответ» оставалась прежней, и
+       выглядело так, будто кнопки не работают. Теперь каждый ответ виден в
+       выводе — даже если он подтвердил уже выбранную квалификацию. */
+    if (primKind === "help" && hasPicked) {
+      var qDict = {};
+      ((prim.x.h.qs) || []).forEach(function (q) { qDict[q.id] = q; });
+      var pickedRows = Object.keys(asAnswers).map(function (qid) {
+        var q = qDict[qid];
+        if (!q) return null;
+        var opt = (q.opts || []).filter(function (o) { return o.k === asAnswers[qid]; })[0];
+        if (!opt) return null;
+        return q.q.replace(/\s*\?$/, "") + " — " + opt.v;
+      }).filter(Boolean);
+      if (pickedRows.length) {
+        rows.push(["Ваши уточнения", '<ul class="list concl-picked">' +
+          pickedRows.map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ul>"]);
+      }
     }
     if (arts.length) {
       /* Каждая норма — один раз и сразу с санкцией из полного текста статьи.

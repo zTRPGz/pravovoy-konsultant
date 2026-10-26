@@ -1656,6 +1656,17 @@ body.has-crash .toast { bottom: 104px; }
 .hq-q { font-size: var(--fs-3); color: var(--text-2); margin-bottom: 7px; }
 .help-opt { font-family: inherit; }
 .help-opt.on { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); font-weight: 550; }
+/* Вариант, который движок подставил из описания: пунктирная рамка и подпись.
+   Без этого человек щёлкал уже учтённый вариант и не видел перемен. */
+.help-opt.guess { border-style: dashed; border-color: var(--accent); color: var(--text-2); }
+.help-opt.guess:hover { border-style: solid; }
+.opt-tag {
+  display: inline-block; margin-left: 6px; font-size: var(--fs-1); color: var(--accent);
+  border: 1px solid var(--accent); border-radius: var(--r-pill); padding: 0 6px; line-height: 1.5;
+  vertical-align: 1px; opacity: .85;
+}
+.hq-hint { font-size: var(--fs-2); color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+.concl-picked { margin: 0; }
 .help-opt .ic { width: 1em; height: 1em; }
 .help-note {
   border-left: 3px solid var(--accent); background: var(--bg-2);

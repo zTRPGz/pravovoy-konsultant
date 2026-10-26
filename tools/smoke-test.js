@@ -187,8 +187,11 @@ server.listen(0, "127.0.0.1", async () => {
     /* Законы считаем как остаток: N_SOURCES задан одной константой выше, а
        остальные виды актов перечислены поимённо — так добавление закона не
        требует правки ещё одной цифры здесь. */
-    const laws = N_SOURCES - 1 - 24 - 14 - N_DECREES - N_PLENUMS - N_REVIEWS;
-    return k.constitution === 1 && k.code === 24 && k.fkz === 14 && k.law === laws &&
+    /* ФКЗ проверяем порогом, а не равенством: их состав пополняется (волна 48
+       добавила ФКЗ о судах общей юрисдикции), а смысл проверки — не потерять
+       целый вид акта целиком. */
+    const laws = N_SOURCES - 1 - 24 - N_DECREES - N_PLENUMS - N_REVIEWS - k.fkz;
+    return k.constitution === 1 && k.code === 24 && k.fkz >= 14 && k.law === laws &&
       k.decree === N_DECREES && k.plenum === N_PLENUMS && k.review === N_REVIEWS;
   })(), (() => { const k = {}; (w.RF_CODES || []).forEach(c => k[c.kind] = (k[c.kind] || 0) + 1); return JSON.stringify(k); })());
   ok("новые источники: ФЗ о ФСБ и постановления Правительства", (() => {
@@ -818,7 +821,7 @@ server.listen(0, "127.0.0.1", async () => {
     t: (r.querySelector(".hq-t") ? r.querySelector(".hq-t").textContent : "").trim(),
     on: r.classList.contains("on")
   }));
-  $("#asInput").value = "поссорился с сожительницей и ударил её штопором в ягодицу, наступила смерть от острой кровопотери";
+  $("#asInput").value = "Гаврилов поссорился с сожительницей и нанес ей удар штопором для откупоривания бутылок в область ягодицы. Удар вызвал у потерпевшей острую кровопотерю и смерть.";
   $("#asRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
   await wait(400);
   let ql = qualsNow(), onTxt = ql.filter(q => q.on).map(q => q.t).join(" | ");
@@ -837,6 +840,33 @@ server.listen(0, "127.0.0.1", async () => {
   ql = qualsNow(); onTxt = ql.filter(q => q.on).map(q => q.t).join(" | ");
   ok("явный умысел на лишение жизни — ст. 105 УК РФ",
     /ст\. 105/.test(onTxt), onTxt || "квалификация не выделена");
+
+  /* --- уточняющие вопросы: видно, что уже учтено и что изменил ответ ---
+     Раньше выбор варианта перестраивал только список квалификаций, а строка
+     «Ответ» оставалась прежней — человек решал, что кнопки не работают. */
+  section = "6b4. Помощник: уточняющие вопросы дают видимый результат"; console.log("\n" + section);
+  $("#asInput").value = "поссорился с сожительницей и ударил её штопором в ягодицу, наступила смерть от острой кровопотери";
+  $("#asRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(400);
+  ok("вариант, подставленный из описания, помечен, а не выбран молча",
+    $$("#asOut .help-opt.guess").length >= 1 && /из описания/.test(T("#asOut .help-qs") || ""),
+    $$("#asOut .help-opt.guess").length + " подсказанных вариантов");
+  ok("в подписи блока сказано, что пунктир — догадка движка",
+    /пунктиром/i.test(T("#asOut .hq-hint") || ""), T("#asOut .hq-hint") || "подписи нет");
+  const optPoboi = $('#asOut [data-help-opt="degree:poboi"]');
+  ok("вариант «побои» доступен в вопросе о тяжести вреда", !!optPoboi);
+  if (optPoboi) {
+    optPoboi.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+    await wait(400);
+    ok("после выбора варианта в выводе появляется строка «Ваши уточнения»",
+      /Ваши уточнения/.test(T("#asOut .concl") || ""), (T("#asOut .concl-picked") || "").slice(0, 80));
+    ok("ответ пересчитан: выбранные «побои» дают ст. 6.1.1 КоАП РФ",
+      /ст\. 6\.1\.1 КоАП/.test(T("#asOut .concl-answer") || ""),
+      (T("#asOut .concl-answer") || "").slice(0, 80));
+    ok("в уточнениях записан именно выбранный вариант",
+      /побои без вреда здоровью/i.test(T("#asOut .concl-picked") || ""),
+      T("#asOut .concl-picked") || "нет строки");
+  }
 
   section = "6c. Перемещение по разделам кнопками"; console.log("\n" + section);
   /* Кнопки в панели и кнопка «Назад» браузера ходят по одной и той же истории

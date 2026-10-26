@@ -3404,3 +3404,9 @@ body.modal-open { overflow: hidden; }
 .tpl-group-head[aria-expanded="true"] .tpl-group-chev { transform: rotate(90deg); }
 .tpl-group-body[hidden] { display: none; }
 .group-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Цепочка процессуальных сроков: шаг — действие, длительность, единица */
+.chain-step { flex-wrap: wrap; }
+.chain-step [data-cs-label] { flex: 1 1 220px; min-width: 0; }
+.chain-step [data-cs-num] { flex: 0 1 110px; }
+.chain-step [data-cs-unit] { flex: 0 1 140px; }

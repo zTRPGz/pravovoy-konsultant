@@ -8953,13 +8953,67 @@
     }
   }
 
+  /* ICS-экспорт вычисленных сроков — перенос контрольных точек в календарь
+     (Google / Outlook). Событие = момент окончания срока; пояснение — в
+     описании и напоминании за 2 часа. */
+  function icsStamp(d) {
+    function p(n) { return String(n).length < 2 ? "0" + n : "" + n; }
+    return d.getUTCFullYear() + p(d.getUTCMonth() + 1) + p(d.getUTCDate()) + "T" +
+      p(d.getUTCHours()) + p(d.getUTCMinutes()) + p(d.getUTCSeconds()) + "Z";
+  }
+  function makeICS(name, events) {
+    var lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//pravovoy-konsultant//RU",
+      "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:" + (name || "Процессуальные сроки")];
+    events.forEach(function (e) {
+      var title = (e.title || "").replace(/[,\r\n]+/g, " ");
+      lines.push("BEGIN:VEVENT");
+      lines.push("UID:" + (e.uid || (Date.now() + "-" + Math.random().toString(36).slice(2, 8))) + "@pravovoy-konsultant");
+      lines.push("DTSTAMP:" + icsStamp(new Date()));
+      lines.push("DTSTART:" + icsStamp(e.start));
+      if (e.end) lines.push("DTEND:" + icsStamp(e.end));
+      if (!e.end) lines.push("DURATION:PT1H");
+      lines.push("SUMMARY:" + title);
+      if (e.desc) lines.push("DESCRIPTION:" + e.desc.replace(/[,\r\n]+/g, " "));
+      lines.push("BEGIN:VALARM", "TRIGGER:-PT2H", "ACTION:DISPLAY", "DESCRIPTION:" + title, "END:VALARM");
+      lines.push("END:VEVENT");
+    });
+    lines.push("END:VCALENDAR");
+    return lines.join("\r\n");
+  }
+  function downloadICS(filename, name, events) {
+    download(filename, makeICS(name, events), "text/calendar;charset=utf-8");
+  }
+  function getCalcHistory() { return LS.get("calcHistory", []) || []; }
+  function setCalcHistory(arr) { LS.set("calcHistory", arr.slice(0, 30)); }
+
   function viewDeadlines() {
     var rows = (REF.deadlines || []).map(function (d) {
       return "<tr><td>" + esc(d.t) + '</td><td class="term">' + esc(d.term) + "</td><td>" + esc(d.basis) + "</td></tr>";
     }).join("");
 
+    var PRESETS = [
+      ["48 часов", 48, "hours"], ["3 суток", 3, "days"], ["10 суток (жалоба КоАП)", 10, "days"],
+      ["3 месяца (иск ТК)", 3, "months"], ["2 месяца (следствие)", 2, "months"], ["6 месяцев", 6, "months"]
+    ];
+    var presetsHtml = '<div class="chips" style="margin-top:10px">' + PRESETS.map(function (p) {
+      return '<div class="chip" data-dur="' + p[1] + '" data-unit="' + p[2] + '">' + esc(p[0]) + "</div>";
+    }).join("") + "</div>";
+
+    var chainStepHtml = function (label, num, unit) {
+      return '<div class="form-row chain-step">' +
+        '<input class="input" data-cs-label placeholder="Действие" value="' + esc(label || "") + '">' +
+        '<input type="number" class="input" data-cs-num min="0" step="1" placeholder="длит." value="' + (num != null ? num : "") + '">' +
+        '<select class="select" data-cs-unit>' +
+          '<option value="hours"' + (unit === "hours" ? " selected" : "") + ">часов</option>" +
+          '<option value="days"' + (unit === "days" ? " selected" : "") + ">суток</option>" +
+          '<option value="months"' + (unit === "months" ? " selected" : "") + ">месяцев</option>" +
+        "</select>" +
+        '<button class="btn" data-cs-del type="button" aria-label="Удалить шаг" title="Удалить шаг">' + ic("close") + "</button>" +
+        "</div>";
+    };
+
     return '<h1>Процессуальные сроки</h1>' +
-      '<p class="lead">Справочник ключевых сроков и калькулятор для расчёта даты окончания, включая контрольные точки по задержанию.</p>' +
+      '<p class="lead">Справочник ключевых сроков и калькулятор для расчёта даты окончания, включая контрольные точки по задержанию. Расчёты можно сохранять в историю и выгружать в календарь (.ics).</p>' +
       '<div class="note-box">Полный набор расчётов — процессуальные сроки, давность и зачёт, госпошлина и проценты, сроки под стражей — в разделе <a class="lnk" data-go="#/calc">Калькуляторы</a>.</div>' +
 
       '<div class="split">' +
@@ -8972,15 +9026,35 @@
           "</div></div>" +
           '<div class="field"><label>Время начала (для часов)</label><input type="time" class="input" id="calcTime" value="12:00"></div>' +
           '<button class="btn btn-primary" id="calcRun" style="width:100%">Рассчитать</button>' +
+          presetsHtml +
           '<div id="calcOut" style="margin-top:14px"></div>' +
+          '<div class="actions-row" id="calcActions" style="display:none">' +
+            '<button class="btn" id="calcSave">Сохранить в историю</button>' +
+            '<button class="btn" id="calcIcs">Скачать .ics</button>' +
+          "</div>" +
+          '<div id="calcHist"></div>' +
         "</div>" +
 
         '<div class="card">' +
           '<h3 style="margin-top:0">Контрольные точки по задержанию</h3>' +
           '<p class="small muted">Введите момент фактического задержания — получите сроки, которые нельзя пропустить.</p>' +
-          '<div class="form-row"><input type="datetime-local" class="input" id="detTime"><button class="btn btn-primary" id="detRun">Построить</button></div>' +
+          '<div class="form-row"><input type="datetime-local" class="input" id="detTime"><button class="btn btn-primary" id="detRun">Построить</button>' +
+          '<button class="btn" id="detIcs" type="button">Скачать .ics</button></div>' +
           '<div id="detOut" style="margin-top:14px"></div>' +
         "</div>" +
+      "</div>" +
+
+      '<div class="card" style="margin-top:14px">' +
+        '<h3 style="margin-top:0">Цепочка процессуальных сроков</h3>' +
+        '<p class="small muted">Последовательность действий: каждый шаг считается от окончания предыдущего. Удобно для графика по делу — от задержания до конца следствия.</p>' +
+        '<div class="field"><label>Начало цепочки</label><input type="datetime-local" class="input" id="chainStart"></div>' +
+        '<div id="chainSteps">' + chainStepHtml("Задержание", 48, "hours") + chainStepHtml("Предварительное следствие", 2, "months") + "</div>" +
+        '<div class="actions-row">' +
+          '<button class="btn" id="chainAdd" type="button">+ Шаг</button>' +
+          '<button class="btn btn-primary" id="chainRun" type="button">Построить</button>' +
+          '<button class="btn" id="chainIcs" type="button">Скачать .ics</button>' +
+        "</div>" +
+        '<div id="chainOut" style="margin-top:14px"></div>' +
       "</div>" +
 
       '<h2>Справочник сроков</h2>' +
@@ -8993,6 +9067,10 @@
   function bindDeadlines() {
     var today = new Date();
     $("#calcDate").value = today.toISOString().slice(0, 10);
+
+    var lastCalc = null;   /* {start, end, days} — для истории и .ics */
+    var lastDet = [];      /* события задержания для .ics */
+    var lastChain = [];    /* события цепочки для .ics */
 
     function calc() {
       var ds = $("#calcDate").value;
@@ -9008,6 +9086,9 @@
       else end.setMonth(end.getMonth() + num);
 
       var days = Math.round((end - d) / 86400000);
+      lastCalc = { start: d, end: end, days: days };
+      $("#calcActions").style.display = "";
+      var unitTxt = unit === "hours" ? "часов" : unit === "days" ? "суток" : "месяцев";
       $("#calcOut").innerHTML =
         '<div class="info-box"><div class="small muted">Начало</div><b>' + fmtDateTime(d) + "</b>" +
         '<div class="small muted" style="margin-top:8px">Окончание</div><b style="font-size:17px">' + fmtDateTime(end) + "</b>" +
@@ -9019,6 +9100,56 @@
     ["calcNum", "calcUnit", "calcDate", "calcTime"].forEach(function (id) {
       var el = $("#" + id); el.addEventListener("change", calc);
     });
+    $$("#view [data-dur]").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        $("#calcNum").value = chip.getAttribute("data-dur");
+        $("#calcUnit").value = chip.getAttribute("data-unit");
+        calc();
+      });
+    });
+
+    function renderHistory() {
+      var box = $("#calcHist"); if (!box) return;
+      var h = getCalcHistory();
+      if (!h.length) { box.innerHTML = ""; return; }
+      box.innerHTML = '<div class="section-label" style="margin-top:14px">История расчётов (' + h.length + ')</div>' +
+        h.map(function (r, i) {
+          return '<div class="draft-row">' +
+            '<button class="btn btn-sm" data-calchist="' + i + '">' + ic("clock") + " " + esc(r.label) + "</button>" +
+            '<button class="btn btn-sm btn-danger" data-calcdel="' + i + '" title="Удалить">' + ic("trash") + "</button></div>";
+        }).join("");
+      $$("#view [data-calchist]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var r = getCalcHistory()[+b.getAttribute("data-calchist")]; if (!r) return;
+          $("#calcDate").value = r.ds; $("#calcNum").value = r.num; $("#calcUnit").value = r.unit;
+          if (r.ts) $("#calcTime").value = r.ts;
+          calc();
+        });
+      });
+      $$("#view [data-calcdel]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var h = getCalcHistory(); h.splice(+b.getAttribute("data-calcdel"), 1); setCalcHistory(h); renderHistory();
+        });
+      });
+    }
+    $("#calcSave").addEventListener("click", function () {
+      if (!lastCalc) return;
+      var label = fmtDateRu(lastCalc.start) + " → +" + lastCalc.days + " дн.";
+      var h = getCalcHistory();
+      h.unshift({
+        label: label, ds: $("#calcDate").value, num: $("#calcNum").value,
+        unit: $("#calcUnit").value, ts: $("#calcTime").value, tsStamp: Date.now()
+      });
+      setCalcHistory(h); renderHistory(); toast("Расчёт сохранён в историю");
+    });
+    $("#calcIcs").addEventListener("click", function () {
+      if (!lastCalc) { toast("Сначала рассчитайте срок"); return; }
+      downloadICS("срок.ics", "Процессуальный срок",
+        [{ title: "Окончание срока: " + fmtDateRu(lastCalc.end), start: lastCalc.end,
+           desc: "Начало: " + fmtDateRu(lastCalc.start) + " Срок: " + lastCalc.days + " дн." }]);
+      toast("Файл .ics сохранён");
+    });
+    renderHistory();
     calc();
 
     function det() {
@@ -9027,21 +9158,83 @@
       var d = new Date(v);
       if (isNaN(d.getTime())) { toast("Некорректная дата"); return; }
       var add = function (h) { return new Date(d.getTime() + h * 3600000); };
-      var rows = [
+      var data = [
         ["Составление протокола задержания", add(3), "не более 3 часов с момента доставления"],
         ["Уведомление прокурора и близких родственников", add(12), "не позднее 12 часов"],
         ["Предельный срок задержания без судебного решения", add(48), "не более 48 часов"],
         ["Продление задержания судом для представления доказательств", add(72), "не более 72 часов"],
         ["Предъявление обвинения при избранной мере пресечения", add(240), "не более 10 суток"]
       ];
-      $("#detOut").innerHTML = '<div class="tbl-scroll"><table class="tbl"><tbody>' + rows.map(function (r) {
+      lastDet = data.map(function (r) {
+        return { title: "Срок: " + r[0], start: r[1], desc: r[2] };
+      });
+      $("#detOut").innerHTML = '<div class="tbl-scroll"><table class="tbl"><tbody>' + data.map(function (r) {
         return "<tr><td>" + esc(r[0]) + '<div class="small muted">' + esc(r[2]) + '</div></td><td class="term">' + fmtDateTime(r[1]) + "</td></tr>";
       }).join("") + "</tbody></table></div>";
     }
     $("#detRun").addEventListener("click", det);
+    $("#detIcs").addEventListener("click", function () {
+      if (!lastDet.length) { toast("Сначала постройте точки"); return; }
+      downloadICS("задержание.ics", "Контрольные точки задержания", lastDet);
+      toast("Файл .ics сохранён");
+    });
     var now = new Date();
     $("#detTime").value = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) + "T" + pad(now.getHours()) + ":" + pad(now.getMinutes());
     det();
+
+    /* --- цепочка сроков --- */
+    var cs = $("#chainSteps");
+    if (cs) {
+      $("#chainAdd").addEventListener("click", function () {
+        var row = document.createElement("div");
+        row.innerHTML = '<div class="form-row chain-step">' +
+          '<input class="input" data-cs-label placeholder="Действие">' +
+          '<input type="number" class="input" data-cs-num min="0" step="1" placeholder="длит.">' +
+          '<select class="select" data-cs-unit>' +
+            '<option value="hours">часов</option><option value="days" selected>суток</option><option value="months">месяцев</option>' +
+          '</select><button class="btn" data-cs-del type="button" aria-label="Удалить шаг">' + ic("close") + "</button></div>";
+        cs.appendChild(row.firstChild);
+      });
+      cs.addEventListener("click", function (e) {
+        var del = e.target.closest("[data-cs-del]");
+        if (del) del.parentNode.remove();
+      });
+    }
+    var chainInit = function () {
+      var n = new Date();
+      $("#chainStart").value = n.getFullYear() + "-" + pad(n.getMonth() + 1) + "-" + pad(n.getDate()) + "T" + pad(n.getHours()) + ":" + pad(n.getMinutes());
+    };
+    $("#chainRun").addEventListener("click", function () {
+      var v = $("#chainStart").value;
+      if (!v) { toast("Укажите начало цепочки"); return; }
+      var cur = new Date(v);
+      if (isNaN(cur.getTime())) { toast("Некорректная дата"); return; }
+      var steps = $$("#chainSteps .chain-step");
+      if (!steps.length) { toast("Добавьте хотя бы один шаг"); return; }
+      var events = [], rows = [];
+      steps.forEach(function (s) {
+        var label = s.querySelector("[data-cs-label]").value || "Действие";
+        var num = parseInt(s.querySelector("[data-cs-num]").value, 10) || 0;
+        var unit = s.querySelector("[data-cs-unit]").value;
+        var start = new Date(cur.getTime());
+        if (unit === "hours") cur.setHours(cur.getHours() + num);
+        else if (unit === "days") cur.setDate(cur.getDate() + num);
+        else cur.setMonth(cur.getMonth() + num);
+        events.push({ title: label + " — окончание", start: new Date(cur.getTime()),
+          desc: "Начало этапа: " + fmtDateTime(start) });
+        rows.push([label, fmtDateTime(start), fmtDateTime(cur), num + " " + (unit === "hours" ? "ч" : unit === "days" ? "сут" : "мес")]);
+      });
+      lastChain = events;
+      $("#chainOut").innerHTML = '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>Этап</th><th>Начало</th><th>Окончание</th><th>Длит.</th></tr></thead><tbody>' +
+        rows.map(function (r) { return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td><td class=\"term\">" + esc(r[2]) + "</td><td>" + esc(r[3]) + "</td></tr>"; }).join("") +
+        "</tbody></table></div>";
+    });
+    $("#chainIcs").addEventListener("click", function () {
+      if (!lastChain.length) { toast("Сначала постройте цепочку"); return; }
+      downloadICS("цепочка-сроков.ics", "Цепочка процессуальных сроков", lastChain);
+      toast("Файл .ics сохранён");
+    });
+    chainInit();
   }
 
   /* --- чек-листы --- */

@@ -3386,3 +3386,21 @@ body.modal-open { overflow: hidden; }
 @keyframes bootSpin { to { transform: rotate(360deg); } }
 .boot-t { font-size: var(--fs-6); font-weight: 650; color: var(--text-2); }
 .boot-s { font-size: var(--fs-3); max-width: 46ch; line-height: 1.55; }
+
+/* Черновики заполненных документов */
+.drafts { margin-top: 10px; }
+.draft-row { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.draft-row .btn { white-space: nowrap; }
+.draft-row .btn-sm { flex: 0 1 auto; }
+.draft-row .btn-danger { flex: 0 0 auto; }
+.tpl-group-h { margin: 18px 0 0; }
+.tpl-group-h .tpl-group-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: none; border: 0; cursor: pointer; padding: 8px 0; color: inherit;
+  font: inherit;
+}
+.tpl-group-h .tpl-group-head:hover { color: var(--accent); }
+.tpl-group-chev { transition: transform .15s ease; margin-left: auto; }
+.tpl-group-head[aria-expanded="true"] .tpl-group-chev { transform: rotate(90deg); }
+.tpl-group-body[hidden] { display: none; }
+.group-tools { display: flex; gap: 8px; flex-wrap: wrap; }

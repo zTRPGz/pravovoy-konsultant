@@ -4269,6 +4269,15 @@
       (related.length ? '<h2>Смежные статьи</h2><div class="chips">' + related.map(function (x) {
         return '<div class="chip" data-go="#/article/' + encodeURIComponent(x.id) + '">ст. ' + esc(x.dn) + " · " + esc(x.t) + "</div>";
       }).join("") + "</div>" : "") +
+      (function () {
+        var rf = relatedForms(id);
+        if (!rf.length) return "";
+        return '<div class="card" style="margin-top:18px"><div class="section-label" style="margin-top:0">Заполнить бланк по этой статье</div>' +
+          '<p class="small muted" style="margin-top:0">Готовые шаблоны и исковые заявления, где эта статья — правовое основание. Откроются сразу с нужными реквизитами.</p>' +
+          '<div class="chips">' + rf.map(function (f) {
+            return '<div class="chip" data-go="#/' + (f.kind === "template" ? "template" : "suit") + "/" + encodeURIComponent(f.id) + '">' + ic("file") + " " + esc(f.t) + "</div>";
+          }).join("") + "</div></div>";
+      })() +
       '<h2>Проверить сроки</h2><div class="chips"><div class="chip" data-go="#/deadlines">Калькулятор процессуальных сроков</div>' +
       '<div class="chip" data-go="#/assistant">Разобрать в Помощнике</div></div>';
   }
@@ -9100,6 +9109,81 @@
   function getProfile() { return LS.get("profile", {}); }
   function setProfile(p) { LS.set("profile", p || {}); }
 
+  /* Черновики заполненных документов. Ключ — id шаблона или иска; значение —
+     массив черновиков {name, vals, ts}. Хранятся в localStorage (rflaws.drafts),
+     на сервер не уходят — это личный материал пользователя. Позволяет вернуться
+     к недописанному заявлению, не набирая всё заново. */
+  function getDrafts(id) { var m = LS.get("drafts", {}) || {}; return m[id] || []; }
+  function setDrafts(id, arr) {
+    var m = LS.get("drafts", {}) || {};
+    if (arr && arr.length) m[id] = arr; else delete m[id];
+    LS.set("drafts", m);
+  }
+  function addDraft(id, name, vals) {
+    var arr = getDrafts(id);
+    arr.unshift({ name: name || ("Черновик " + fmtDateRu(new Date())), vals: vals, ts: Date.now() });
+    setDrafts(id, arr.slice(0, 12));
+  }
+  function removeDraft(id, idx) { var arr = getDrafts(id); arr.splice(idx, 1); setDrafts(id, arr); }
+
+  function draftBarHtml(id) {
+    var arr = getDrafts(id);
+    if (!arr.length) return '<div class="small muted" style="margin-top:8px">Сохраните черновик — он останется в этом браузере, и можно вернуться к недописанному документу.</div>';
+    return '<div class="drafts">' +
+      '<div class="section-label" style="margin-top:10px">Мои черновики (' + arr.length + ')</div>' +
+      arr.map(function (d, i) {
+        return '<div class="draft-row">' +
+          '<button class="btn btn-sm" data-draft-load="' + i + '">' + ic("doc") + " " + esc(d.name) + "</button>" +
+          '<button class="btn btn-sm btn-danger" data-draft-del="' + i + '" title="Удалить черновик">' + ic("trash") + "</button>" +
+          "</div>";
+      }).join("") + "</div>";
+  }
+
+  /* Бланки и иски, ссылающиеся на статью, — для панели «Заполнить бланк по
+     этой статье» прямо на странице статьи. */
+  function relatedForms(articleId) {
+    var out = [];
+    (REF.templates || []).forEach(function (t) {
+      if ((t.articles || []).indexOf(articleId) !== -1) out.push({ kind: "template", id: t.id, t: t.t, basis: t.basis });
+    });
+    ((window.RF_SUITS || {}).suits || []).forEach(function (s) {
+      if ((s.articles || []).indexOf(articleId) !== -1) out.push({ kind: "suit", id: s.id, t: s.t, basis: s.basis });
+    });
+    return out;
+  }
+
+  /* Привязка панели черновиков внутри формы. id — id шаблона/иска, attr —
+     «data-tf» (шаблоны) или «data-sf» (иски), readVals() возвращает объект
+     значений, writeVal(k,v) записывает в поле, refresh() перерисовывает документ. */
+  function bindDrafts(id, attr, readVals, writeVal, refresh) {
+    var box = $("#" + (attr === "data-tf" ? "tplDrafts" : "suitDrafts"));
+    function paint() {
+      if (!box) return;
+      box.innerHTML = draftBarHtml(id);
+      $$("[data-draft-load]", box).forEach(function (b) {
+        b.addEventListener("click", function () {
+          var d = getDrafts(id)[+b.getAttribute("data-draft-load")]; if (!d) return;
+          Object.keys(d.vals || {}).forEach(function (k) { writeVal(k, d.vals[k]); });
+          refresh(); toast("Черновик загружен: " + d.name);
+        });
+      });
+      $$("[data-draft-del]", box).forEach(function (b) {
+        b.addEventListener("click", function () {
+          removeDraft(id, +b.getAttribute("data-draft-del")); paint(); toast("Черновик удалён");
+        });
+      });
+    }
+    var saveBtn = $(attr === "data-tf" ? "#tplDraftSave" : "#suitDraftSave");
+    if (saveBtn) saveBtn.addEventListener("click", function () {
+      var def = "Черновик от " + fmtDateRu(new Date());
+      var name = window.prompt("Название черновика:", def);
+      if (name === null) return;
+      addDraft(id, (name || "").trim() || def, readVals());
+      paint(); toast("Черновик сохранён: " + ((name || "").trim() || def));
+    });
+    paint();
+  }
+
   /* Значение поля при открытии документа: автоисточник, иначе образец */
   function tplValue(f, profile) {
     if (f.src === "today") return fmtDateRu(new Date());
@@ -9442,7 +9526,10 @@
             '<div class="actions-row">' +
               '<button class="btn" id="tplReset">Сбросить к образцу</button>' +
               '<button class="btn" id="tplClear">Очистить</button>' +
+              '<button class="btn" id="tplFillProfile">Заполнить из профиля</button>' +
+              '<button class="btn" id="tplDraftSave">Сохранить черновик</button>' +
             "</div>" +
+            '<div id="tplDrafts"></div>' +
             (!profile.fio ? '<div class="small muted" style="margin-top:8px">Подсказка: заполните «Мои реквизиты» в списке шаблонов — должность и ФИО будут подставляться сами.</div>' : "") +
           "</div>" +
           (arts.length ? '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Правовое основание</div>' +
@@ -9495,6 +9582,21 @@
       });
       refresh(); toast("Поля сброшены к образцу");
     });
+    var fp = $("#tplFillProfile"); if (fp) fp.addEventListener("click", function () {
+      var profile = getProfile();
+      if (!profile.fio && !profile.dolzhnost && !profile.organ && !profile.gorod) {
+        toast("Сначала заполните «Мои реквизиты» в списке шаблонов");
+        return;
+      }
+      $$("[data-tf]").forEach(function (el) {
+        var f = (t.fields || []).filter(function (x) { return x.k === el.getAttribute("data-tf"); })[0];
+        if (f) el.value = tplValue(f, profile);
+      });
+      refresh(); toast("Поля заполнены из «Моих реквизитов»");
+    });
+    bindDrafts(t.id, "data-tf", vals, function (k, v) {
+      var el = $('[data-tf="' + k + '"]'); if (el) el.value = v;
+    }, refresh);
     $("#tplClear").addEventListener("click", function () {
       $$("[data-tf]").forEach(function (el) { el.value = ""; });
       refresh(); toast("Поля очищены");
@@ -9611,8 +9713,13 @@
       map[g].items.push(s);
     });
     var cards = groups.map(function (gr) {
-      return '<section class="tpl-group" data-group="' + esc(gr.g) + '"><h2>' + esc(gr.g) +
-        '<span class="small muted">' + gr.items.length + "</span></h2>" +
+      return '<section class="tpl-group" data-group="' + esc(gr.g) + '">' +
+        '<h2 class="tpl-group-h"><button class="tpl-group-head" type="button" data-suit-group-toggle="' + esc(gr.g) + '" aria-expanded="false">' +
+          '<span class="tpl-group-t">' + esc(gr.g) + "</span>" +
+          '<span class="small muted">' + gr.items.length + "</span>" +
+          '<span class="tpl-group-chev" aria-hidden="true">▸</span>' +
+        "</button></h2>" +
+        '<div class="tpl-group-body" hidden>' +
         '<div class="grid grid-2">' + gr.items.map(function (s) {
           var hay = (s.t + " " + (s.basis || "") + " " + (s.court || "")).toLowerCase();
           return '<div class="card" data-go="#/suit/' + s.id + '" data-suit-hay="' + esc(hay) + '" style="cursor:pointer">' +
@@ -9620,14 +9727,19 @@
             '<div class="small muted" style="margin-top:4px">' + esc(s.basis || "") + "</div>" +
             '<div class="small muted" style="margin-top:8px">' + (s.articles || []).length + " " +
             plural((s.articles || []).length, ["статья", "статьи", "статей"]) + "</div></div>";
-        }).join("") + "</div></section>";
+        }).join("") + "</div>" +
+        "</div></section>";
     }).join("");
 
     var bar = '<div class="tpl-bar">' +
       '<input class="input" id="suitFind" type="search" autocomplete="off" placeholder="Поиск заявления: название, правовое основание, суд">' +
       '<div class="chips tpl-nav">' + groups.map(function (gr) {
         return '<div class="chip" data-suit-jump="' + esc(gr.g) + '">' + esc(gr.g) + " <b>" + gr.items.length + "</b></div>";
-      }).join("") + "</div></div>";
+      }).join("") + "</div>" +
+      '<div class="group-tools">' +
+        '<button class="btn btn-sm" type="button" data-suit-all="open">Раскрыть все разделы</button>' +
+        '<button class="btn btn-sm" type="button" data-suit-all="close">Свернуть все</button>' +
+      "</div></div>";
 
     return "<h1>Исковые заявления</h1>" +
       '<p class="lead">' + all.length + " " + plural(all.length, ["готовое исковое заявление", "готовых исковых заявления", "готовых исковых заявлений"]) +
@@ -9639,6 +9751,9 @@
   }
 
   function bindSuits() {
+    function setSuitGroup(sec, open) {
+      setGroupOpen(sec, "[data-suit-group-toggle]", ".tpl-group-body", open);
+    }
     var find = $("#suitFind");
     if (find) {
       var apply = function () {
@@ -9652,6 +9767,7 @@
             if (hit) n++;
           });
           sec.hidden = n === 0;
+          if (q && n > 0) setSuitGroup(sec, true);
           shown += n;
         });
         var empty = $("#suitEmpty");
@@ -9663,11 +9779,25 @@
         if (e.key === "Escape" && find.value) { find.value = ""; apply(); }
       });
     }
+    $$("#view [data-suit-group-toggle]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var sec = btn.closest(".tpl-group");
+        setSuitGroup(sec, btn.getAttribute("aria-expanded") !== "true");
+      });
+    });
+    $$("#view [data-suit-all]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        var open = btn.getAttribute("data-suit-all") === "open";
+        $$("#view .tpl-group").forEach(function (sec) { if (!sec.hidden) setSuitGroup(sec, open); });
+      });
+    });
     $$("#view [data-suit-jump]").forEach(function (el) {
       el.addEventListener("click", function () {
         var g = el.getAttribute("data-suit-jump");
         var sec = $$("#view .tpl-group").filter(function (s) { return s.getAttribute("data-group") === g; })[0];
-        if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (sec) { setSuitGroup(sec, true); sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
       });
     });
   }
@@ -9699,7 +9829,11 @@
             '<div class="actions-row">' +
               '<button class="btn" id="suitReset">Сбросить к образцу</button>' +
               '<button class="btn" id="suitClear">Очистить</button>' +
-            "</div></div>" +
+              '<button class="btn" id="suitFillProfile">Заполнить из профиля</button>' +
+              '<button class="btn" id="suitDraftSave">Сохранить черновик</button>' +
+            "</div>" +
+            '<div id="suitDrafts"></div>' +
+          "</div>" +
           '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Расчёт</div>' +
             '<div class="field"><label>Цена иска, ₽</label><input class="input" id="suitPrice" readonly></div>' +
             '<div class="field"><label>Госпошлина, ₽</label><input class="input" id="suitDuty" readonly></div>' +
@@ -9764,6 +9898,21 @@
       $$("[data-sf]").forEach(function (el) { el.value = ""; });
       refresh(); toast("Поля очищены");
     });
+    var sfp = $("#suitFillProfile"); if (sfp) sfp.addEventListener("click", function () {
+      var profile = getProfile();
+      if (!profile.fio && !profile.dolzhnost && !profile.organ && !profile.gorod) {
+        toast("Сначала заполните «Мои реквизиты» в списке шаблонов");
+        return;
+      }
+      $$("[data-sf]").forEach(function (el) {
+        var f = (s.fields || []).filter(function (x) { return x.k === el.getAttribute("data-sf"); })[0];
+        if (f) el.value = tplValue(f, profile);
+      });
+      refresh(); toast("Поля заполнены из «Моих реквизитов»");
+    });
+    bindDrafts(s.id, "data-sf", vals, function (k, v) {
+      var el = $('[data-sf="' + k + '"]'); if (el) el.value = v;
+    }, refresh);
     var cr = $("#suitCopyRich"); if (cr) cr.addEventListener("click", function () { copyRich(word(), plain(), "Заявление скопировано"); });
     var tx = $("#suitTxt"); if (tx) tx.addEventListener("click", function () { download(s.id + ".txt", plain(), "text/plain"); toast("Файл сохранён"); });
     var dc = $("#suitDoc"); if (dc) dc.addEventListener("click", function () {

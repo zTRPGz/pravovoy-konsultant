@@ -5485,9 +5485,13 @@
   /* развёрнутый разбор: характеристика, квалификация, уточнения, действия.
      В режиме одного источника (sc) в перечень норм карточки попадают только
      статьи выбранного акта — иначе разбор ссылался бы на другой кодекс. */
-  function helpCard(x, sc) {
+  function helpCard(x, sc, auto) {
     var h = x.h;
     var picked = {};
+    /* Учитываем и авто-подсказки из описания (auto), и ответы на уточняющие
+       вопросы (asAnswers) — как это делает conclusionBox, чтобы блок «Возможная
+       квалификация» и фильтр вопросов видели одну и ту же картину. */
+    if (auto) Object.keys(auto).forEach(function (q) { if (!asAnswers[q]) picked[auto[q]] = 1; });
     Object.keys(asAnswers).forEach(function (qid) { picked[asAnswers[qid]] = 1; });
 
     var html = '<div class="card help-card">' +
@@ -5513,9 +5517,30 @@
         }).join("") + "</div>";
     }
 
-    if (h.qs && h.qs.length) {
+    /* Показываем только те уточняющие вопросы, которые реально могут изменить
+       вывод при текущих данных. Иначе, например, вопрос «Мотив?» в ситуации
+       «тяжкий вред, повлёкший смерть» ничего не меняет (хулиганский мотив имеет
+       значение лишь в ветке «побои», а здесь степень вреда — тяжкий), и пользователь
+       справедливо недоумевает, зачем он вообще предлагается. Вопрос считается
+       релевантным, если есть квалификация, которая раскрывается ответом на него
+       при уже известных признаках (см. нужные ключи в need разбора). */
+    var qualsAll = h.qual || [];
+    function qRelevant(q) {
+      var keys = (q.opts || []).map(function (o) { return o.k; });
+      for (var qi = 0; qi < qualsAll.length; qi++) {
+        var need = qualsAll[qi].need || [];
+        for (var ki = 0; ki < keys.length; ki++) {
+          if (need.indexOf(keys[ki]) === -1) continue;
+          var others = need.filter(function (k) { return k !== keys[ki]; });
+          if (others.every(function (k) { return picked[k]; })) return true;
+        }
+      }
+      return false;
+    }
+    var qsShow = (h.qs || []).filter(qRelevant);
+    if (qsShow.length) {
       html += '<div class="section-label">Уточните — разбор пересчитается</div><div class="help-qs">' +
-        h.qs.map(function (q) {
+        qsShow.map(function (q) {
           return '<div class="help-q" data-help-q="' + esc(q.id) + '"><div class="hq-q">' + esc(q.q) + "</div>" +
             '<div class="chips">' + q.opts.map(function (o) {
               var on = asAnswers[q.id] === o.k;
@@ -5905,6 +5930,21 @@
          предварительному сговору: исполнителей не меньше двух, и
          договорились они до начала изъятия. */
       res.group = "group";
+    }
+    /* Смерть потерпевшего от причинённого вреда: квалификация — ст. 111 ч. 4
+       УК РФ (тяжкий вред, повлёкший смерть), а не простая ст. 111. Сам факт
+       смерти ещё не означает умысел на убийство — направленность умысла
+       определяется отдельно (ключ intent). Смерть от телесных повреждений
+       предполагает как минимум тяжкий вред здоровью. */
+    if (has(/смерт|умер|погиб|кровопотер|лишил[а-яё]*\s+жизн|скончал|наступил[а-яё]*\s+смерт|летальн/)) {
+      res.outcome = "death";
+      res.degree = "heavy";
+    }
+    /* Прямое указание на умысел, направленный на лишение жизни (убийство), —
+       квалификация ст. 105 УК РФ. Без явного указания смерть от телесных
+       повреждений трактуется как вред здоровью (ст. 111 ч. 4). */
+    if (hitNear(/убил|убийств/) || has(/умыс[а-яё]*\s+на\s+лишение\s+жизн|с\s+целью\s+убийств|лишени[а-яё]*\s+жизн[а-яё]*\s+умышленн|покушал[а-яё]*\s+на\s+жизн/)) {
+      res.intent = "kill";
     }
     return res;
   }
@@ -6748,7 +6788,7 @@
       html += '<div class="ground-box"><span class="ico">' + ic("shield") + "</span>" +
         "<div>Разбор построен <b>только по текстам, размещённым на сайте</b>: " +
         "каждая ссылка открывает статью с источником и датой редакции.</div></div>";
-      html += helpCard(help[0], sc);
+      html += helpCard(help[0], sc, autoPicks);
       /* Второй разбор — свёрнутым. Он нужен (в описании действительно бывает
          две ситуации), но полной карточкой он перебивал основной ответ и
          уводил читателя в другую тему. Раскрывается по требованию. */
@@ -6757,7 +6797,7 @@
           '<span class="as-alt-k">Возможно, вторая ситуация</span>' +
           '<span class="as-alt-t">' + esc(help[1].h.t) + "</span>" +
           '<span class="as-alt-n">' + esc(help[1].h.area) + " · совпадений: " + help[1].n + "</span>" +
-          "</summary>" + helpCard(help[1], sc) + "</details>";
+          "</summary>" + helpCard(help[1], sc, autoPicks) + "</details>";
       }
     }
 

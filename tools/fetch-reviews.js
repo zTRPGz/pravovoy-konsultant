@@ -28,6 +28,13 @@
    пропускаются: в наборе только те, чей текст целиком лежит на одной странице
    и нумеруется самой страницей. Сколько пропущено — печатается в отчёте.
 
+   Но пропуск — не повод выбрасывать уже загруженное: если документ был в
+   прошлом наборе (vendor/ruslaw/reviews.json), его текст остаётся как есть.
+   Иначе смена вёрстки на портале выглядела бы как исчезновение обзора из
+   приложения — а он в базе есть, и ссылка на источник у него рабочая.
+   Совсем новый документ, свёрстанный деревом, в набор не попадает: собрать
+   его нечем.
+
    ---------------------------------------------------------------------------
    Результат: vendor/ruslaw/reviews.json — форма, совместимая с plenums.json
    (kind «review», режим разбора «plain» в tools/build-data.js).
@@ -607,6 +614,7 @@ async function main() {
   const take = PROBE ? rows.slice(0, PROBE) : rows;
   const done = [];
   const skipped = [];
+  const kept = [];   // пропуск, но прошлый текст на месте — документ не теряем
   const failed = [];
   for (let i = 0; i < take.length; i++) {
     const r = take[i];
@@ -617,7 +625,22 @@ async function main() {
     } catch (e) {
       res = { error: String(e && e.message || e) };
     }
-    if (res.skip) { console.log("пропуск · " + res.skip); skipped.push(r); continue; }
+    if (res.skip) {
+      /* Портал перевёл документ на дерево подстраниц — собрать его заново
+         нельзя, но и терять уже загруженный текст незачем: в базе он есть,
+         проверить его по источнику мы по-прежнему можем по ссылке. Раньше
+         такой документ молча выпадал из набора, и обзор исчезал из
+         приложения при первой же смене вёрстки на портале. */
+      if (prevBySlug[r.slug]) {
+        console.log("пропуск, оставлен прошлый текст · " + res.skip);
+        kept.push(r);
+        done.push(prevBySlug[r.slug]);
+        continue;
+      }
+      console.log("пропуск · " + res.skip);
+      skipped.push(r);
+      continue;
+    }
     if (res.error) {
       if (prevBySlug[r.slug]) {
         console.log("ошибка загрузки, оставлен прошлый текст · " + res.error);
@@ -648,13 +671,28 @@ async function main() {
 
   /* Уникальность идентификаторов: «obzor-<номер>-<год>». Номер и год у двух
      разных документов теоретически могут совпасть — тогда добавляем суффикс.
-     Обходим в порядке адреса, чтобы суффиксы не переезжали между прогонами. */
+     Обходим в порядке адреса, чтобы суффиксы не переезжали между прогонами.
+     Документы, взятые из прошлого набора, уже разведены прошлым прогоном:
+     их id не пересчитываем, иначе «obzor-1-2026-2» стал бы «-2-2». */
+  const keptSlug = Object.create(null);
+  kept.forEach((r) => { keptSlug[r.slug] = 1; });
   const used = Object.create(null);
   const bySlug = done.slice().sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
   bySlug.forEach((d) => {
+    if (keptSlug[d.slug]) return;
     let id = d.app_id, k = 2;
     while (used[id]) id = d.app_id + "-" + k++;
     if (id !== d.app_id) console.log("  переименован: " + d.app_id + " → " + id);
+    used[id] = 1;
+    d.app_id = id;
+  });
+  /* Прошлые id занимаем после свежих: свежий документ вправе забрать
+     «свободный» номер, а прошлый при совпадении получает суффикс. */
+  bySlug.forEach((d) => {
+    if (!keptSlug[d.slug]) return;
+    let id = d.app_id, k = 2;
+    while (used[id]) id = d.app_id + "-" + k++;
+    if (id !== d.app_id) console.log("  переименован (прошлый текст): " + d.app_id + " → " + id);
     used[id] = 1;
     d.app_id = id;
   });
@@ -691,7 +729,8 @@ async function main() {
   console.log("  документов: " + done.length);
   console.log("  пунктов: " + done.reduce((s, d) => s + d.n_articles, 0));
   console.log("  знаков текста: " + chars.toLocaleString("ru-RU"));
-  console.log("  пропущено (текст по подстраницам): " + skipped.length);
+  console.log("  пропущено (текст по подстраницам): " + skipped.length +
+    (kept.length ? " · из них с прошлым текстом: " + kept.length : ""));
   if (failed.length) console.log("  не скачалось: " + failed.length + " (" + failed.map((r) => r.slug).join(", ") + ")");
   console.log("  каталог раздела: " + P.BASE + CATALOGUE);
 

@@ -806,6 +806,38 @@ server.listen(0, "127.0.0.1", async () => {
     $$("[data-scope-chk]").every(cb => cb.checked === false));
   ok("подпись вернулась к «все источники»", /Все источники базы/.test(T(".scope-trigger-label") || ""), T(".scope-trigger-label"));
 
+  /* --- исход и направленность умысла: смерть от вреда здоровью ≠ убийство ---
+     Смерть потерпевшего сама по себе ещё не означает умысел на лишение жизни.
+     Пока разбор этого не различал, удар штопором в ягодицу с отсроченной
+     смертью от кровопотери вёл к ст. 105 УК РФ вместо ст. 111 ч. 4. */
+  section = "6b3. Помощник: смерть от вреда здоровью и аффект"; console.log("\n" + section);
+  await nav("#/assistant", 200);
+  const clrB = $("#asClear");
+  if (clrB) clrB.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  const qualsNow = () => $$("#asOut .hq-row").map(r => ({
+    t: (r.querySelector(".hq-t") ? r.querySelector(".hq-t").textContent : "").trim(),
+    on: r.classList.contains("on")
+  }));
+  $("#asInput").value = "поссорился с сожительницей и ударил её штопором в ягодицу, наступила смерть от острой кровопотери";
+  $("#asRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(400);
+  let ql = qualsNow(), onTxt = ql.filter(q => q.on).map(q => q.t).join(" | ");
+  ok("смерть от причинённого вреда — ст. 111 ч. 4, а не убийство",
+    /ст\. 111 ч\. 4/.test(onTxt) && !/ст\. 105/.test(onTxt) && !/ч\. 1–3/.test(onTxt),
+    onTxt || "квалификация не выделена");
+  ok("убийство и аффект есть в разборе, но не как готовый вывод",
+    ql.some(q => /ст\. 105/.test(q.t)) && ql.some(q => /ст\. 107/.test(q.t)) && ql.some(q => /ст\. 113/.test(q.t)),
+    ql.map(q => q.t).join(" · ").slice(0, 110));
+  ok("вопрос об аффекте задаётся — он меняет квалификацию",
+    /аффект/i.test(T("#asOut .help-qs") || ""), (T("#asOut .help-qs") || "").slice(0, 60));
+  /* Явное указание на умысел, направленный на лишение жизни, — уже ст. 105. */
+  $("#asInput").value = "в драке ударил ножом в сердце, убил";
+  $("#asRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(400);
+  ql = qualsNow(); onTxt = ql.filter(q => q.on).map(q => q.t).join(" | ");
+  ok("явный умысел на лишение жизни — ст. 105 УК РФ",
+    /ст\. 105/.test(onTxt), onTxt || "квалификация не выделена");
+
   section = "6c. Перемещение по разделам кнопками"; console.log("\n" + section);
   /* Кнопки в панели и кнопка «Назад» браузера ходят по одной и той же истории
      (go() пишет адрес через pushState, navStep — через history.go), а глубина

@@ -5,7 +5,8 @@
 # на GitHub Pages. Коммиты ночной сборки («Обновление базы») push-триггер не
 # активируют: они уходят через GITHUB_TOKEN, а pushes от GITHUB_TOKEN новые
 # workflow-запуски не создают. Поэтому ночная сборка вызывает эту задачу
-# явно (workflow_call) и передаёт новый коммит в ref.
+# явно (workflow_call) и передаёт новый коммит в ref. В этом случае она
+# передаёт skip_checks=true: проверки там уже прогонялись до коммита.
 #
 # Почему GitHub Pages, а не Vercel или Cloudflare Pages: из России без VPN
 # ни один из них не открывается (замер: *.vercel.app и pages.dev не
@@ -30,6 +31,11 @@ on:
         description: "Коммит или ветка для выкладки (по умолчанию — коммит запуска)"
         type: string
         required: false
+      skip_checks:
+        description: "Не запускать проверки перед выкладкой (они уже прогонялись)"
+        type: boolean
+        required: false
+        default: false
 
 # Права: выкладка в Pages идёт через OIDC-токен, содержимое нужно только
 # на чтение — этот workflow ничего не коммитит.
@@ -45,7 +51,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Проверки перед выкладкой. Раньше их в этой задаче не было вовсе:
+  # регрессия в коде доходила до сайта молча, потому что проверки жили
+  # только в ночной сборке, а обычный push в main их не запускал.
+  check:
+    if: ${{ !inputs.skip_checks }}
+    uses: ./.github/workflows/checks.yml
+
   deploy:
+    needs: check
+    # Сработает и когда проверки пропущены (skip_checks=true из ночной
+    # сборки), и когда они прошли; при красных проверках выкладка не идёт.
+    if: ${{ always() && (needs.check.result == 'success' || needs.check.result == 'skipped') }}
     # Явная 24.04 вместо ubuntu-latest: с 19.10.2026 метка latest переезжает
     # на Ubuntu 26.04 (объявлено как breaking change — другой systemd, ядро,
     # Docker). Переезд идёт волной до 19.11.2026, то есть день выкладки заранее

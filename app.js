@@ -3648,9 +3648,6 @@
     /* Словарь отвечает на другой вопрос, чем поиск: не «где это написано», а
        «что это значит». Поэтому определение стоит над списком статей, а не
        вместо него. */
-    /* Словарь отвечает на другой вопрос, чем поиск: не «где это написано», а
-       «что это значит». Поэтому определение стоит над списком статей, а не
-       вместо него. */
     var def = termCard(q);
     /* Акты ищем тем же запросом, но по названиям. «Закон о полиции» раньше
        давал пустую выдачу: слова есть в тысячах статей, а самого закона в
@@ -9788,7 +9785,10 @@
       refresh(); toast("Поля заполнены из «Моих реквизитов»");
     });
     bindDrafts(t.id, "data-tf", vals, function (k, v) {
-      var el = $('[data-tf="' + k + '"]'); if (el) el.value = v;
+      /* Ищем поле перебором, а не селектором: ключ приходит из хранилища,
+         а кривой селектор бросает исключение и ломает всю загрузку черновика. */
+      var el = $$("[data-tf]").filter(function (x) { return x.getAttribute("data-tf") === k; })[0];
+      if (el) el.value = v;
     }, refresh);
     $("#tplClear").addEventListener("click", function () {
       $$("[data-tf]").forEach(function (el) { el.value = ""; });
@@ -10104,7 +10104,10 @@
       refresh(); toast("Поля заполнены из «Моих реквизитов»");
     });
     bindDrafts(s.id, "data-sf", vals, function (k, v) {
-      var el = $('[data-sf="' + k + '"]'); if (el) el.value = v;
+      /* Ищем поле перебором, а не селектором: ключ приходит из хранилища,
+         а кривой селектор бросает исключение и ломает всю загрузку черновика. */
+      var el = $$("[data-sf]").filter(function (x) { return x.getAttribute("data-sf") === k; })[0];
+      if (el) el.value = v;
     }, refresh);
     var cr = $("#suitCopyRich"); if (cr) cr.addEventListener("click", function () { copyRich(word(), plain(), "Заявление скопировано"); });
     var tx = $("#suitTxt"); if (tx) tx.addEventListener("click", function () { download(s.id + ".txt", plain(), "text/plain"); toast("Файл сохранён"); });

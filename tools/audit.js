@@ -35,6 +35,14 @@ const DATA = path.join(ROOT, "data");
 const FULL_DIR = path.join(DATA, "full");
 const FT_DIR = path.join(DATA, "ft");
 
+/* Есть ли сырые выгрузки источников. Каталог vendor/ в git не хранится: он
+   появляется после ночной сборки (выгрузки качаются) и на машине, где
+   прогоняли `npm run fetch`. Проверки A (источник ↔ индекс) и G (главы)
+   сверяют базу с первоисточником — без выгрузок их не с чем сверять, и они
+   пропускаются. Остальные проверки от выгрузок не зависят: структура индекса,
+   полные тексты, полнотекстовый индекс, справочные слои, метаданные. */
+const HAVE_VENDOR = fs.existsSync(path.join(SRC, "konst.json"));
+
 const errors = [];
 const notes = [];
 const known = [];          /* сработавшие известные расхождения (baseline) */
@@ -146,6 +154,10 @@ function gapList(nums) {
 
 function auditSourceToIndex() {
   head("A. Источник -> индекс");
+  if (!HAVE_VENDOR) {
+    console.log("  ПРОПУЩЕНО — нет каталога vendor/ (сырые выгрузки источников): сверять с первоисточником нечего");
+    return;
+  }
   const CODES = global.RF_CODES;
   const IDX = global.RF_IDX;
   const collected = collectSources();
@@ -497,6 +509,10 @@ function auditRefs() {
 
 function auditChapters() {
   head("G. Заголовки глав в источнике -> главы в индексе");
+  if (!HAVE_VENDOR) {
+    console.log("  ПРОПУЩЕНО — нет каталога vendor/ (сырые выгрузки источников)");
+    return;
+  }
   const CODES = global.RF_CODES, IDX = global.RF_IDX;
   const byName = collectSources().byName;
   const idxByCode = {};

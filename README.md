@@ -194,7 +194,10 @@ DEPLOY.md       как публикуется сайт и как обновля�
 ## Как публикуется сайт
 
 Сайт публикуется на **GitHub Pages** из ветки `main` (workflow
-`.github/workflows/pages.yml` собирает `dist/` и выкладывает его). Ночное
+`.github/workflows/pages.yml` собирает `dist/` и выкладывает его). Перед
+выкладкой он вызывает workflow `.github/workflows/checks.yml` — тот прогоняет
+те же проверки (`audit`, `verify-data`, `smoke-test`), и красная проверка
+останавливает выкладку: сломанный код на сайт не попадает. Ночное
 обновление базы — отдельный workflow `.github/workflows/update.yml`:
 скачивание актов → сборка данных → проверки (`audit`, `verify-data`,
 `smoke-test`) → коммит и пуш.

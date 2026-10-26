@@ -24,6 +24,15 @@ const vm = require("vm");
 const ROOT = path.resolve(__dirname, "..");
 const VENDOR = path.join(ROOT, "vendor", "ruslaw");
 
+/* Есть ли сырые выгрузки источников. Каталог vendor/ в git не хранится: он есть
+   только после ночной сборки (там выгрузки качаются) и на машине разработчика
+   после `npm run fetch`. Проверки 3 и 4 сверяют базу с первоисточником — без
+   выгрузок их не с чем сверять, и они пропускаются. Все остальные проверки
+   (согласованность данных, разборы, шаблоны, иски, сроки, защита разметки,
+   гварды на текст app.js) от выгрузок не зависят и идут всегда — именно они
+   ловят регрессии в коде, и их-то и не хватало в CI. */
+const HAVE_VENDOR = fs.existsSync(VENDOR) && fs.existsSync(path.join(VENDOR, "konst.json"));
+
 /* файл набора данных -> идентификатор источника в приложении (для проверки названий) */
 const DATASET = {
   uk: "63-ФЗ_Уголовный_кодекс_Российской_Федерации.json",
@@ -123,6 +132,14 @@ check("все статьи индекса есть в файлах полных 
 /* 3 --------------------------------------------------------- объём текста */
 console.log("\n3. Сохранность объёма текста (относительно открытых источников)");
 
+if (!HAVE_VENDOR) {
+  /* Без выгрузок сверять нечего. Это не замечание и не ошибка: сверка с
+     первоисточником нужна там, где источники есть (ночная сборка). Все
+     остальные проверки от выгрузок не зависят и идут всегда — именно они
+     ловят правки в коде, и их-то не хватало в CI. */
+  console.log("  ПРОПУЩЕНО — нет каталога vendor/ (сырые выгрузки источников)");
+} else {
+
 const SRC_CACHE = {};
 function srcJSON(rel) {
   if (!SRC_CACHE[rel]) SRC_CACHE[rel] = JSON.parse(fs.readFileSync(path.join(VENDOR, rel), "utf8"));
@@ -212,6 +229,7 @@ Object.keys(DATASET).forEach(function (id) {
   });
   check(id + ": названия совпадают", bad === 0, "сверено " + checked + ", расхождений " + bad);
 });
+} /* HAVE_VENDOR */
 
 /* 5 ------------------------------------------------------- перекрёстные ссылки */
 console.log("\n5. Ссылки в правилах разбора и аннотациях");
@@ -1113,7 +1131,7 @@ if (searchSrc) {
     /stemHit\(/.test(searchSrc) && !/a\._t\.indexOf\(t\)/.test(searchSrc),
     "используется stemHit()");
   check("документ не вытягивается совпадением только по главе или санкции",
-    /\(strong \+ weak\) < need/.test(searchSrc) && /&&\s*!tb/.test(searchSrc),
+    /\(strong \+ weak(?:\s*\+\s*synStrong)?\) < need/.test(searchSrc) && /&&\s*!tb/.test(searchSrc),
     "нужен номер статьи либо покрытие слов запроса; исключение — нормы курируемого разбора");
   check("есть отсечка нерелевантного «хвоста» выдачи",
     /out\[0\]\.s\s*\*/.test(searchSrc), "порог считается от лучшего результата");
@@ -1847,6 +1865,30 @@ check("идущая выкладка не отменяется следующе�
   /concurrency:/.test(pagesYml) && /cancel-in-progress: false/.test(pagesYml),
   "прерванный деплой оставил бы сайт в промежуточном состоянии");
 
+/* --- проверки перед выкладкой ---------------------------------------------
+   Регрессия в коде доходила до сайта молча: проверки жили только в ночной
+   сборке, а обычный push в main их не запускал. Теперь отдельная задача
+   «Проверки» вызывается из «Публикации», и красные проверки останавливают
+   выкладку. Гвардим связку: без неё правка workflow снова сделает проверки
+   декоративными.                                                          */
+const checksPath = path.join(ROOT, ".github", "workflows", "checks.yml");
+const checksYml = fs.existsSync(checksPath) ? fs.readFileSync(checksPath, "utf8") : "";
+check("задача проверок на месте (.github/workflows/checks.yml)", !!checksYml,
+  "без неё публикация выкладывает код без проверок");
+check("публикация вызывает проверки перед выкладкой",
+  /uses: \.\/\.github\/workflows\/checks\.yml/.test(pagesYml) && /needs: check/.test(pagesYml),
+  "иначе красные проверки не остановят выкладку");
+check("красные проверки останавливают выкладку",
+  /needs\.check\.result == 'success'/.test(pagesYml),
+  "иначе сайт выкладывался бы сломанным");
+check("проверки гоняют все три приёмки",
+  /tools\/audit\.js/.test(checksYml) && /tools\/verify-data\.js/.test(checksYml) &&
+  /tools\/smoke-test\.js/.test(checksYml),
+  "иначе часть проверок выпала бы из цепочки");
+check("красная проверка останавливает задачу (pipefail)",
+  /set -o pipefail/.test(checksYml),
+  "без него код возврата берётся у tee (всегда 0) — красная проверка пройдёт");
+
 /* Команда сборки живёт в tools/, поэтому .vercelignore не должен его
    исключать — иначе Vercel не найдёт скрипт и деплой упадёт. */
 const vercelIgnore = fs.readFileSync(path.join(ROOT, ".vercelignore"), "utf8");
@@ -2160,7 +2202,7 @@ check("раздел «Термины» есть в маршрутах и вид�
   /function bindTerms\(/.test(appSrc),
   "без разбора адреса раздел не открылся бы");
 check("определение показывается над результатами поиска",
-  /var def = termCard\(q\);/.test(appSrc) && /head \+ def \+/.test(appSrc),
+  /var def = termCard\(q\);/.test(appSrc) && /head \+ [^;]*\bdef\b \+/.test(appSrc),
   "словарь отвечает на «что это значит», поиск — на «где это написано»");
 check("словарь есть в боковом меню и в быстром переходе",
   /data-nav="terms"/.test(htmlSrc) && /#\/terms/.test(appSrc) && /termFind\(q, 3\)/.test(appSrc),

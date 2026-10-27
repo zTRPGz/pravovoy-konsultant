@@ -1837,14 +1837,40 @@ server.listen(0, "127.0.0.1", async () => {
       body = u.indexOf("/laws/") >= 0 ? JSON.parse(JSON.stringify(w.RF_FRESH.manifests.laws)) : manCodes;
     } else {
       const m = /data\/(codes|laws)\/(.+)\.json$/.exec(u);
-      const f = path.join(ROOT, "vendor", "ruslaw", m[1] === "laws" ? "laws" : "", decodeURIComponent(m[2]) + ".json");
-      /* vendor/ — это вход сборки, в git он не хранится. Если файла нет, отвечаем
-         как настоящий сервер (404), а не падаем с ENOENT: иначе проверка интерфейса
-         краснеет не из-за приложения, и ночная сборка не коммитит обновление. */
-      if (!fs.existsSync(f)) return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
-      body = JSON.parse(fs.readFileSync(f, "utf8"));
-      // имитируем пересборку документа на официальном портале
-      if (body.slug === w.RF_FRESH.docs[targetId].slug || /Уголовный_кодекс/.test(u)) body.redaction_date = "2027-01-01";
+      const sid = m ? decodeURIComponent(m[2]) : "";
+      const f = path.join(ROOT, "vendor", "ruslaw", m && m[1] === "laws" ? "laws" : "", sid + ".json");
+      if (fs.existsSync(f)) {
+        body = JSON.parse(fs.readFileSync(f, "utf8"));
+        // имитируем пересборку документа на официальном портале
+        if (body.slug === w.RF_FRESH.docs[targetId].slug || /Уголовный_кодекс/.test(u)) body.redaction_date = "2027-01-01";
+      } else {
+        /* vendor/ — вход сборки, в git он не хранится. На чистом checkout
+           собираем документ из полного текста data/full/: набор статей тот же,
+           плюс заметная правка в ст. 105 — по ней ниже проверяется сравнение.
+           Без этого проверка обновления краснела не из-за приложения. */
+        /* В адресе лежит slug из набора ruslaw («63-ФЗ_Уголовный_кодекс…»),
+           а полный текст в data/full/ назван по id источника — находим его
+           по тому же slug в снимке актуальности. */
+        const srcId = Object.keys(w.RF_FRESH.docs).find(function (k) {
+          return (w.RF_FRESH.docs[k] || {}).slug === sid;
+        }) || sid;
+        const rows = readFullRows(srcId);
+        if (!rows.length) return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) });
+        body = {
+          slug: sid,
+          redaction_date: "2027-01-01",
+          articles: rows.map(function (r) {
+            const text = String(r[4] || "");
+            return {
+              number: r[0],
+              title: r[1],
+              text: srcId === targetId && String(r[0]) === "105"
+                ? text + "\n(Изменение для проверки обновления.)"
+                : text
+            };
+          })
+        };
+      }
     }
     return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
   };

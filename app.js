@@ -108,6 +108,7 @@
     camera: '<path d="M3 8a2 2 0 0 1 2-2h2l1.4-2h7.2L19 6h0a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.4"/>',
     alert: '<path d="M12 3.6 2.5 20h19z"/><path d="M12 10v4.4"/><path d="M12 17.4v.1"/>',
     up: '<path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>',
+    down: '<path d="M12 5v14"/><path d="m6 13 6 6 6-6"/>',
     backspace: '<path d="M9.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9.5L3 12z"/><path d="m12.5 9.5 5 5"/><path d="m17.5 9.5-5 5"/>',
     calculator: '<rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8.2" y="6" width="7.6" height="3" rx="1"/><path d="M8.6 12.4h.01"/><path d="M12 12.4h.01"/><path d="M15.4 12.4h.01"/><path d="M8.6 16h.01"/><path d="M12 16h.01"/><path d="M15.4 16h.01"/>'
   };
@@ -131,6 +132,11 @@
 
   function fmtDate(d) { return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear(); }
   function fmtDateTime(d) { return fmtDate(d) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  /* Дата для <input type="date"> по местному календарю: toISOString() даёт UTC
+     и после полуночи в России может показать вчерашний день. */
+  function isoLocal(d) {
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
   function fmtDay(d) {
     var w = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"];
     return fmtDate(d) + " (" + w[d.getDay()] + ")";
@@ -557,7 +563,13 @@
     "не пустили в самолет": ["vozk-107", "vozk-108"],
     "рублю лес для себя": ["uk-260", "uk-261"],
     "сгорел дом кредит страховка": ["gk2-959", "gk2-964"],
-    "ребенок разбил телефон в школе": ["gk2-1068", "gk2-1073", "gk2-1074"]
+    "ребенок разбил телефон в школе": ["gk2-1068", "gk2-1073", "gk2-1074"],
+    "переработка сверхурочно": ["tk-99", "tk-152", "tk-153"],
+    "увольнение по собственному желанию": ["tk-80"],
+    "налоговый вычет за квартиру": ["nk2-220"],
+    "осаго выплата": ["fz40-12", "fz40-11"],
+    "исковая давность": ["gk1-196", "gk1-200"],
+    "шумные соседи ночью": ["koap-6.4", "koap-6.3"]
   };
 
   /* Расширение слов запроса синонимами. Возвращает только те основы, которых
@@ -692,7 +704,13 @@
         if (sign !== "-" && artAt[i] !== -1) numbers.push(t);
         return;
       }
-      if (CODE_ALIASES[t]) { if (!code && sign !== "-") code = CODE_ALIASES[t]; return; }
+      /* «Налоговый» — обычное прилагательное («налоговый вычет», «налоговый
+         агент»), а не ссылка на часть первую НК РФ. Узкий пул отсекал
+         ст. 220 НК РФ из второй части. Ссылкой считаем только оборот
+         «налоговый кодекс». */
+      var nkAdj = t === "налоговый" &&
+        !(kept[i + 1] && kept[i + 1].w.indexOf("кодекс") === 0);
+      if (CODE_ALIASES[t] && !nkAdj) { if (!code && sign !== "-") code = CODE_ALIASES[t]; return; }
       if (t.length < 3) return;
       if (sign === "-") { not.push(t); return; }
       if (STOP[t]) return;
@@ -751,6 +769,28 @@
       if (d.length >= 4 && (d.indexOf(t) === 0 || t.indexOf(d) === 0)) return true;
     }
     return false;
+  }
+
+  /* Сколько соседних пар слов запроса идут в названии подряд (допускается
+     одно слово между ними — служебное или уточнение). Возвращает число пар,
+     а не флаг: «срок предварительного следствия» должно весить больше, чем
+     просто «срок» и «следствие» в разных местах названия. */
+  function titleAdjacency(seq, title) {
+    if (!title || !title.length || seq.length < 2) return 0;
+    var pos = [], i, j;
+    for (i = 0; i < seq.length; i++) {
+      var at = -1;
+      for (j = 0; j < title.length; j++) {
+        var d = title[j];
+        if (d === seq[i] || (seq[i].length >= 4 && d.indexOf(seq[i]) === 0)) { at = j; break; }
+      }
+      pos.push(at);
+    }
+    var n = 0;
+    for (i = 1; i < pos.length; i++) {
+      if (pos[i] >= 0 && pos[i - 1] >= 0 && pos[i] - pos[i - 1] <= 2) n++;
+    }
+    return n;
   }
 
   /* Вес поля в поиске по реестру. Номер статьи — точный идентификатор и весит
@@ -911,6 +951,14 @@
     var onlySrc = !p.tokens.length && !p.numbers.length;
     if (onlySrc && !p.srcIds.length) return done([]);
 
+    /* Редакторские эталоны нужны ещё до сужения пула: иначе норма, которую
+       разбор слов отнёс к другому кодексу, в пул не попадёт вовсе. */
+    var boostSet = null;
+    var bList = QUERY_BOOST[p.raw];
+    if (bList && bList.length) {
+      boostSet = {};
+      bList.forEach(function (bid) { boostSet[bid] = 1; });
+    }
     var pool = arts;
     if (p.srcIds.length) {
       /* Номер акта сужает выдачу до него. Одинаковый номер у нескольких
@@ -940,6 +988,17 @@
     if (sids.length) {
       pool = pool.filter(function (a) { return sids.indexOf(a.c) !== -1; });
     }
+    /* Эталон запроса добавляем в пул даже если разбор слов сузил его до
+       «своего» кодекса: «налоговый вычет за квартиру» ошибочно опознаётся
+       как запрос по части первой НК РФ, а норма — ст. 220 во второй части.
+       Явные ограничения пользователя (выбранные источники, вид практики)
+       не обходим. */
+    if (boostSet && !opt.kind && !sids.length) {
+      bList.forEach(function (bid) {
+        var ba = byId[bid];
+        if (ba && pool.indexOf(ba) === -1) pool = pool.concat([ba]);
+      });
+    }
     /* Запрос состоял только из номера акта: отдаём его статьи в порядке
        следования — это оглавление, а не поиск по релевантности. */
     if (onlySrc) {
@@ -954,6 +1013,12 @@
     var synStems = FT ? FT.stems(p.syn.join(" ")).filter(function (s) {
       return qStems.indexOf(s) === -1 && notStems.indexOf(s) === -1;
     }) : [];
+    /* Слова запроса без повторов и в исходном порядке: по ним проверяем,
+       стоят ли они в названии рядом («эвакуация автомобиля»). Название —
+       самый сильный сигнал релевантности, поэтому порядок слов в нём
+       различает точное попадание и случайный набор слов. */
+    var qSeq = uniqList(qStems);
+    var qNorm = norm(p.tokens.join(" "));
     /* Сколько слов запроса обязан покрывать документ. Короткий запрос —
        все слова (иначе «получение взятки» тянет «незаконное получение
        кредита»), длинный — не меньше двух (иначе описание ситуации
@@ -965,9 +1030,13 @@
     /* Разбор ситуации ищется по словам запроса и поднимает свои нормы: без
        него «прогул» находит «Прогулки осуждённых», а не ст. 81 ТК РФ. */
     var topic = topicMatch(qStems);
+    /* Редакторские эталоны работают и в поиске по реестру, а не только в
+       полнотекстовом блоке. Иначе для «госпошлина в суд» первой строкой
+       шла ст. 19 УПК РФ, а ст. 333.19 НК РФ — только ниже, в блоке текстов. */
     pool.forEach(function (a) {
       var s = 0, tm = 0, km = 0, strong = 0, weak = 0, numHit = false;
       var tb = (topic && topic.w[a.id]) || 0;
+      var bb = boostSet && boostSet[a.id] ? 1 : 0;
       if (p.useNums) p.numbers.forEach(function (num) {
         if (a.n === num) { s += 1400; numHit = true; }
         else if (a.n.indexOf(num + ".") === 0 || a.n.indexOf(num + "-") === 0) { s += 300; numHit = true; }
@@ -1000,6 +1069,26 @@
       if (tm >= 2) s += 60 * (tm - 1);
       if (km >= 2) s += 80 * (km - 1);
       if (p.tokens.length > 1 && a._t.indexOf(p.tokens.join(" ")) !== -1) s += 130;
+      /* Все слова запроса есть в названии — это точнее, чем по одному слову
+         в названии и в аннотации: запрос «срок предварительного следствия»
+         должен поднимать ст. 162 УПК РФ, а не обзор, где слова разбросаны. */
+      if (qStems.length > 1 && tm === qStems.length) s += 160;
+      /* Порядок слов в названии: соседние пары запроса дают дополнительный
+         вес. «Эвакуация автомобиля» и «автомобиль эвакуирован» — про одно,
+         но точная формулировка названия полезнее для первого экрана. */
+      s += 90 * titleAdjacency(qSeq, AT);
+      /* Точная фраза в кавычках, найденная в названии, — самый сильный
+         текстовый сигнал: она подтверждает не только слова, но и их вид. */
+      if (p.phrases.length) {
+        var phTitle = 0;
+        p.phrases.forEach(function (ph) {
+          if ((a._t || "").indexOf(ph) !== -1) phTitle++;
+        });
+        if (phTitle) s += 220 * phTitle;
+      }
+      /* Название целиком совпало с запросом («кража», «моральный вред») —
+         норма стоит выше пояснений, где те же слова повторены в тексте. */
+      if (qStems.length > 1 && qNorm && norm(a.t || "") === qNorm) s += 240;
       /* синонимы — мягкая добавка, но она же единственная улика для бытового
          слова: «госпошлина» не встречается ни в одном названии, а
          «государственная пошлина» — в десятках. Раньше надбавка начислялась
@@ -1017,8 +1106,8 @@
          номер статьи либо покрытие слов запроса в названии/ключевых словах.
          Нормы курируемого разбора проходят без этого условия — они попали в
          выдачу по смыслу запроса, а не по буквальному совпадению. */
-      if (!numHit && (strong + weak + synStrong) < need && !tb) return;
-      if (s <= 0 && !tb) return;
+      if (!numHit && (strong + weak + synStrong) < need && !tb && !bb) return;
+      if (s <= 0 && !tb && !bb) return;
       /* Явно исключённые слова и обязательные слова — жёсткие фильтры: они
          проверяются по всем доступным полям, включая главу и аннотацию. */
       var allStems = AT.concat(AK, AS, AP, AX, AG);
@@ -1043,7 +1132,10 @@
          норма из разбора не должна «утратить силу» из-за того, что она в
          постановлении Пленума. */
       if (tb) s += TOPIC_W * tb;
-      out.push({ a: a, s: s, cov: strong, num: numHit, why: uniqList(fields),
+      /* Эталон запроса — выше любого балла: он выбран вручную как ответ на
+         конкретную формулировку, а не по частоте слов. */
+      if (bb) s += 5000;
+      out.push({ a: a, s: s, cov: strong, num: numHit, bb: !!bb, why: uniqList(fields),
         topic: tb ? topic.t : "", role: rl.off ? "off" : rl.w ? "on" : "" });
     });
     out.sort(function (x, y) { return y.s - x.s || cmpArticles(x.a, y.a); });
@@ -1062,8 +1154,16 @@
       if (loose.length) { loose._relaxed = need; return done(loose); }
     }
     if (!out.length) return done([]);
-    var cut = out[0].s * (opt.cut == null ? 0.4 : opt.cut);
-    return done(out.filter(function (x) { return x.num || x.s >= cut; }));
+    /* Отсечку «хвоста» считаем по лучшему результату БЕЗ редакторской
+       надбавки: эталон получает +5000, и порог от него отрезал бы всю
+       остальную релевантную выдачу («налоговый вычет за квартиру» оставлял
+       одну ст. 220 НК РФ). */
+    var cutBase = 0;
+    for (var ci = 0; ci < out.length; ci++) {
+      if (!out[ci].bb) { cutBase = out[ci].s; break; }
+    }
+    var cut = (cutBase || out[0].s) * (opt.cut == null ? 0.4 : opt.cut);
+    return done(out.filter(function (x) { return x.bb || x.num || x.s >= cut; }));
   }
 
   var DOC_ORDER = {};
@@ -1792,6 +1892,31 @@
         var fgAll = flatGroups.concat(flat(synGroups));
         for (var t = 0; t < fgAll.length; t++) if (ts.indexOf(fgAll[t]) !== -1) bon++;
         var sc = ((hitP[id] || 0) + (hitS[id] || 0)) / bestScore + TITLE_W * Math.min(bon, 3);
+        /* Помимо числа слов в названии учитываем их редкость и порядок.
+           Частое слово («квартира», «срок») в названии мало что доказывает,
+           редкое («дарение», «эвакуация») — почти всё. */
+        var groupsInTitle = 0, titleIdf = 0;
+        for (var gi = 0; gi < groups.length; gi++) {
+          var gHit = false, gIdf = 0;
+          for (var gj = 0; gj < groups[gi].length; gj++) {
+            var gs = groups[gi][gj];
+            if (ts.indexOf(gs) !== -1) { gHit = true; gIdf = Math.max(gIdf, idfOf(gs)); }
+          }
+          if (gHit) { groupsInTitle++; titleIdf += gIdf; }
+        }
+        if (totIdf) sc += TITLE_W * 0.9 * Math.min(1, titleIdf / totIdf);
+        if (groups.length > 1 && groupsInTitle === groups.length) sc += 0.45;
+        var titleSeq = groups.map(function (g) { return g[0]; });
+        sc += 0.22 * titleAdjacency(titleSeq, ts);
+        /* Точная фраза в кавычках, найденная в названии, снимает главный
+           недостаток BM25: он не отличает «тайное хищение» от слов «тайное»
+           и «хищение» в разных абзацах. */
+        if (phraseStems.length) {
+          var titleNorm = a._tn || (a._tn = norm(a.t || ""));
+          var phTitle = 0;
+          phraseStems.forEach(function (x) { if (titleNorm.indexOf(x.ph) !== -1) phTitle++; });
+          if (phTitle) sc += 0.6 * phTitle;
+        }
         var tb = (topic && topic.w[a.id]) || 0;
         if (tb) sc += TOPIC_FT * tb;
         /* Редакторская надбавка: эталонная статья для данного запроса всегда
@@ -2529,9 +2654,22 @@
 
   var toastEl = null, toastTimer = null;
   function toast(msg) {
-    if (!toastEl) { toastEl = document.createElement("div"); toastEl.className = "toast"; document.body.appendChild(toastEl); }
-    toastEl.textContent = msg;
-    requestAnimationFrame(function () { toastEl.classList.add("show"); });
+    if (!toastEl) {
+      toastEl = document.createElement("div");
+      toastEl.className = "toast";
+      /* Тост — не просто всплывающая плашка: без live-region скринридер
+         не узнаёт ни о сохранении, ни об ошибке копирования. */
+      toastEl.setAttribute("role", "status");
+      toastEl.setAttribute("aria-live", "polite");
+      toastEl.setAttribute("aria-atomic", "true");
+      document.body.appendChild(toastEl);
+    }
+    /* Текст ставим в следующем кадре: элемент уже в документе, и программа
+       чтения видит именно изменение содержимого, а не появление узла. */
+    requestAnimationFrame(function () {
+      toastEl.textContent = msg;
+      toastEl.classList.add("show");
+    });
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1900);
   }
@@ -2665,6 +2803,7 @@
      не переход, а просмотр поверх раздела — откладывать его в истории
      незачем (см. openArticleModal). */
   function go(hash) {
+    clearTimeout(liveSearchTimer);
     /* Закрываем мини-окно Помощника, если оно открыто, и забываем адрес
        возврата — иначе окно «вернуло» бы адрес уже покинутого раздела. */
     var m = $("#artModal");
@@ -2706,7 +2845,15 @@
      записи на каждую паузу в наборе. */
   function goSearchLive(q) {
     var h = "#/search/" + encodeURIComponent(q);
-    if (state.route.name !== "search") { go(h); return; }
+    if (state.route.name !== "search") {
+      /* Переход на выдачу из другого раздела — только если строка поиска
+         всё ещё в фокусе и содержит тот же запрос. Иначе это «догоняющий»
+         таймер от прежнего ввода, и уводить со страницы нельзя. */
+      var si = $("#searchInput");
+      if (!q || !si || document.activeElement !== si || si.value.trim() !== q) return;
+      go(h);
+      return;
+    }
     try {
       history.replaceState(history.state, "", location.pathname + location.search + h);
       navStack[navPos] = h;
@@ -2714,6 +2861,252 @@
     } catch (e) {
       try { location.replace(h); } catch (e2) {}
     }
+  }
+
+  /* ---------------------------------------------------------------------
+     Подсказки к строке поиска. Человек пишет «гос тайне» — и ещё до Enter
+     видит «Закон РФ «О государственной тайне» № 5485-I» с датой редакции,
+     числом статей и видом акта; клик открывает источник. Вторая группа —
+     самые релевантные статьи. Подсказки не подменяют выдачу: Enter без
+     выбранной строки по-прежнему запускает полный поиск.
+     --------------------------------------------------------------------- */
+  var ACT_INDEX = null;
+  var SUG_KIND = {
+    code: "Кодекс", law: "Закон", fkz: "ФКЗ", constitution: "Конституция",
+    decree: "Постановление", plenum: "Пленум", ukaz: "Указ", order: "Приказ"
+  };
+  /* Приоритет вида акта при равном совпадении: кодекс или закон важнее
+     ведомственной инструкции с тем же названием. Без этой поправки на
+     «гос тайне» первым шёл приказ № 63, а не сам закон № 5485-I. */
+  var SUG_KIND_W = { code: 6, fkz: 5, law: 4, constitution: 6 };
+  /* Слитные бытовые формы: «гостайна», «госпошлина». Стеммер не разделит
+     их на «государствен» + «тайн», поэтому раскрываем заранее. */
+  var SUG_ALIAS = {
+    "гостайн": ["государствен", "тайн"],
+    "госпошлин": ["государствен", "пошлин"],
+    "госзакупк": ["государствен", "закупк"],
+    "госуслуг": ["государствен", "услуг"],
+    "госизмен": ["государствен", "измен"],
+    "госграниц": ["государствен", "границ"],
+    "госорган": ["государствен", "орган"],
+    "госсобственност": ["государствен", "собственност"],
+    "госрегулирован": ["государствен", "регулирован"],
+    "господдержк": ["государствен", "поддержк"],
+    "госнадзор": ["государствен", "надзор"],
+    "госзаказ": ["государствен", "заказ"],
+    "госэкзамен": ["государствен", "экзамен"]
+  };
+
+  function actIndex() {
+    if (ACT_INDEX) return ACT_INDEX;
+    ACT_INDEX = CODES.map(function (c) {
+      var name = [c.short, c.abbr, c.full, c.dataset, c.number, c.req].filter(Boolean).join(" · ");
+      var stems = FT ? FT.stems(name) : norm(name).split(" ").filter(Boolean);
+      return {
+        c: c,
+        stems: uniqList(stems),
+        num: String(c.number || "").toLowerCase().replace(/[^a-zа-я0-9.\-]/g, ""),
+        req: norm(String(c.req || ""))
+      };
+    });
+    return ACT_INDEX;
+  }
+
+  function suggestActs(q) {
+    var p = parseQuery(q);
+    var qs = uniqList(FT ? FT.stems(p.tokens.join(" ")) : p.tokens).filter(Boolean);
+    var expanded = [];
+    qs.forEach(function (t) {
+      expanded.push(t);
+      var al = SUG_ALIAS[t];
+      if (al) al.forEach(function (x) { if (expanded.indexOf(x) === -1) expanded.push(x); });
+    });
+    qs = uniqList(expanded);
+    var rawNums = String(q).match(/\d[\d.\-]*/g) || [];
+    if (!qs.length && !rawNums.length) return [];
+    var out = [];
+    actIndex().forEach(function (it) {
+      var s = 0, hits = 0, hasExact = false;
+      rawNums.forEach(function (n) {
+        var k = n.replace(/^0+/, "");
+        if (k.length < 3) return;
+        if (it.num === k || it.num.indexOf(k) === 0 || it.req.indexOf(k) !== -1) s += 90;
+      });
+      qs.forEach(function (t) {
+        if (it.stems.indexOf(t) !== -1) { s += 12; hits += 1; hasExact = true; return; }
+        /* «гос» — не основа «государствен», но по началу слова это тот же
+           смысл; такой улики достаточно, если рядом стоит точное слово
+           («гос тайне»). */
+        if (t.length >= 3 && it.stems.some(function (d) {
+          return d.length >= 4 && (d.indexOf(t) === 0 || t.indexOf(d) === 0);
+        })) { s += 4; hits += 0.5; }
+      });
+      if (!s) return;
+      if (qs.length > 1 && hits >= Math.min(2, qs.length)) s += 10;
+      if (hasExact) s += 3;
+      s += SUG_KIND_W[it.c.kind] || 0;
+      /* Крупные акты полезнее ведомственных приказов при равном счёте. */
+      s += Math.min(6, (it.c.count || 0) / 120);
+      out.push({ it: it, s: s });
+    });
+    out.sort(function (a, b) {
+      return b.s - a.s || (b.it.c.count || 0) - (a.it.c.count || 0);
+    });
+    if (!out.length) return [];
+    var best = out[0].s;
+    return out.filter(function (x) { return x.s >= Math.max(4, best * 0.36); })
+      .slice(0, 5).map(function (x) { return x.it; });
+  }
+
+  function suggestActMeta(c) {
+    var parts = [];
+    if (c.redaction) parts.push("ред. " + fmtRed(c.redaction));
+    if (c.count) parts.push(c.count + " " + plural(c.count, ["статья", "статьи", "статей"]));
+    if (c.docstate && /утрат|недейств|приостанов/i.test(c.docstate)) parts.push(c.docstate);
+    return parts.join(" · ");
+  }
+
+  function sugItemHtml(id, goTo, body, meta, kind, color) {
+    return '<button type="button" class="sg-item" role="option" id="' + id + '" data-sug-go="' + esc(goTo) + '">' +
+      '<span class="sg-dot" style="background:' + esc(color || "var(--accent)") + '"></span>' +
+      '<span class="sg-txt"><span class="sg-t">' + body + "</span>" +
+        (meta ? '<span class="sg-s">' + meta + "</span>" : "") + "</span>" +
+      (kind ? '<span class="sg-kind">' + kind + "</span>" : "") +
+    "</button>";
+  }
+
+  var sugIdx = -1;
+
+  function renderSearchSug(q) {
+    var box = $("#searchSug"), si = $("#searchInput");
+    if (!box || !si) return;
+    q = String(q || "").trim();
+    /* Один знак — ещё не запрос: подсказка на «а» выдала бы пол-реестра. */
+    if (q.length < 2) { closeSearchSug(); return; }
+    var acts = suggestActs(q);
+    var arts = [];
+    if (q.length >= 3) {
+      try { arts = (search(q, { cut: 0.35 }) || []).slice(0, 3); } catch (e) { arts = []; }
+    }
+    if (!acts.length && !arts.length) { closeSearchSug(); return; }
+    var html = "", n = 0;
+    if (acts.length) {
+      html += '<div class="sg-h" role="presentation">Источники</div>';
+      html += acts.map(function (it) {
+        n++;
+        return sugItemHtml("sug-" + n, "#/code/" + it.c.id,
+          esc(it.c.short), esc(suggestActMeta(it.c)),
+          esc(SUG_KIND[it.c.kind] || "Акт"), it.c.color);
+      }).join("");
+    }
+    if (arts.length) {
+      html += '<div class="sg-h" role="presentation">Статьи</div>';
+      html += arts.map(function (r) {
+        var a = r.a, c = CO[a.c];
+        n++;
+        return sugItemHtml("sug-" + n, "#/article/" + a.id,
+          esc("ст. " + a.dn + (a.t ? " " + a.t : "")),
+          esc(c ? c.short + (c.redaction ? " · ред. " + fmtRed(c.redaction) : "") : a.c),
+          "", c ? c.color : "");
+      }).join("");
+    }
+    html += '<div class="sg-foot" role="presentation"><span>↑ ↓ — выбрать</span><span>Enter — открыть</span><span>Esc — закрыть</span></div>';
+    box.innerHTML = html;
+    box.hidden = false;
+    sugIdx = -1;
+    si.setAttribute("aria-expanded", "true");
+  }
+
+  function sugItems() { return $$("#searchSug .sg-item"); }
+
+  function setSugIdx(next) {
+    var items = sugItems();
+    if (!items.length) { sugIdx = -1; return; }
+    if (next < -1) next = items.length - 1;
+    if (next >= items.length) next = -1;
+    sugIdx = next;
+    items.forEach(function (el, i) {
+      var on = i === sugIdx;
+      el.classList.toggle("on", on);
+      el.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    var si = $("#searchInput");
+    if (si) {
+      if (sugIdx >= 0) si.setAttribute("aria-activedescendant", items[sugIdx].id);
+      else si.removeAttribute("aria-activedescendant");
+    }
+    if (sugIdx >= 0 && items[sugIdx].scrollIntoView) {
+      items[sugIdx].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function closeSearchSug() {
+    var box = $("#searchSug"), si = $("#searchInput");
+    if (box) { box.hidden = true; box.innerHTML = ""; }
+    if (si) { si.setAttribute("aria-expanded", "false"); si.removeAttribute("aria-activedescendant"); }
+    sugIdx = -1;
+  }
+
+  function bindSearchSuggest() {
+    var si = $("#searchInput");
+    if (!si) return;
+    var tmr = 0;
+    si.addEventListener("input", function () {
+      clearTimeout(tmr);
+      var q = si.value;
+      tmr = setTimeout(function () { renderSearchSug(q); }, 90);
+    });
+    si.addEventListener("focus", function () {
+      if (si.value.trim().length >= 2) renderSearchSug(si.value);
+    });
+    si.addEventListener("keydown", function (e) {
+      var box = $("#searchSug");
+      var open = box && !box.hidden;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (!open && si.value.trim().length >= 2) {
+          renderSearchSug(si.value);
+          open = !!(box && !box.hidden);
+        }
+        if (!open) return;
+        e.preventDefault();
+        setSugIdx(sugIdx + (e.key === "ArrowDown" ? 1 : -1));
+        return;
+      }
+      if (e.key === "Enter") {
+        if (open && sugIdx >= 0) {
+          e.preventDefault();
+          var el = sugItems()[sugIdx];
+          if (el) {
+            var h = el.getAttribute("data-sug-go");
+            closeSearchSug();
+            si.blur();
+            go(h);
+          }
+        }
+        return;
+      }
+      if (e.key === "Escape" && open) {
+        e.preventDefault();
+        closeSearchSug();
+      }
+    });
+    /* Клик по подсказке: mousedown отменяем, иначе поле теряет фокус раньше
+       клика и обработчик не успевает сработать. */
+    var box = $("#searchSug");
+    if (box) {
+      box.addEventListener("mousedown", function (e) { e.preventDefault(); });
+      box.addEventListener("click", function (e) {
+        var el = e.target.closest("[data-sug-go]");
+        if (!el) return;
+        var h = el.getAttribute("data-sug-go");
+        closeSearchSug();
+        si.blur();
+        go(h);
+      });
+    }
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest || !e.target.closest(".search-wrap")) closeSearchSug();
+    });
   }
 
   /* Браузерная «Назад»/«Вперёд»: адрес уже изменён, остаётся показать
@@ -3025,6 +3418,10 @@
      и можно ли идти назад или вперёд. */
   var navStack = [], navPos = -1;
   var NAV_MAX = 60;
+  /* Отложенный живой поиск. Любой явный переход отменяет его: иначе таймер,
+     поставленный на 300 мс, срабатывал уже на новом разделе и возвращал
+     человека на страницу поиска. */
+  var liveSearchTimer = 0;
 
   /* Куда вернуть прокрутку при переходе «Назад»/«Вперёд». Позиция
      запоминается для каждого раздела отдельно: вернувшись из статьи в
@@ -3309,6 +3706,37 @@
 
   /* Делает навигационные div-элементы доступными с клавиатуры и для
      скринридеров: role, tabindex, Enter/Space. Вызывается после отрисовки. */
+  /* Подписи полей в формах нарисованы рядом с контролом, а не обёрткой:
+     <div class="field"><label>Дата</label><input></div>. Визуально всё на
+     месте, но скринридер такую подпись не связывает с полем. Связываем
+     автоматически после каждой отрисовки: одиночному полю — через for/id,
+     группе полей (например, число + единица измерения) — через aria-label. */
+  var a11yFieldSeq = 0;
+  function a11yFieldLabels(scope) {
+    $$(".field", scope).forEach(function (field) {
+      var labels = Array.prototype.filter.call(field.querySelectorAll("label"), function (l) {
+        return !l.querySelector("input, select, textarea");
+      });
+      if (!labels.length) return;
+      var controls = Array.prototype.filter.call(field.querySelectorAll("input, select, textarea"), function (el) {
+        return el.type !== "hidden" && el.type !== "file" && !el.closest("label");
+      });
+      if (!controls.length) return;
+      var text = labels.map(function (l) { return l.textContent.trim(); }).filter(Boolean).join(" ");
+      controls.forEach(function (el) {
+        if (el.getAttribute("aria-label") || el.getAttribute("aria-labelledby")) return;
+        if (el.id && field.querySelector('label[for="' + el.id + '"]')) return;
+        if (controls.length === 1 && labels.length === 1) {
+          if (labels[0].hasAttribute("for")) return;
+          if (!el.id) el.id = "af" + (++a11yFieldSeq);
+          labels[0].setAttribute("for", el.id);
+        } else if (text) {
+          el.setAttribute("aria-label", text);
+        }
+      });
+    });
+  }
+
   function a11yNav(root) {
     var scope = root || document;
     $$(".nav-item, .code-card, .chip, .result, .palette-item, .quick-card, .scen-card, .tool-link", scope).forEach(function (el) {
@@ -3319,6 +3747,7 @@
       el.setAttribute("role", "button");
       el.setAttribute("tabindex", "0");
     });
+    a11yFieldLabels(scope);
     /* заголовок страницы — для объявления скринридером */
     var h = scope.querySelector ? scope.querySelector("h1") : null;
     if (h && !h.id) h.id = "pageTitle";
@@ -3336,7 +3765,8 @@
       (tone ? ' data-tone="' + tone + '"' : "") + ">" +
       '<span class="qc-ico">' + ic(iconName) + "</span>" +
       '<div class="qc-body"><div class="qc-t">' + esc(title) + "</div>" +
-      '<div class="qc-s">' + esc(sub) + "</div></div></div>";
+      '<div class="qc-s">' + esc(sub) + "</div></div>" +
+      '<span class="qc-arrow" aria-hidden="true">→</span></div>';
   }
 
   /* Компактная ссылка-инструмент для главной: иконка, подпись и короткое
@@ -3430,21 +3860,44 @@
     var nDec = CODES.filter(function (c) { return c.kind === "decree"; }).length;
     var nPlen = CODES.filter(function (c) { return c.kind === "plenum"; }).length;
     var nUpd = Object.keys(updates).length;
+    var nDocs = (REF.templates || []).length + ((window.RF_SUITS || {}).suits || []).length;
     var nRef = (REF.scenarios || []).length + (REF.checklists || []).length + (REF.templates || []).length;
+    var builtTxt = (window.RF_FRESH && window.RF_FRESH.built_at)
+      ? fmtDateRu(new Date(window.RF_FRESH.built_at)) : "";
 
     /* Главная отвечает на три вопроса подряд: «что это» (шапка с кнопками),
        «что внутри» (цифры) и «куда идти» (основное и инструменты). Раньше
        четырнадцать равных плиток шли одной простыней — теперь у входов есть
        вес: четыре главных крупно, остальное плотным списком. */
     return '<header class="hero">' +
-        '<span class="hero-badge">' + ic("shield") + "Работает офлайн · без регистрации и подписки</span>" +
-        "<h1>Правовой консультант</h1>" +
-        '<p class="lead">Полные тексты кодексов, федеральных законов, Конституции и постановлений Правительства в действующей редакции: поиск по словам, разбор ситуации с указанием норм, калькуляторы сроков и пошлин, памятки и шаблоны документов — в одном рабочем окне.</p>' +
-        '<div class="hero-cta">' +
-          '<button class="btn btn-primary btn-lg" type="button" data-go="#/search/">' + ic("search") + "Найти статью</button>" +
-          '<button class="btn btn-lg" type="button" data-go="#/assistant">' + ic("compass") + "Разобрать ситуацию</button>" +
-          '<button class="btn btn-lg" type="button" data-go="#/calc">' + ic("calculator") + "Калькуляторы</button>" +
+        '<div class="hero-copy">' +
+          '<span class="hero-badge">' + ic("shield") + "Работает офлайн · без регистрации и подписки</span>" +
+          "<h1>Правовой консультант</h1>" +
+          '<p class="lead">Полные тексты кодексов, федеральных законов, Конституции и постановлений Правительства в действующей редакции: поиск по словам, разбор ситуации с указанием норм, калькуляторы сроков и пошлин, памятки и шаблоны документов — в одном рабочем окне.</p>' +
+          '<div class="hero-cta">' +
+            '<button class="btn btn-primary btn-lg" type="button" data-go="#/search/">' + ic("search") + "Найти статью</button>" +
+            '<button class="btn btn-lg" type="button" data-go="#/assistant">' + ic("compass") + "Разобрать ситуацию</button>" +
+            '<button class="btn btn-lg" type="button" data-go="#/calc">' + ic("calculator") + "Калькуляторы</button>" +
+          "</div>" +
         "</div>" +
+        '<aside class="hero-desk" aria-label="Сводка базы">' +
+          '<div class="hd-head">' +
+            '<span class="hd-live"><i></i>база на связи</span>' +
+            '<span class="hd-date">' + (builtTxt ? "сборка " + esc(builtTxt) : esc(fmtDateRu(new Date()))) + "</span>" +
+          "</div>" +
+          '<div class="hd-grid">' +
+            '<div class="hd-cell"><b>' + arts.length.toLocaleString("ru-RU") + "</b><span>статей</span></div>" +
+            '<div class="hd-cell"><b>' + CODES.length + "</b><span>актов</span></div>" +
+            '<div class="hd-cell"><b>' + (REF.deadlines || []).length + "</b><span>сроков</span></div>" +
+            '<div class="hd-cell"><b>' + nDocs + "</b><span>бланков</span></div>" +
+          "</div>" +
+          '<div class="hd-quick">' +
+            '<button class="hd-chip" type="button" data-go="#/search/">' + ic("search") + "Поиск</button>" +
+            '<button class="hd-chip" type="button" data-go="#/calc">' + ic("calculator") + "Расчёт</button>" +
+            '<button class="hd-chip" type="button" data-go="#/templates">' + ic("file") + "Шаблон</button>" +
+          "</div>" +
+          '<div class="hd-foot">Полные тексты · офлайн · актуальность редакций</div>' +
+        "</aside>" +
       "</header>" +
 
       lastArtHtml() +
@@ -4149,7 +4602,7 @@
 
     return '<div class="article-head">' +
         '<div class="article-cite">Термин · ' + esc(t.b || "Прочее") + "</div>" +
-        '<div class="article-title">' + ic("book") + " " + esc(t.t) + "</div>" +
+        '<h1 class="article-title">' + ic("book") + " " + esc(t.t) + "</h1>" +
         '<div class="result-meta"><span>' + (t.a || []).length + " " +
           plural((t.a || []).length, ["написание", "написания", "написаний"]) + " в поиске</span></div>" +
       "</div>" +
@@ -4193,7 +4646,7 @@
 
     var head = '<div class="article-head">' +
       '<div class="article-cite">' + esc(c.full) + " · ст. " + esc(a.dn) + "</div>" +
-      '<div class="article-title">' + esc(a.t) + "</div>" +
+      '<h1 class="article-title">' + esc(a.t) + "</h1>" +
       '<div class="result-meta">' +
         '<span class="badge" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + "</span>" +
         (a.g ? "<span>" + esc(a.g) + "</span>" : "") +
@@ -7814,8 +8267,42 @@
 
   /* --- арифметика сроков --------------------------------------------- */
 
-  /* Дата, отстоящая от начала на n часов / суток / месяцев. */
+  /* Нерабочие праздничные дни — ст. 112 ТК РФ: 1–8 января, 23 февраля,
+     8 марта, 1 мая, 9 мая, 12 июня, 4 ноября. Если праздник выпадает на
+     субботу или воскресенье, нерабочим становится следующий рабочий день
+     (ч. 2 ст. 112 ТК РФ). Ежегодные переносы, установленные Правительством,
+     могут добавлять отдельные дни — об этом предупреждает интерфейс. */
+  var RU_HOLIDAYS = [
+    [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7], [0, 8],
+    [1, 23], [2, 8], [4, 1], [4, 9], [5, 12], [10, 4]
+  ];
+  var holidayCache = {};
+
+  function holidayKey(d) { return d.getMonth() + "-" + d.getDate(); }
+
+  function holidaySet(year) {
+    if (holidayCache[year]) return holidayCache[year];
+    var set = {};
+    RU_HOLIDAYS.forEach(function (md) {
+      var h = new Date(year, md[0], md[1]);
+      set[holidayKey(h)] = 1;
+      /* Новогодние каникулы идут сплошным блоком: перенос их выходных
+         устанавливается отдельным постановлением, поэтому «следующий
+         рабочий день» здесь не вычисляем. */
+      if (md[0] === 0 || (h.getDay() !== 0 && h.getDay() !== 6)) return;
+      var shift = new Date(h.getTime());
+      do { shift.setDate(shift.getDate() + 1); } while (shift.getDay() === 0 || shift.getDay() === 6 || set[holidayKey(shift)]);
+      set[holidayKey(shift)] = 1;
+    });
+    holidayCache[year] = set;
+    return set;
+  }
+
+  function isHoliday(d) { return !!holidaySet(d.getFullYear())[holidayKey(d)]; }
+
+  /* Дата, отстоящая от начала на n часов / суток / рабочих дней / месяцев / лет. */
   function calcAdd(from, num, unit) {
+    if (unit === "workdays") return advanceWorkdays(from, num);
     var d = new Date(from.getTime());
     if (unit === "hours") d.setHours(d.getHours() + num);
     else if (unit === "days") d.setDate(d.getDate() + num);
@@ -7823,26 +8310,31 @@
       /* «соответствующее число последнего месяца, а если этот месяц не имеет
          соответствующего числа, то срок оканчивается в последние сутки
          этого месяца» — ч. 2 ст. 128 УПК РФ */
-      var day = d.getDate(), m = d.getMonth(), y = d.getFullYear();
+      var day = d.getDate();
       d.setDate(1);
-      d.setMonth(m + num);
+      d.setMonth(d.getMonth() + num);
       var last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
       d.setDate(Math.min(day, last));
-      if (d.getFullYear() !== y && num === 0) d.setFullYear(y);
-    } else if (unit === "years") d.setFullYear(d.getFullYear() + num);
+    } else if (unit === "years") {
+      var dayY = d.getDate();
+      d.setDate(1);
+      d.setFullYear(d.getFullYear() + num);
+      var lastY = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      d.setDate(Math.min(dayY, lastY));
+    }
     return d;
   }
 
   function isWorkday(d) {
     var w = d.getDay();
-    return w !== 0 && w !== 6;
+    return w !== 0 && w !== 6 && !isHoliday(d);
   }
 
   /* Первый рабочий день, начиная с указанного (если он сам нерабочий). */
   function nextWorkday(d) {
     var x = new Date(d.getTime());
     var guard = 0;
-    while (!isWorkday(x) && guard++ < 10) x.setDate(x.getDate() + 1);
+    while (!isWorkday(x) && guard++ < 20) x.setDate(x.getDate() + 1);
     return x;
   }
 
@@ -7864,22 +8356,109 @@
     return n + " " + plural(n, ["день", "дня", "дней"]);
   }
 
+  /* Разница в календарных днях между двумя моментами: округление до суток,
+     чтобы 23:59 и 00:01 не давали «0 дней» там, где прошли сутки. */
+  function calcDayDiff(a, b) {
+    var x = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+    var y = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+    return Math.round((y - x) / 86400000);
+  }
+
+  /* Подпись к сроку: «осталось 12 дней» / «истёк 3 дня назад» / «истекает
+     сегодня». Считается по календарным дням, без времени. */
+  function calcStatusText(endDate, now) {
+    var n = calcDayDiff(now || new Date(), endDate);
+    if (n > 0) return "осталось " + calcFmtDays(n);
+    if (n < 0) return "истёк " + calcFmtDays(-n) + " назад";
+    return "истекает сегодня";
+  }
+
+  /* Длительность с точностью до часов и минут — для задержания и других
+     коротких сроков, где «осталось 0 дней» ничего не говорит. */
+  function calcFmtDur(ms) {
+    var abs = Math.abs(ms);
+    var d = Math.floor(abs / 86400000);
+    var h = Math.floor((abs % 86400000) / 3600000);
+    var m = Math.round((abs % 3600000) / 60000);
+    if (m === 60) { m = 0; h++; }
+    if (h === 24) { h = 0; d++; }
+    var parts = [];
+    if (d) parts.push(calcFmtDays(d));
+    if (h) parts.push(h + " ч");
+    if (m && !d) parts.push(m + " мин");
+    return parts.join(" ") || "0 мин";
+  }
+
+  /* Та же подпись, но по точному моменту: «осталось 47 ч 12 мин». */
+  function calcStatusExact(endDate, now) {
+    var diff = endDate.getTime() - (now || new Date()).getTime();
+    if (diff > 0) return "осталось " + calcFmtDur(diff);
+    if (diff < 0) return "истёк " + calcFmtDur(diff) + " назад";
+    return "истекает сейчас";
+  }
+
+  /* Сколько рабочих дней попадает в промежуток — справочная строка рядом с
+     календарной длительностью срока. */
+  function countWorkdaysBetween(a, b) {
+    var d = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+    var end = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+    var n = 0, guard = 0;
+    while (d.getTime() <= end.getTime() && guard++ < 20000) {
+      if (isWorkday(d)) n++;
+      d.setDate(d.getDate() + 1);
+    }
+    return n;
+  }
+
+  /* Слова для выбранной единицы срока: 2 месяца, 10 рабочих дней, 48 часов. */
+  function calcUnitWord(unit) {
+    return unit === "hours" ? ["час", "часа", "часов"]
+      : unit === "workdays" ? ["рабочий день", "рабочих дня", "рабочих дней"]
+      : unit === "years" ? ["год", "года", "лет"]
+      : unit === "months" ? ["месяц", "месяца", "месяцев"]
+      : ["день", "дня", "дней"];
+  }
+  function calcUnitLabel(num, unit) {
+    return num + " " + plural(Math.abs(num), calcUnitWord(unit));
+  }
+  function calcUnitShort(unit) {
+    return unit === "hours" ? "ч"
+      : unit === "workdays" ? "раб. дн."
+      : unit === "years" ? "г."
+      : unit === "months" ? "мес." : "сут.";
+  }
+
   /* Только название дня недели — для строк, где дата уже напечатана рядом. */
   function dayName(d) {
     return ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"][d.getDay()];
   }
 
+  /* Дата контрольной точки: у задержания срок задан часами или месяцами,
+     у дела — сутками или месяцами. */
+  function calcPointDate(from, p, kind) {
+    return kind === "custody"
+      ? calcAdd(from, p.h != null ? p.h : p.m, p.h != null ? "hours" : "months")
+      : calcAdd(from, p.d != null ? p.d : p.m, p.d != null ? "days" : "months");
+  }
+
   /* Ближайшие контрольные точки от указанного момента. */
   function calcPointsHtml(from, points, kind) {
     var now = new Date();
+    /* Ближайшая ещё не наступившая точка — её и стоит держать в поле зрения;
+       в длинной таблице без выделения приходится вручную искать «что дальше». */
+    var nextIdx = -1;
+    points.forEach(function (p, i) {
+      if (nextIdx === -1 && calcPointDate(from, p, kind).getTime() > now.getTime()) nextIdx = i;
+    });
     return '<div class="tbl-scroll"><table class="tbl calc-tbl"><thead><tr><th>Точка</th><th>Дата и время</th><th>Основание</th></tr></thead><tbody>' +
-      points.map(function (p) {
-        var at = kind === "custody" ? calcAdd(from, p.h != null ? p.h : p.m, p.h != null ? "hours" : "months")
-                                    : calcAdd(from, p.d != null ? p.d : p.m, p.d != null ? "days" : "months");
+      points.map(function (p, i) {
+        var at = calcPointDate(from, p, kind);
         var past = at.getTime() <= now.getTime();
-        return "<tr" + (past ? ' class="calc-past"' : "") + ">" +
+        var cls = past ? "calc-past" : (i === nextIdx ? "calc-next" : "");
+        return "<tr" + (cls ? ' class="' + cls + '"' : "") + ">" +
           "<td>" + esc(p.t) + (p.n ? '<div class="small muted">' + esc(p.n) + "</div>" : "") + "</td>" +
-          '<td class="term">' + fmtDateTime(at) + '<div class="small muted">' + dayName(at) + (past ? " · прошло" : "") + "</div></td>" +
+          '<td class="term">' + fmtDateTime(at) + '<div class="small muted">' + dayName(at) +
+            (past ? " · прошло" : (i === nextIdx ? " · ближайшая" : "")) + "</div></td>" +
           '<td class="small muted">' + esc(p.b) + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
@@ -7923,10 +8502,17 @@
     return '<div class="split calc-split">' +
       '<div class="card">' +
         '<h3 style="margin-top:0">Дата окончания срока</h3>' +
-        '<div class="field"><label>Начало срока</label><input type="date" class="input" id="cDate"></div>' +
-        '<div class="field"><label>Время начала</label><input type="time" class="input" id="cTime" value="12:00"></div>' +
+        '<div class="small muted" style="margin:-4px 0 10px">Считает в обе стороны: от начала к окончанию и обратно — от известной даты окончания к началу.</div>' +
+        '<div class="chips calc-mode" id="cMode">' +
+          '<div class="chip on" data-cmode="end">Найти окончание</div>' +
+          '<div class="chip" data-cmode="start">Найти начало</div>' +
+        "</div>" +
+        '<div class="field"><label id="cDateLabel">Начало срока</label>' +
+          '<div class="form-row"><input type="date" class="input" id="cDate">' +
+          '<button class="btn" id="cToday" type="button" title="Подставить сегодняшнюю дату">Сегодня</button></div></div>' +
+        '<div class="field"><label id="cTimeLabel">Время начала</label><input type="time" class="input" id="cTime" value="12:00"></div>' +
         '<div class="field"><label>Длительность</label><div class="form-row">' +
-          '<input type="number" class="input" id="cNum" value="2" min="0" step="1">' +
+          '<input type="number" class="input" id="cNum" value="2" min="0" step="1" inputmode="numeric">' +
           '<select class="select" id="cUnit">' +
             '<option value="hours">часов</option>' +
             '<option value="days">суток</option>' +
@@ -7934,9 +8520,15 @@
             '<option value="years">лет</option>' +
           "</select></div></div>" +
         '<label class="calc-check"><input type="checkbox" id="cSkip"> не переносить с нерабочего дня</label>' +
-        '<label class="calc-check"><input type="checkbox" id="cWorkdays"> считать период в рабочих днях</label>' +
+        '<label class="calc-check"><input type="checkbox" id="cWorkdays"> считать период в рабочих днях (без выходных и праздников)</label>' +
         '<button class="btn btn-primary" id="cRun" style="width:100%">Рассчитать</button>' +
-        '<div id="cOut" style="margin-top:14px"></div>' +
+        '<div id="cOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
+        '<div class="actions-row" id="cActions" style="display:none">' +
+          '<button class="btn" id="cSave" type="button">Сохранить в историю</button>' +
+          '<button class="btn" id="cIcs" type="button">Скачать .ics</button>' +
+          '<button class="btn" id="cReset" type="button">Сбросить поля</button>' +
+        "</div>" +
+        '<div id="cHist"></div>' +
       "</div>" +
       '<div class="card">' +
         '<h3 style="margin-top:0">Быстрые сроки</h3>' +
@@ -7953,20 +8545,22 @@
           "срок месяцами — в соответствующее число последнего месяца, а если такого числа нет — в последние сутки месяца. " +
           "Если окончание приходится на нерабочий день, последним днём считается первый следующий рабочий день. " +
           "Исключение — задержание, содержание под стражей, домашний арест и запрет определённых действий: там нерабочие дни не переносят. " +
-          "При задержании срок исчисляется с момента фактического задержания.</div>" +
+          "При задержании срок исчисляется с момента фактического задержания. " +
+          "Нерабочие праздничные дни учитываются по ст. 112 ТК РФ; ежегодные переносы, установленные Правительством, могут сдвигать отдельные дни.</div>" +
       "</div>" +
     "</div>" +
     '<h2>Контрольные точки по делу</h2>' +
     '<div class="card">' +
-      '<div class="form-row" style="max-width:520px">' +
+      '<div class="field" style="max-width:520px"><label>Дата события или задержания</label><div class="form-row">' +
         '<input type="date" class="input" id="cCaseDate">' +
-        '<select class="select" id="cCaseKind">' +
+        '<select class="select" id="cCaseKind" aria-label="От чего считать">' +
           '<option value="custody">от момента задержания</option>' +
           '<option value="case">от возбуждения дела / события</option>' +
         "</select>" +
         '<button class="btn btn-primary" id="cCaseRun">Построить</button>' +
-      "</div>" +
-      '<div id="cCaseOut" style="margin-top:14px"></div>' +
+        '<button class="btn" id="cCaseIcs" type="button">Скачать .ics</button>' +
+      "</div></div>" +
+      '<div id="cCaseOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
     "</div>";
   }
 
@@ -7982,7 +8576,7 @@
         "</select></div>" +
         '<div class="field"><label>Дата совершения преступления</label><input type="date" class="input" id="lDate"></div>' +
         '<button class="btn btn-primary" id="lRun" style="width:100%">Рассчитать</button>' +
-        '<div id="lOut" style="margin-top:14px"></div>' +
+        '<div id="lOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
       "</div>" +
       '<div class="card">' +
         '<h3 style="margin-top:0">Давность: КоАП РФ</h3>' +
@@ -7994,31 +8588,31 @@
           '<option value="365">дисквалификация — 1 год</option>' +
         "</select></div>" +
         '<button class="btn btn-primary" id="aRun" style="width:100%">Рассчитать</button>' +
-        '<div id="aOut" style="margin-top:14px"></div>' +
+        '<div id="aOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
       "</div>" +
     "</div>" +
     '<h2>Исковая давность</h2>' +
     '<div class="card">' +
       '<p class="small muted">Ст. 196 и 200 ГК РФ. Течение начинается со дня, когда лицо узнало или должно было узнать о нарушении права и о надлежащем ответчике.</p>' +
       '<div class="form-row" style="max-width:620px">' +
-        '<input type="date" class="input" id="iDate">' +
-        '<input type="date" class="input" id="iViol" title="День нарушения права">' +
+        '<input type="date" class="input" id="iDate" aria-label="Дата, когда узнали о нарушении" title="Дата, когда узнали о нарушении">' +
+        '<input type="date" class="input" id="iViol" aria-label="День нарушения права" title="День нарушения права">' +
         '<button class="btn btn-primary" id="iRun">Рассчитать</button>' +
       "</div>" +
       '<p class="small muted" style="margin-top:8px">Первое поле — когда узнали о нарушении, второе (необязательно) — день самого нарушения для проверки предельного срока.</p>' +
-      '<div id="iOut" style="margin-top:12px"></div>' +
+      '<div id="iOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:12px"></div>' +
     "</div>" +
     '<h2>Зачёт содержания под стражей</h2>' +
     '<div class="card">' +
       '<p class="small muted">Ст. 72 УК РФ. Один день под стражей засчитывается по-разному в зависимости от вида наказания.</p>' +
       '<div class="form-row" style="max-width:620px">' +
         '<input type="number" class="input" id="sDays" min="0" step="1" placeholder="дней под стражей" value="30">' +
-        '<select class="select" id="sKind">' +
+        '<select class="select" id="sKind" aria-label="Вид наказания">' +
           CALC_SETOFF.map(function (x) { return '<option value="' + x.k + '">' + esc(x.t) + "</option>"; }).join("") +
         "</select>" +
         '<button class="btn btn-primary" id="sRun">Посчитать</button>' +
       "</div>" +
-      '<div id="sOut" style="margin-top:12px"></div>' +
+      '<div id="sOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:12px"></div>' +
       '<div class="note-box" style="margin-top:12px">Домашний арест засчитывается иначе: два дня домашнего ареста за один день содержания под стражей или лишения свободы (ч. 3.4 ст. 72 УК РФ).</div>' +
     "</div>";
   }
@@ -8067,14 +8661,14 @@
         "</select></div>" +
         '<div class="field" id="dPriceWrap"><label>Цена иска, ₽</label><input type="number" class="input" id="dPrice" min="0" step="1000" value="500000"></div>' +
         '<button class="btn btn-primary" id="dRun" style="width:100%">Рассчитать</button>' +
-        '<div id="dOut" style="margin-top:14px"></div>' +
+        '<div id="dOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
       "</div>" +
       '<div class="card">' +
         '<h3 style="margin-top:0">Неустойка и индексация</h3>' +
         '<div class="field"><label>Сумма долга, ₽</label><input type="number" class="input" id="nSum" min="0" step="1000" value="100000"></div>' +
         '<div class="form-row">' +
-          '<input type="date" class="input" id="nFrom">' +
-          '<input type="date" class="input" id="nTo">' +
+          '<div class="field" style="flex:1;margin:0"><label>Период с</label><input type="date" class="input" id="nFrom"></div>' +
+          '<div class="field" style="flex:1;margin:0"><label>Период по</label><input type="date" class="input" id="nTo"></div>' +
         "</div>" +
         '<div class="field" style="margin-top:10px"><label>Неустойка</label><div class="form-row">' +
           '<input type="number" class="input" id="nRate" min="0" step="0.01" value="0.1">' +
@@ -8085,7 +8679,7 @@
         '<div class="field"><label>Индекс потребительских цен, % (для индексации)</label>' +
           '<input type="number" class="input" id="nCpi" min="0" step="0.01" placeholder="например 108,4"></div>' +
         '<button class="btn btn-primary" id="nRun" style="width:100%">Рассчитать</button>' +
-        '<div id="nOut" style="margin-top:14px"></div>' +
+        '<div id="nOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
       "</div>" +
     "</div>" +
     '<h2>Проценты по ключевой ставке</h2>' +
@@ -8097,7 +8691,7 @@
         '<button class="btn" id="pAdd">' + ic("plus") + " Добавить период</button>" +
         '<button class="btn btn-primary" id="pRun">Рассчитать</button>' +
       "</div>" +
-      '<div id="pOut" style="margin-top:14px"></div>' +
+      '<div id="pOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
       '<div class="note-box" style="margin-top:12px">Если договором предусмотрена неустойка за то же нарушение, проценты по ст. 395 ГК РФ не взыскиваются (п. 4 ст. 395 ГК РФ). Суд вправе уменьшить неустойку при её явной несоразмерности (ст. 333 ГК РФ).</div>' +
     "</div>";
   }
@@ -8146,7 +8740,7 @@
           '<label class="calc-check"><input type="checkbox" id="qOrder"> заявление о вынесении судебного приказа</label>' +
           '<label class="calc-check"><input type="checkbox" id="qNonProp"> в иске есть требование неимущественного характера</label>' +
           '<button class="btn btn-primary" id="qRun" style="width:100%">Рассчитать пошлину</button>' +
-          '<div id="qOut" style="margin-top:14px"></div>' +
+          '<div id="qOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
         "</div>" +
         '<div class="card">' +
           '<h3 style="margin-top:0">Что ещё влияет на пошлину</h3>' +
@@ -8160,7 +8754,7 @@
             '<div class="field" style="margin-top:10px"><label>Категория неимущественного требования</label><select class="select" id="qFixed">' +
               '<option value="">— выбрать —</option>' + fixedOpts +
             "</select></div>" +
-            '<div id="qFixedOut" style="margin-top:8px"></div>' +
+            '<div id="qFixedOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:8px"></div>' +
           "</div>" +
         "</div>" +
       "</div>" +
@@ -8176,7 +8770,7 @@
           '<option value="apk">Арбитражный суд</option>' +
         "</select></div>" +
         '<button class="btn btn-primary" id="dRun" style="width:100%">Рассчитать доплату</button>' +
-        '<div id="dOut" style="margin-top:14px"></div>' +
+        '<div id="dOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
       "</div>" +
       '<h2>Как определяется цена иска</h2>' +
       '<div class="card">' +
@@ -8192,11 +8786,14 @@
     return '<div class="card">' +
         '<h3 style="margin-top:0">Контрольные точки от момента задержания</h3>' +
         '<p class="small muted">Введите момент фактического задержания — получите сроки, которые нельзя пропустить.</p>' +
-        '<div class="form-row" style="max-width:520px">' +
+        '<div class="field" style="max-width:520px"><label>Момент фактического задержания</label><div class="form-row">' +
           '<input type="datetime-local" class="input" id="kTime">' +
           '<button class="btn btn-primary" id="kRun">Построить</button>' +
+        "</div></div>" +
+        '<div id="kOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
+        '<div class="actions-row" style="margin-top:10px">' +
+          '<button class="btn" id="kIcs" type="button">Скачать .ics</button>' +
         "</div>" +
-        '<div id="kOut" style="margin-top:14px"></div>' +
       "</div>" +
       '<h2>Пределы продления</h2>' +
       '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll">' +
@@ -8546,10 +9143,25 @@
   function bindCalc(tab) {
     var k = calcTab(tab);
     var today = new Date();
-    var iso = today.toISOString().slice(0, 10);
+    var iso = isoLocal(today);
 
     var money = function (n) {
       return n.toLocaleString("ru-RU", { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + " ₽";
+    };
+
+    /* Кнопка «Скопировать расчёт» под результатом: текст собирается из того же
+       состояния, что и экран, поэтому копия всегда совпадает с увиденным. */
+    var addCalcCopy = function (sel, textFn) {
+      var box = $(sel);
+      if (!box) return;
+      var old = box.querySelector(".calc-copy");
+      if (old) old.parentNode.removeChild(old);
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn btn-sm calc-copy";
+      b.innerHTML = ic("clip") + " Скопировать расчёт";
+      b.addEventListener("click", function () { copyText(textFn(), "Расчёт скопирован"); });
+      box.appendChild(b);
     };
 
     if (k === "simple") {
@@ -8575,6 +9187,8 @@
 
     if (k === "claim") {
       var tiersFor = function () { return $("#qCourt").value === "apk" ? CALC_DUTY_APK : CALC_DUTY_TIERS; };
+      var dutyShown = false, diffShown = false, qBusy = false;
+      var runQ = null, runDiff = null;
 
       /* Строка требования: название + сумма + кнопка удаления. */
       var addPart = function (name, val) {
@@ -8594,9 +9208,12 @@
           total += Math.max(0, parseFloat(r.querySelector("[data-q-amt]").value) || 0);
         });
         var el = $("#qTotal");
-        if (!el) return;
-        el.innerHTML = '<div><div class="small muted">Цена иска</div><b>' + calcMoney(total) + "</b></div>" +
-          '<div class="small muted">из ' + rows.length + " " + plural(rows.length, ["требования", "требований", "требований"]) + "</div>";
+        if (el) {
+          el.innerHTML = '<div><div class="small muted">Цена иска</div><b>' + calcMoney(total) + "</b></div>" +
+            '<div class="small muted">из ' + rows.length + " " + plural(rows.length, ["требования", "требований", "требований"]) + "</div>";
+        }
+        /* Если пошлину уже посчитали, изменение сумм сразу обновляет и её. */
+        if (dutyShown && !qBusy && runQ) runQ();
         return total;
       };
 
@@ -8615,7 +9232,8 @@
         addPart(part ? part.t : p.getAttribute("data-q-part"), null);
       });
 
-      $("#qRun").addEventListener("click", function () {
+      runQ = function () {
+        qBusy = true;
         var price = refreshTotal() || 0;
         var tiers = tiersFor();
         var who = $("#qWho").value;
@@ -8644,6 +9262,7 @@
           fee = red; basis = "подп. 2 п. 1 ст. " + ($("#qCourt").value === "apk" ? "333.21" : "333.19") + " НК РФ";
         }
 
+        dutyShown = true;
         var bandTxt = calcDutyBand(d.tier, tiers);
         var html = '<div class="info-box">' +
           '<div class="small muted">Государственная пошлина</div><b style="font-size:19px">' + calcMoney(fee) + "</b>" +
@@ -8655,7 +9274,6 @@
         if (note) html += '<div class="warn-box" style="margin-top:10px">' + esc(note) + "</div>";
 
         if ($("#qNonProp").checked) {
-          var fk = who === "org" ? "nonprop-org" : "nonprop-fl";
           var fv = ($("#qCourt").value === "apk")
             ? (who === "org" ? 50000 : 15000)
             : (who === "org" ? 20000 : 3000);
@@ -8665,6 +9283,17 @@
         }
         html += '<div class="small muted" style="margin-top:8px">Суд вправе уменьшить пошлину или рассрочить её из-за имущественного положения (п. 2 ст. 333.20 НК РФ). <a class="lnk" data-go="#/article/nk2-333.19">ст. 333.19 НК РФ</a></div>';
         $("#qOut").innerHTML = html;
+        addCalcCopy("#qOut", function () {
+          return "Государственная пошлина: " + calcMoney(fee) +
+            "\nЦена иска: " + calcMoney(price) + "\nСтупень шкалы: " + bandTxt +
+            "\nОснование: " + basis;
+        });
+        qBusy = false;
+      };
+      $("#qRun").addEventListener("click", runQ);
+      ["qCourt", "qWho", "qBenefit", "qOrder", "qNonProp"].forEach(function (id) {
+        var el = $("#" + id); if (!el) return;
+        el.addEventListener("change", function () { if (dutyShown) runQ(); });
       });
 
       $("#qFixed").addEventListener("change", function () {
@@ -8677,12 +9306,13 @@
           '</b><div class="small muted" style="margin-top:8px">' + esc(f.b) + "</div></div>";
       });
 
-      $("#dRun").addEventListener("click", function () {
+      runDiff = function () {
         var was = Math.max(0, parseFloat($("#dWas").value) || 0);
         var bec = Math.max(0, parseFloat($("#dBec").value) || 0);
         var tiers = $("#dCourt").value === "apk" ? CALC_DUTY_APK : CALC_DUTY_TIERS;
         var fw = calcDutySum(tiers, was).sum, fb = calcDutySum(tiers, bec).sum;
         var diff = fb - fw;
+        diffShown = true;
         $("#dOut").innerHTML = '<div class="info-box">' +
           '<div class="small muted">Пошлина была (цена ' + calcMoney(was) + ")</div><b>" + calcMoney(fw) + "</b>" +
           '<div class="small muted" style="margin-top:6px">Пошлина стала (цена ' + calcMoney(bec) + ")</div><b style=\"font-size:18px\">" + calcMoney(fb) + "</b>" +
@@ -8693,6 +9323,18 @@
           "</div>" +
           '<div class="small muted" style="margin-top:8px">Основание: подп. 10 п. 1 ст. 333.20 НК РФ. <a class="lnk" data-go="#/article/nk2-333.20">ст. 333.20 НК РФ</a></div>' +
           "</div>";
+        addCalcCopy("#dOut", function () {
+          return "Доплата госпошлины\nБыло: " + calcMoney(was) + " → пошлина " + calcMoney(fw) +
+            "\nСтало: " + calcMoney(bec) + " → пошлина " + calcMoney(fb) +
+            "\n" + (diff > 0 ? "Доплата: " + calcMoney(diff) : diff < 0 ? "К возврату: " + calcMoney(-diff) : "Доплата не требуется") +
+            "\nОснование: подп. 10 п. 1 ст. 333.20 НК РФ";
+        });
+      };
+      $("#dRun").addEventListener("click", runDiff);
+      ["dWas", "dBec", "dCourt"].forEach(function (id) {
+        var el = $("#" + id); if (!el) return;
+        el.addEventListener("input", function () { if (diffShown) runDiff(); });
+        el.addEventListener("change", function () { if (diffShown) runDiff(); });
       });
 
       /* предзаполнение: одно пустое требование, чтобы было с чего начать */
@@ -8701,44 +9343,190 @@
     }
 
     if (k === "base") {
-      $("#cDate").value = iso;
+      /* Последние введённые данные переживают уход со страницы: возвращаться
+         к «срок 2 месяца» каждый раз неудобно. Сегодняшняя дата остаётся
+         значением по умолчанию — сохранённое подставляется только если оно
+         похоже на дату. */
+      var savedBase = LS.get("calcBase", null);
+      var baseMode = savedBase && savedBase.mode === "start" ? "start" : "end";
+      if (savedBase && /^\d{4}-\d{2}-\d{2}$/.test(savedBase.ds || "")) {
+        $("#cDate").value = savedBase.ds;
+        if (savedBase.num != null) $("#cNum").value = savedBase.num;
+        if (savedBase.unit) $("#cUnit").value = savedBase.unit;
+        if (savedBase.ts) $("#cTime").value = savedBase.ts;
+        $("#cSkip").checked = !!savedBase.skip;
+        $("#cWorkdays").checked = !!savedBase.workdays;
+      } else {
+        $("#cDate").value = iso;
+      }
       $("#cCaseDate").value = iso;
+      var lastBase = null, lastCase = [];
+
+      var renderBaseHist = function () {
+        var box = $("#cHist"); if (!box) return;
+        var h = getBaseHistory();
+        if (!h.length) { box.innerHTML = ""; return; }
+        box.innerHTML = '<div class="section-label" style="margin-top:14px">История расчётов (' + h.length + ')</div>' +
+          h.map(function (r, i) {
+            return '<div class="draft-row">' +
+              '<button class="btn btn-sm" data-basehist="' + i + '">' + ic("clock") + " " + esc(r.label) + "</button>" +
+              '<button class="btn btn-sm btn-danger" data-basedel="' + i + '" title="Удалить">' + ic("trash") + "</button></div>";
+          }).join("") +
+          '<button class="btn btn-sm" data-baseclear type="button" style="margin-top:6px">Очистить историю</button>';
+        $$("#view [data-basehist]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            var r = getBaseHistory()[+b.getAttribute("data-basehist")]; if (!r) return;
+            $("#cDate").value = r.ds;
+            $("#cNum").value = r.num;
+            $("#cUnit").value = r.unit;
+            if (r.ts) $("#cTime").value = r.ts;
+            $("#cSkip").checked = !!r.skip;
+            $("#cWorkdays").checked = !!r.workdays;
+            run();
+          });
+        });
+        $$("#view [data-basedel]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            var h = getBaseHistory(); h.splice(+b.getAttribute("data-basedel"), 1); setBaseHistory(h); renderBaseHist();
+          });
+        });
+        var clr = $("#view [data-baseclear]");
+        if (clr) clr.addEventListener("click", function () {
+          if (!confirm("Очистить историю расчётов?")) return;
+          setBaseHistory([]); renderBaseHist();
+        });
+      };
+
+      var syncWorkdays = function () {
+        var onlyDays = $("#cUnit").value === "days";
+        var box = $("#cWorkdays");
+        box.disabled = !onlyDays;
+        box.title = onlyDays ? "" : "Доступно, когда срок задан в сутках";
+        if (box.parentNode) box.parentNode.classList.toggle("is-disabled", !onlyDays);
+        if (!onlyDays && box.checked) box.checked = false;
+      };
+
+      var setMode = function (m) {
+        baseMode = m === "start" ? "start" : "end";
+        $$("#cMode .chip").forEach(function (c) {
+          c.classList.toggle("on", c.getAttribute("data-cmode") === baseMode);
+        });
+        var dl = $("#cDateLabel"), tl = $("#cTimeLabel");
+        if (dl) dl.textContent = baseMode === "start" ? "Дата окончания (известна)" : "Начало срока";
+        if (tl) tl.textContent = baseMode === "start" ? "Время окончания" : "Время начала";
+        var sk = $("#cSkip");
+        if (sk) {
+          sk.disabled = baseMode === "start";
+          if (sk.parentNode) sk.parentNode.classList.toggle("is-disabled", baseMode === "start");
+          sk.title = baseMode === "start" ? "При обратном расчёте перенос не применяется" : "";
+        }
+      };
+
       var run = function () {
+        syncWorkdays();
         var ds = $("#cDate").value;
         if (!ds) { toast("Укажите дату"); return; }
         var num = parseInt($("#cNum").value, 10) || 0;
         var unit = $("#cUnit").value;
         var ts = $("#cTime").value || "00:00";
-        var start = new Date(ds + "T" + ts + ":00");
-        if (isNaN(start.getTime())) { toast("Некорректная дата"); return; }
-        var workdays = $("#cWorkdays").checked;
-        var end, shifted = null;
-        if (unit === "days" && workdays) {
-          end = advanceWorkdays(start, num);
+        var given = new Date(ds + "T" + ts + ":00");
+        if (isNaN(given.getTime())) { toast("Некорректная дата"); return; }
+        var workdays = unit === "days" && $("#cWorkdays").checked;
+        var start, end = given, shifted = null;
+        if (baseMode === "start") {
+          /* Обратный расчёт: дата окончания известна, длительность вычитается.
+             Перенос с нерабочего дня здесь не применяется — иначе результат
+             зависел бы от того, какой день мы считаем «настоящим» окончанием. */
+          start = workdays ? advanceWorkdays(given, -num) : calcAdd(given, -num, unit);
         } else {
-          end = calcAdd(start, num, unit);
-          if (!$("#cSkip").checked && !isWorkday(end)) shifted = nextWorkday(end);
+          start = given;
+          if (workdays) end = advanceWorkdays(start, num);
+          else {
+            end = calcAdd(start, num, unit);
+            if (!$("#cSkip").checked && !isWorkday(end)) shifted = nextWorkday(end);
+          }
         }
-        var days = Math.round((end - start) / 86400000);
+        var finalEnd = shifted || end;
+        var days = Math.round((finalEnd - start) / 86400000);
         var daysLabel = (unit === "days" && workdays)
-          ? num + " " + plural(num, ["рабочий день", "рабочих дня", "рабочих дней"])
+          ? calcUnitLabel(num, "workdays")
           : calcFmtDays(days);
+        var workCount = countWorkdaysBetween(start, finalEnd);
+        var status = calcStatusText(finalEnd);
+        var startLabel = baseMode === "start" ? "Расчётное начало" : "Начало";
+        var endLabel = baseMode === "start" ? "Заданное окончание" : "Окончание";
+        lastBase = { start: start, raw: end, end: finalEnd, shifted: !!shifted,
+          num: num, unit: unit, days: days, mode: baseMode };
+        LS.set("calcBase", {
+          ds: ds, num: num, unit: unit, ts: ts,
+          skip: $("#cSkip").checked, workdays: workdays, mode: baseMode
+        });
+        $("#cActions").style.display = "";
         $("#cOut").innerHTML =
           '<div class="info-box">' +
-            '<div class="small muted">Начало</div><b>' + fmtDateTime(start) + "</b>" +
-            '<div class="small muted" style="margin-top:8px">Окончание</div><b style="font-size:17px">' + fmtDateTime(end) + "</b>" +
-            '<div class="small muted" style="margin-top:8px">' + fmtDay(end) + " · " + daysLabel + "</div>" +
+            '<div class="small muted">' + startLabel + '</div><b>' + fmtDateTime(start) + "</b>" +
+            '<div class="small muted" style="margin-top:8px">' + endLabel + '</div><b style="font-size:17px">' + fmtDateTime(finalEnd) + "</b>" +
+            '<div class="small muted" style="margin-top:8px">' + fmtDay(finalEnd) + " · " + daysLabel +
+              (shifted ? " · срок истекал " + fmtDateTime(end) : "") + "</div>" +
+            '<div class="small muted" style="margin-top:4px">' + esc(status.charAt(0).toUpperCase() + status.slice(1)) +
+              " · календарных дней: " + Math.abs(days) + " · рабочих: " + workCount + "</div>" +
           "</div>" +
-          (shifted ? '<div class="warn-box" style="margin-top:10px"><b>Окончание попадает на нерабочий день.</b> Последним днём срока считается первый следующий рабочий день — <b>' +
-            fmtDateTime(shifted) + "</b> (" + dayName(shifted) + "). Основание: ч. 2 ст. 128 УПК РФ.</div>"
-            : '<div class="warn-box" style="margin-top:10px">Последний день срока — до 24:00 указанной даты. Если действие совершается в организации, срок истекает в час окончания рабочего дня (ч. 2 ст. 128 УПК РФ).' +
-              (workdays ? " Период отсчитан в рабочих днях — выходные и праздники в срок не засчитываются." : "") + '</div>') +
+          (baseMode === "start"
+            ? '<div class="info-box" style="margin-top:10px">Обратный расчёт: от указанной даты окончания отнимается длительность. Перенос с нерабочего дня не применяется — проверьте начало по правилам ст. 128 УПК РФ.</div>'
+            : shifted ? '<div class="warn-box" style="margin-top:10px"><b>Окончание попадает на нерабочий день.</b> Последним днём срока считается первый следующий рабочий день — <b>' +
+                fmtDateTime(finalEnd) + "</b> (" + dayName(finalEnd) + "). Основание: ч. 2 ст. 128 УПК РФ.</div>"
+              : '<div class="warn-box" style="margin-top:10px">Последний день срока — до 24:00 указанной даты. Если действие совершается в организации, срок истекает в час окончания рабочего дня (ч. 2 ст. 128 УПК РФ).' +
+                (workdays ? " Период отсчитан в рабочих днях — выходные и нерабочие праздничные дни в срок не засчитываются (ст. 112 ТК РФ)." : "") + '</div>') +
           '<div class="small muted" style="margin-top:8px">Основание: ст. 128 УПК РФ, <a class="lnk" data-go="#/article/upk-128">открыть статью</a>.</div>';
+        addCalcCopy("#cOut", function () {
+          return "Процессуальный срок\n" + startLabel + ": " + fmtDateTime(start) + "\n" +
+            endLabel + ": " + fmtDateTime(finalEnd) +
+            (shifted ? "\nСрок истекал " + fmtDateTime(end) + ", перенесён с нерабочего дня" : "") +
+            "\nДлительность: " + calcUnitLabel(num, unit) + "\n" + status + "\nОснование: ст. 128 УПК РФ";
+        });
       };
       $("#cRun").addEventListener("click", run);
-      $("#cUnit").addEventListener("change", run);
+      $("#cUnit").addEventListener("change", function () { syncWorkdays(); run(); });
       $("#cSkip").addEventListener("change", run);
       $("#cWorkdays").addEventListener("change", run);
+      $("#cMode").addEventListener("click", function (e) {
+        var c = e.target.closest("[data-cmode]");
+        if (!c) return;
+        setMode(c.getAttribute("data-cmode"));
+        run();
+      });
+      $("#cToday").addEventListener("click", function () {
+        $("#cDate").value = iso;
+        run();
+      });
+      $("#cReset").addEventListener("click", function () {
+        LS.del("calcBase");
+        $("#cDate").value = iso;
+        $("#cNum").value = "2";
+        $("#cUnit").value = "months";
+        $("#cTime").value = "12:00";
+        $("#cSkip").checked = false;
+        $("#cWorkdays").checked = false;
+        setMode("end");
+        run();
+        toast("Поля сброшены");
+      });
+      /* Пересчёт по ходу ввода: не нужно каждый раз тянуться к кнопке.
+         Задержка гасит перерисовку на каждой цифре. */
+      var liveTmr = 0;
+      var scheduleRun = function () {
+        clearTimeout(liveTmr);
+        liveTmr = setTimeout(function () { if ($("#cDate").value) run(); }, 280);
+      };
+      ["cDate", "cTime", "cNum"].forEach(function (id) {
+        var el = $("#" + id);
+        if (!el) return;
+        el.addEventListener("input", scheduleRun);
+        el.addEventListener("change", scheduleRun);
+      });
+      $("#cNum").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); clearTimeout(liveTmr); run(); }
+      });
       $("#cPresetWrap").addEventListener("click", function (e) {
         var p = e.target.closest("[data-calc-preset]");
         if (!p) return;
@@ -8752,17 +9540,48 @@
         run();
       });
 
+      $("#cSave").addEventListener("click", function () {
+        if (!lastBase) return;
+        var h = getBaseHistory();
+        h.unshift({
+          label: fmtDateRu(lastBase.start) + " +" + calcUnitLabel(lastBase.num, lastBase.unit) + " → " + fmtDateRu(lastBase.end),
+          ds: $("#cDate").value, num: lastBase.num, unit: lastBase.unit, ts: $("#cTime").value,
+          skip: $("#cSkip").checked, workdays: $("#cWorkdays").checked, tsStamp: Date.now()
+        });
+        setBaseHistory(h); renderBaseHist(); toast("Расчёт сохранён в историю");
+      });
+      $("#cIcs").addEventListener("click", function () {
+        if (!lastBase) { toast("Сначала рассчитайте срок"); return; }
+        downloadICS("срок.ics", "Процессуальный срок", [{
+          title: "Окончание срока: " + fmtDateRu(lastBase.end), start: lastBase.end,
+          desc: "Начало: " + fmtDateTime(lastBase.start) + " · срок: " + calcUnitLabel(lastBase.num, lastBase.unit)
+        }]);
+        toast("Файл .ics сохранён");
+      });
+
       var runCase = function () {
         var ds = $("#cCaseDate").value;
         if (!ds) { toast("Укажите дату"); return; }
         var kind = $("#cCaseKind").value;
-        var from = new Date(ds + (kind === "custody" ? "T00:00:00" : "T00:00:00"));
+        var from = new Date(ds + "T00:00:00");
+        var points = kind === "custody" ? CALC_CUSTODY : CALC_CASE;
+        lastCase = points.map(function (p) {
+          return { title: p.t, start: calcPointDate(from, p, kind),
+            desc: p.b + (p.n ? " · " + p.n : "") };
+        });
         $("#cCaseOut").innerHTML =
           '<div class="small muted" style="margin-bottom:8px">Отсчёт от ' + fmtDate(from) + " · " +
             (kind === "custody" ? "момент задержания" : "возбуждение дела") + "</div>" +
-          calcPointsHtml(from, kind === "custody" ? CALC_CUSTODY : CALC_CASE, kind);
+          calcPointsHtml(from, points, kind);
       };
       $("#cCaseRun").addEventListener("click", runCase);
+      $("#cCaseIcs").addEventListener("click", function () {
+        if (!lastCase.length) { toast("Сначала постройте точки"); return; }
+        downloadICS("точки-по-делу.ics", "Контрольные точки по делу", lastCase);
+        toast("Файл .ics сохранён");
+      });
+      renderBaseHist();
+      setMode(baseMode);
       run();
       return;
     }
@@ -8771,41 +9590,58 @@
       $("#lDate").value = iso;
       $("#aDate").value = iso;
       $("#iDate").value = iso;
-      $("#lRun").addEventListener("click", function () {
+
+      var runL = function () {
         var ds = $("#lDate").value;
-        if (!ds) { toast("Укажите дату"); return; }
+        if (!ds) return;
         var cat = CALC_LIMIT_UK.filter(function (x) { return x.k === $("#lCat").value; })[0] || CALC_LIMIT_UK[0];
         var from = new Date(ds + "T00:00:00");
         var end = calcAdd(from, cat.y, "years");
+        var status = calcStatusText(end);
         $("#lOut").innerHTML =
           '<div class="info-box">' +
             '<div class="small muted">Срок давности</div><b style="font-size:17px">' + cat.y + " " + plural(cat.y, ["год", "года", "лет"]) + "</b>" +
             '<div class="small muted" style="margin-top:8px">Истекает</div><b>' + fmtDay(end) + "</b>" +
+            '<div class="small muted" style="margin-top:4px">' + esc(status.charAt(0).toUpperCase() + status.slice(1)) + "</div>" +
           "</div>" +
           '<div class="small muted" style="margin-top:8px">Основание: ' + esc(cat.b) + '. Течение приостанавливается, если лицо уклоняется от следствия или суда либо от уплаты судебного штрафа, и возобновляется с момента задержания или явки с повинной (ч. 3 ст. 78 УК РФ). К террористическим преступлениям и ряду других сроки давности не применяются (ч. 5 ст. 78 УК РФ). ' +
           '<a class="lnk" data-go="#/article/uk-78">ст. 78 УК РФ</a></div>';
-      });
-      $("#aRun").addEventListener("click", function () {
+        addCalcCopy("#lOut", function () {
+          return "Давность по УК РФ: " + cat.y + " " + plural(cat.y, ["год", "года", "лет"]) +
+            "\nДата преступления: " + fmtDateRu(from) + "\nИстекает: " + fmtDay(end) + " · " + status +
+            "\nОснование: " + cat.b;
+        });
+      };
+      var runA = function () {
         var ds = $("#aDate").value;
-        if (!ds) { toast("Укажите дату"); return; }
+        if (!ds) return;
         var days = parseInt($("#aWho").value, 10);
         var from = new Date(ds + "T00:00:00");
         var end = calcAdd(from, days, "days");
+        var status = calcStatusText(end);
         $("#aOut").innerHTML =
           '<div class="info-box">' +
             '<div class="small muted">Срок давности</div><b style="font-size:17px">' + days + " " + plural(days, ["день", "дня", "дней"]) + "</b>" +
             '<div class="small muted" style="margin-top:8px">Истекает</div><b>' + fmtDay(end) + "</b>" +
+            '<div class="small muted" style="margin-top:4px">' + esc(status.charAt(0).toUpperCase() + status.slice(1)) + "</div>" +
           "</div>" +
           '<div class="small muted" style="margin-top:8px">Основание: ч. 1, 3 ст. 4.5 КоАП РФ. По длящемуся правонарушению срок считается со дня обнаружения (ч. 2 ст. 4.5). <a class="lnk" data-go="#/article/koap-4.5">ст. 4.5 КоАП РФ</a></div>';
-      });
-      $("#iRun").addEventListener("click", function () {
+        addCalcCopy("#aOut", function () {
+          return "Давность по КоАП РФ: " + days + " " + plural(days, ["день", "дня", "дней"]) +
+            "\nДата нарушения: " + fmtDateRu(from) + "\nИстекает: " + fmtDay(end) + " · " + status +
+            "\nОснование: ч. 1, 3 ст. 4.5 КоАП РФ";
+        });
+      };
+      var runI = function () {
         var ds = $("#iDate").value;
-        if (!ds) { toast("Укажите дату"); return; }
+        if (!ds) return;
         var from = new Date(ds + "T00:00:00");
         var end = calcAdd(from, 3, "years");
+        var status = calcStatusText(end);
         var html = '<div class="info-box">' +
           '<div class="small muted">Общий срок исковой давности</div><b style="font-size:17px">3 года</b>' +
-          '<div class="small muted" style="margin-top:8px">Истекает</div><b>' + fmtDay(end) + "</b></div>";
+          '<div class="small muted" style="margin-top:8px">Истекает</div><b>' + fmtDay(end) + "</b>" +
+          '<div class="small muted" style="margin-top:4px">' + esc(status.charAt(0).toUpperCase() + status.slice(1)) + "</div></div>";
         var vs = $("#iViol").value;
         if (vs) {
           var vd = new Date(vs + "T00:00:00");
@@ -8818,8 +9654,14 @@
         }
         html += '<div class="small muted" style="margin-top:8px">Основание: ст. 196, 200 ГК РФ. <a class="lnk" data-go="#/article/gk1-196">ст. 196 ГК РФ</a></div>';
         $("#iOut").innerHTML = html;
-      });
-      $("#sRun").addEventListener("click", function () {
+        addCalcCopy("#iOut", function () {
+          return "Исковая давность: 3 года\nНарушение стало известно: " + fmtDateRu(from) +
+            "\nИстекает: " + fmtDay(end) + " · " + status +
+            (vs ? "\nПредельный срок (10 лет): " + fmtDay(calcAdd(new Date(vs + "T00:00:00"), 10, "years")) : "") +
+            "\nОснование: ст. 196, 200 ГК РФ";
+        });
+      };
+      var runS = function () {
         var days = parseInt($("#sDays").value, 10) || 0;
         var kind = CALC_SETOFF.filter(function (x) { return x.k === $("#sKind").value; })[0] || CALC_SETOFF[0];
         var out;
@@ -8831,7 +9673,31 @@
         }
         $("#sOut").innerHTML = '<div class="info-box">' + days + " " + plural(days, ["день", "дня", "дней"]) +
           " под стражей → " + out + '<div class="small muted" style="margin-top:8px">Основание: ' + esc(kind.b) + "</div></div>";
+        addCalcCopy("#sOut", function () {
+          return "Зачёт содержания под стражей: " + days + " " + plural(days, ["день", "дня", "дней"]) +
+            "\n" + kind.t + "\nОснование: " + kind.b;
+        });
+      };
+
+      $("#lRun").addEventListener("click", runL);
+      $("#aRun").addEventListener("click", runA);
+      $("#iRun").addEventListener("click", runI);
+      $("#sRun").addEventListener("click", runS);
+      /* Пересчёт при смене даты или категории — результат не «застывает»
+         на прошлом варианте, пока человек не нажмёт кнопку ещё раз. */
+      ["lDate", "lCat"].forEach(function (id) {
+        var el = $("#" + id); if (el) el.addEventListener("change", runL);
       });
+      ["aDate", "aWho"].forEach(function (id) {
+        var el = $("#" + id); if (el) el.addEventListener("change", runA);
+      });
+      ["iDate", "iViol"].forEach(function (id) {
+        var el = $("#" + id); if (el) el.addEventListener("change", runI);
+      });
+      ["sDays", "sKind"].forEach(function (id) {
+        var el = $("#" + id); if (el) el.addEventListener("change", runS);
+      });
+      runL(); runA(); runI(); runS();
       return;
     }
 
@@ -8840,72 +9706,116 @@
         var v = $("#dKind").value;
         $("#dPriceWrap").style.display = (v === "prop" || v === "order") ? "" : "none";
       };
-      $("#dKind").addEventListener("change", function () { syncPrice(); });
-      syncPrice();
-      $("#dRun").addEventListener("click", function () {
+      var dutyShown = false;
+      var runDuty = function () {
         var v = $("#dKind").value;
-        var sum, basis;
+        var sum, basis, formula = "";
         if (v === "prop" || v === "order") {
           var price = Math.max(0, parseFloat($("#dPrice").value) || 0);
-          var tier = CALC_DUTY_TIERS.filter(function (t) { return price <= t.up; })[0];
-          sum = tier.base + (price > tier.from ? (price - tier.from) * tier.pct / 100 : 0);
-          if (tier.cap) sum = Math.min(sum, tier.cap);
+          var tier = CALC_DUTY_TIERS.filter(function (t) { return price <= t.up; })[0] || CALC_DUTY_TIERS[CALC_DUTY_TIERS.length - 1];
+          var raw = tier.base + (price > tier.from ? (price - tier.from) * tier.pct / 100 : 0);
+          var limited = tier.cap && raw > tier.cap;
+          sum = limited ? tier.cap : raw;
           basis = "подп. 1 п. 1 ст. 333.19 НК РФ";
-          if (v === "order") { sum = sum / 2; basis = "подп. 2 п. 1 ст. 333.19 НК РФ — 50 % пошлины по имущественному иску"; }
+          formula = '<div class="calc-formula">' + calcRub(tier.base) + " ₽";
+          if (tier.pct > 0 && price > tier.from) {
+            formula += ' + ' + String(tier.pct).replace(".", ",") + " % × (" + calcRub(price) + " − " + calcRub(tier.from) + " ₽)";
+          }
+          formula += " = " + money(sum) + (limited ? " (предел по норме)" : "") + "</div>";
+          if (v === "order") {
+            sum = sum / 2;
+            basis = "подп. 2 п. 1 ст. 333.19 НК РФ — 50 % пошлины по имущественному иску";
+            formula += '<div class="calc-formula">' + money(raw) + " × 50 % = " + money(sum) + "</div>";
+          }
         } else {
           var f = CALC_DUTY_FIXED.filter(function (x) { return x.k === v; })[0];
           sum = f.v; basis = f.b;
+          formula = '<div class="calc-formula">фиксированный размер: ' + money(sum) + "</div>";
         }
+        dutyShown = true;
         $("#dOut").innerHTML = '<div class="info-box">' +
           '<div class="small muted">Государственная пошлина</div><b style="font-size:19px">' + money(sum) + "</b>" +
+          formula +
           '<div class="small muted" style="margin-top:8px">Основание: ' + esc(basis) + "</div></div>" +
           '<div class="small muted" style="margin-top:8px">Суд вправе уменьшить размер пошлины с учётом имущественного положения (п. 2 ст. 333.20 НК РФ). <a class="lnk" data-go="#/article/nk2-333.19">ст. 333.19 НК РФ</a></div>';
-      });
+        addCalcCopy("#dOut", function () {
+          return "Государственная пошлина: " + money(sum) + "\nОснование: " + basis;
+        });
+      };
+      $("#dKind").addEventListener("change", function () { syncPrice(); if (dutyShown) runDuty(); });
+      $("#dRun").addEventListener("click", runDuty);
+      $("#dPrice").addEventListener("input", function () { if (dutyShown) runDuty(); });
+      syncPrice();
+
+      var nToDefault = new Date(today.getTime());
+      nToDefault.setDate(nToDefault.getDate() + 30);
       $("#nFrom").value = iso;
-      $("#nTo").value = iso;
-      $("#nRun").addEventListener("click", function () {
+      $("#nTo").value = isoLocal(nToDefault);
+      var penaltyShown = false;
+      var runPenalty = function () {
         var s = Math.max(0, parseFloat($("#nSum").value) || 0);
         var f = new Date($("#nFrom").value + "T00:00:00");
         var t = new Date($("#nTo").value + "T00:00:00");
         var rate = Math.max(0, parseFloat($("#nRate").value) || 0);
         var unit = $("#nUnit").value;
         var cpi = parseFloat($("#nCpi").value);
-        var days = Math.max(0, Math.round((t - f) / 86400000));
+        var days = Math.round((t - f) / 86400000);
         var html = "";
-        if (!isNaN(f.getTime()) && days > 0 && rate > 0) {
+        penaltyShown = true;
+        if (isNaN(f.getTime()) || isNaN(t.getTime())) {
+          html += '<div class="warn-box">Укажите обе даты периода.</div>';
+        } else if (t.getTime() < f.getTime()) {
+          html += '<div class="warn-box">Дата окончания периода раньше даты начала — проверьте ввод.</div>';
+        } else if (days === 0) {
+          html += '<div class="warn-box">Период нулевой: даты начала и окончания совпадают.</div>';
+        } else if (rate > 0) {
           var pen = unit === "day" ? s * rate / 100 * days : s * rate / 100 * days / 365;
           html += '<div class="info-box"><div class="small muted">Неустойка за ' + calcFmtDays(days) + "</div>" +
             '<b style="font-size:19px">' + money(pen) + "</b>" +
+            '<div class="calc-formula">' + money(s) + " × " + String(rate).replace(".", ",") + " %" +
+              (unit === "day" ? " × " + days + " дн." : " × " + days + " / 365") + " = " + money(pen) + "</div>" +
             '<div class="small muted" style="margin-top:8px">Основание: ст. 330 ГК РФ. При явной несоразмерности суд вправе уменьшить неустойку (ст. 333 ГК РФ).</div></div>';
+        } else {
+          html += '<div class="warn-box">Укажите ставку — расчёт появится здесь.</div>';
         }
         if (!isNaN(cpi) && cpi > 0) {
           html += '<div class="info-box" style="margin-top:10px"><div class="small muted">Индексация на ' + cpi + " %</div>" +
             '<b style="font-size:19px">' + money(s * cpi / 100) + "</b>" +
+            '<div class="calc-formula">' + money(s) + " × " + String(cpi).replace(".", ",") + " % = " + money(s * cpi / 100) + "</div>" +
             '<div class="small muted" style="margin-top:8px">Основание: ст. 208 ГПК РФ — для индексации используется официальная статистическая информация об индексе потребительских цен. Индекс нужно взять из данных Росстата за нужный период.</div></div>';
         }
-        if (!html) html = '<div class="warn-box">Укажите период и ставку — расчёт появится здесь.</div>';
         $("#nOut").innerHTML = html;
+        addCalcCopy("#nOut", function () {
+          return "Неустойка и индексация\nСумма долга: " + money(s) +
+            "\nПериод: " + ($("#nFrom").value || "—") + " — " + ($("#nTo").value || "—") +
+            "\nСтавка: " + rate + " % " + (unit === "day" ? "в день" : "годовых") +
+            (cpi > 0 ? "\nИндекс потребительских цен: " + cpi + " %" : "") +
+            "\nОснование: ст. 330, 333 ГК РФ; ст. 208 ГПК РФ";
+        });
+      };
+      $("#nRun").addEventListener("click", runPenalty);
+      ["nSum", "nFrom", "nTo", "nRate", "nUnit", "nCpi"].forEach(function (id) {
+        var el = $("#" + id); if (!el) return;
+        el.addEventListener("input", function () { if (penaltyShown) runPenalty(); });
+        el.addEventListener("change", function () { if (penaltyShown) runPenalty(); });
       });
 
       var addRow = function () {
         var row = document.createElement("div");
         row.className = "form-row calc-row";
         row.innerHTML =
-          '<input type="date" class="input" data-p-from value="' + iso + '">' +
-          '<input type="date" class="input" data-p-to value="' + iso + '">' +
-          '<input type="number" class="input" data-p-rate min="0" step="0.01" placeholder="% годовых" value="16">' +
+          '<input type="date" class="input" data-p-from aria-label="Период с" title="Период с" value="' + iso + '">' +
+          '<input type="date" class="input" data-p-to aria-label="Период по" title="Период по" value="' + iso + '">' +
+          '<input type="number" class="input" data-p-rate min="0" step="0.01" placeholder="% годовых" aria-label="Ключевая ставка, % годовых" value="16">' +
           '<button class="btn" data-p-del type="button" aria-label="Удалить период">' + ic("close") + "</button>";
         $("#pRows").appendChild(row);
       };
-      $("#pAdd").addEventListener("click", addRow);
-      $("#pRows").addEventListener("click", function (e) {
-        var d = e.target.closest("[data-p-del]");
-        if (d) d.parentNode.remove();
-      });
-      $("#pRun").addEventListener("click", function () {
+      var ratesShown = false;
+      var runRates = function () {
         var s = Math.max(0, parseFloat($("#pSum").value) || 0);
         var rows = $$("#pRows .calc-row");
-        var total = 0, parts = [];
+        var total = 0, totalDays = 0, parts = [];
+        ratesShown = true;
         rows.forEach(function (r) {
           var f = new Date(r.querySelector("[data-p-from]").value + "T00:00:00");
           var t = new Date(r.querySelector("[data-p-to]").value + "T00:00:00");
@@ -8914,14 +9824,28 @@
           if (isNaN(f.getTime()) || isNaN(t.getTime()) || days <= 0 || rate <= 0) return;
           var sum = s * rate / 100 * days / 365;
           total += sum;
+          totalDays += days;
           parts.push(fmtDate(f) + " — " + fmtDate(t) + " (" + calcFmtDays(days) + ", " + rate + " %): " + money(sum));
         });
-        if (!parts.length) { $("#pOut").innerHTML = '<div class="warn-box">Заполните хотя бы один период.</div>'; return; }
+        if (!parts.length) { $("#pOut").innerHTML = '<div class="warn-box">Заполните хотя бы один период: даты и ставку.</div>'; return; }
         $("#pOut").innerHTML = '<div class="info-box">' +
-          '<div class="small muted">Проценты по ст. 395 ГК РФ</div><b style="font-size:19px">' + money(total) + "</b></div>" +
+          '<div class="small muted">Проценты по ст. 395 ГК РФ</div><b style="font-size:19px">' + money(total) + "</b>" +
+          '<div class="small muted" style="margin-top:4px">Периодов: ' + parts.length + " · всего дней: " + totalDays + "</div></div>" +
           '<div class="small muted" style="margin-top:8px">' + parts.map(esc).join("<br>") + "</div>" +
           '<div class="small muted" style="margin-top:8px">Формула: сумма × ставка / 100 × дни / 365. Проценты взимаются по день уплаты долга (п. 3 ст. 395 ГК РФ). Начисление процентов на проценты не допускается (п. 5 ст. 395 ГК РФ). <a class="lnk" data-go="#/article/gk1-395">ст. 395 ГК РФ</a></div>';
+        addCalcCopy("#pOut", function () {
+          return "Проценты по ст. 395 ГК РФ: " + money(total) + "\n" + parts.join("\n") +
+            "\nСумма долга: " + money(s);
+        });
+      };
+      $("#pAdd").addEventListener("click", addRow);
+      $("#pRows").addEventListener("click", function (e) {
+        var d = e.target.closest("[data-p-del]");
+        if (d) { d.parentNode.remove(); if (ratesShown) runRates(); }
       });
+      $("#pRows").addEventListener("input", function () { if (ratesShown) runRates(); });
+      $("#pSum").addEventListener("input", function () { if (ratesShown) runRates(); });
+      $("#pRun").addEventListener("click", runRates);
       addRow();
       return;
     }
@@ -8929,6 +9853,13 @@
     if (k === "custody") {
       var dt = new Date(Date.now() - 3600 * 1000);
       $("#kTime").value = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      var lastK = [];
+      var untilText = function (at, now) {
+        var mins = Math.round((at.getTime() - now.getTime()) / 60000);
+        if (mins < 60) return Math.max(0, mins) + " мин.";
+        var h = Math.round(mins / 60);
+        return h < 48 ? h + " ч." : calcFmtDays(Math.ceil(h / 24));
+      };
       var runK = function () {
         var v = $("#kTime").value;
         if (!v) { toast("Укажите момент задержания"); return; }
@@ -8936,15 +9867,42 @@
         if (isNaN(from.getTime())) { toast("Некорректная дата"); return; }
         var now = new Date();
         var passed = Math.floor((now - from) / 3600000);
-        $("#kOut").innerHTML =
-          '<div class="' + (passed >= 48 ? "warn-box" : "info-box") + '">' +
+        var next = null;
+        CALC_CUSTODY.forEach(function (p) {
+          var at = calcPointDate(from, p, "custody");
+          if (at.getTime() > now.getTime() && (!next || at.getTime() < next.at.getTime())) next = { p: p, at: at };
+        });
+        var head;
+        if (passed < 0) {
+          head = '<div class="info-box">Указанный момент ещё не наступил. Точки построены от ' +
+            fmtDateTime(from) + ".</div>";
+        } else {
+          head = '<div class="' + (passed >= 48 ? "warn-box" : "info-box") + '">' +
             "С момента задержания прошло <b>" + passed + " " + plural(passed, ["час", "часа", "часов"]) + "</b> (" +
             calcFmtDays(Math.floor(passed / 24)) + "). " +
             (passed >= 48 ? "<b>Предельный срок задержания без суда истёк</b> — ч. 2 ст. 94 УПК РФ." : "До предельного срока задержания осталось " + (48 - passed) + " ч.") +
-          "</div>" +
-          calcPointsHtml(from, CALC_CUSTODY, "custody");
+            (next ? '<div style="margin-top:8px">Ближайшая точка: <b>' + esc(next.p.t) + "</b> — " +
+              fmtDateTime(next.at) + " (через " + untilText(next.at, now) + ", " + esc(next.p.b) + ").</div>" : "") +
+            "</div>";
+        }
+        lastK = CALC_CUSTODY.map(function (p) {
+          return { title: "Задержание: " + p.t, start: calcPointDate(from, p, "custody"), desc: p.b + (p.n ? " · " + p.n : "") };
+        });
+        $("#kOut").innerHTML = head + calcPointsHtml(from, CALC_CUSTODY, "custody");
+        addCalcCopy("#kOut", function () {
+          return "Контрольные точки от момента задержания\nМомент задержания: " + fmtDateTime(from) +
+            "\nПрошло часов: " + Math.max(0, passed) +
+            (next ? "\nБлижайшая точка: " + next.p.t + " — " + fmtDateTime(next.at) : "") +
+            "\nОснования: УПК РФ (ст. 94, 96, 108, 109)";
+        });
       };
       $("#kRun").addEventListener("click", runK);
+      $("#kTime").addEventListener("change", runK);
+      $("#kIcs").addEventListener("click", function () {
+        if (!lastK.length) { toast("Сначала постройте точки"); return; }
+        downloadICS("задержание.ics", "Контрольные точки задержания", lastK);
+        toast("Файл .ics сохранён");
+      });
       runK();
       return;
     }
@@ -8982,36 +9940,67 @@
   }
   function getCalcHistory() { return LS.get("calcHistory", []) || []; }
   function setCalcHistory(arr) { LS.set("calcHistory", arr.slice(0, 30)); }
+  function getBaseHistory() {
+    var a = LS.get("calcBaseHistory", []);
+    return Array.isArray(a) ? a : [];
+  }
+  function setBaseHistory(arr) { LS.set("calcBaseHistory", arr.slice(0, 30)); }
+  function getChainSaved() {
+    var a = LS.get("chains", []);
+    return Array.isArray(a) ? a : [];
+  }
+  function setChainSaved(arr) { LS.set("chains", arr.slice(0, 20)); }
+
+  /* Шаг цепочки сроков: действие, длительность, единица и управление
+     порядком. Один и тот же шаблон используется при отрисовке и добавлении. */
+  var CHAIN_PRESETS = [
+    ["Задержание", 48, "hours"], ["Проверка сообщения", 3, "days"],
+    ["Дознание", 30, "days"], ["Предварительное следствие", 2, "months"],
+    ["Ознакомление с материалами", 30, "days"], ["Апелляция", 15, "days"]
+  ];
+
+  function chainStepHtml(label, num, unit) {
+    var opt = function (v, t) {
+      return '<option value="' + v + '"' + (unit === v ? " selected" : "") + ">" + t + "</option>";
+    };
+    return '<div class="form-row chain-step">' +
+      '<input class="input" data-cs-label placeholder="Действие" aria-label="Действие" value="' + esc(label || "") + '">' +
+      '<input type="number" class="input" data-cs-num min="0" step="1" placeholder="длит." aria-label="Длительность шага" value="' + (num != null ? num : "") + '">' +
+      '<select class="select" data-cs-unit aria-label="Единица измерения">' +
+        opt("hours", "часов") + opt("days", "суток") + opt("workdays", "рабочих дней") +
+        opt("months", "месяцев") + opt("years", "лет") +
+      "</select>" +
+      '<button class="btn btn-sm" data-cs-up type="button" aria-label="Переместить выше" title="Выше">' + ic("up") + "</button>" +
+      '<button class="btn btn-sm" data-cs-down type="button" aria-label="Переместить ниже" title="Ниже">' + ic("down") + "</button>" +
+      '<button class="btn btn-sm btn-danger" data-cs-del type="button" aria-label="Удалить шаг" title="Удалить шаг">' + ic("close") + "</button>" +
+      "</div>";
+  }
+
+  function chainStepEl(label, num, unit) {
+    var wrap = document.createElement("div");
+    wrap.innerHTML = chainStepHtml(label, num, unit);
+    return wrap.firstChild;
+  }
 
   function viewDeadlines() {
-    var rows = (REF.deadlines || []).map(function (d) {
-      return "<tr><td>" + esc(d.t) + '</td><td class="term">' + esc(d.term) + "</td><td>" + esc(d.basis) + "</td></tr>";
+    var rows = (REF.deadlines || []).map(function (d, i) {
+      return '<tr class="dl-row" data-dl="' + i + '" tabindex="0" role="button" title="Подставить срок в калькулятор">' +
+        "<td>" + esc(d.t) + '</td><td class="term">' + esc(d.term) + "</td><td>" + esc(d.basis) + "</td></tr>";
     }).join("");
 
     var PRESETS = [
-      ["48 часов", 48, "hours"], ["3 суток", 3, "days"], ["10 суток (жалоба КоАП)", 10, "days"],
-      ["3 месяца (иск ТК)", 3, "months"], ["2 месяца (следствие)", 2, "months"], ["6 месяцев", 6, "months"]
+      ["48 часов", 48, "hours"], ["3 суток", 3, "days"], ["10 суток (апелляция)", 10, "days"],
+      ["10 рабочих дней", 10, "workdays"], ["15 дней (частная жалоба)", 15, "days"],
+      ["1 месяц (апелляция)", 1, "months"], ["2 месяца (следствие)", 2, "months"],
+      ["3 месяца (иск ТК)", 3, "months"], ["3 года (исп. лист)", 3, "years"]
     ];
     var presetsHtml = '<div class="chips" style="margin-top:10px">' + PRESETS.map(function (p) {
       return '<div class="chip" data-dur="' + p[1] + '" data-unit="' + p[2] + '">' + esc(p[0]) + "</div>";
     }).join("") + "</div>";
 
-    var chainStepHtml = function (label, num, unit) {
-      return '<div class="form-row chain-step">' +
-        '<input class="input" data-cs-label placeholder="Действие" value="' + esc(label || "") + '">' +
-        '<input type="number" class="input" data-cs-num min="0" step="1" placeholder="длит." value="' + (num != null ? num : "") + '">' +
-        '<select class="select" data-cs-unit>' +
-          '<option value="hours"' + (unit === "hours" ? " selected" : "") + ">часов</option>" +
-          '<option value="days"' + (unit === "days" ? " selected" : "") + ">суток</option>" +
-          '<option value="months"' + (unit === "months" ? " selected" : "") + ">месяцев</option>" +
-        "</select>" +
-        '<button class="btn" data-cs-del type="button" aria-label="Удалить шаг" title="Удалить шаг">' + ic("close") + "</button>" +
-        "</div>";
-    };
-
     return '<h1>Процессуальные сроки</h1>' +
       '<p class="lead">Справочник ключевых сроков и калькулятор для расчёта даты окончания, включая контрольные точки по задержанию. Расчёты можно сохранять в историю и выгружать в календарь (.ics).</p>' +
-      '<div class="note-box">Полный набор расчётов — процессуальные сроки, давность и зачёт, госпошлина и проценты, сроки под стражей — в разделе <a class="lnk" data-go="#/calc">Калькуляторы</a>.</div>' +
+      '<div class="note-box">Нажмите на строку в справочнике — срок подставится в калькулятор вместе с нормой-основанием. Полный набор расчётов — в разделе <a class="lnk" data-go="#/calc">Калькуляторы</a>.</div>' +
 
       '<div class="split">' +
         '<div class="card">' +
@@ -9019,12 +10008,19 @@
           '<div class="field"><label>Начало срока (дата)</label><input type="date" class="input" id="calcDate"></div>' +
           '<div class="field"><label>Длительность</label><div class="form-row">' +
             '<input type="number" class="input" id="calcNum" value="2" min="0" step="1">' +
-            '<select class="select" id="calcUnit"><option value="hours">часов</option><option value="days">суток</option><option value="months" selected>месяцев</option></select>' +
+            '<select class="select" id="calcUnit">' +
+              '<option value="hours">часов</option>' +
+              '<option value="days">суток</option>' +
+              '<option value="workdays">рабочих дней</option>' +
+              '<option value="months" selected>месяцев</option>' +
+              '<option value="years">лет</option>' +
+            "</select>" +
           "</div></div>" +
           '<div class="field"><label>Время начала (для часов)</label><input type="time" class="input" id="calcTime" value="12:00"></div>' +
+          '<label class="calc-check"><input type="checkbox" id="calcShift" checked> переносить окончание с нерабочего дня</label>' +
           '<button class="btn btn-primary" id="calcRun" style="width:100%">Рассчитать</button>' +
           presetsHtml +
-          '<div id="calcOut" style="margin-top:14px"></div>' +
+          '<div id="calcOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
           '<div class="actions-row" id="calcActions" style="display:none">' +
             '<button class="btn" id="calcSave">Сохранить в историю</button>' +
             '<button class="btn" id="calcIcs">Скачать .ics</button>' +
@@ -9034,71 +10030,128 @@
 
         '<div class="card">' +
           '<h3 style="margin-top:0">Контрольные точки по задержанию</h3>' +
-          '<p class="small muted">Введите момент фактического задержания — получите сроки, которые нельзя пропустить.</p>' +
-          '<div class="form-row"><input type="datetime-local" class="input" id="detTime"><button class="btn btn-primary" id="detRun">Построить</button>' +
-          '<button class="btn" id="detIcs" type="button">Скачать .ics</button></div>' +
-          '<div id="detOut" style="margin-top:14px"></div>' +
+          '<p class="small muted">Введите момент фактического задержания — получите сроки, которые нельзя пропустить. Ближайшая точка подсвечена.</p>' +
+          '<div class="field"><label>Момент фактического задержания</label><div class="form-row"><input type="datetime-local" class="input" id="detTime"><button class="btn btn-primary" id="detRun">Построить</button>' +
+          '<button class="btn" id="detIcs" type="button">Скачать .ics</button></div></div>' +
+          '<div id="detOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
         "</div>" +
       "</div>" +
 
       '<div class="card" style="margin-top:14px">' +
         '<h3 style="margin-top:0">Цепочка процессуальных сроков</h3>' +
-        '<p class="small muted">Последовательность действий: каждый шаг считается от окончания предыдущего. Удобно для графика по делу — от задержания до конца следствия.</p>' +
+        '<p class="small muted">Последовательность действий: каждый шаг считается от окончания предыдущего. Удобно для графика по делу — от задержания до конца следствия. Шаги можно менять местами и сохранять как готовые схемы.</p>' +
         '<div class="field"><label>Начало цепочки</label><input type="datetime-local" class="input" id="chainStart"></div>' +
-        '<div id="chainSteps">' + chainStepHtml("Задержание", 48, "hours") + chainStepHtml("Предварительное следствие", 2, "months") + "</div>" +
+        '<div class="small muted" style="margin:2px 0 6px">Типовые этапы — нажмите, чтобы добавить</div>' +
+        '<div class="chips" id="chainPresets">' + CHAIN_PRESETS.map(function (p, i) {
+          return '<div class="chip" data-chain-preset="' + i + '">' + esc(p[0]) + "</div>";
+        }).join("") + "</div>" +
+        '<div id="chainSteps" style="margin-top:10px">' + chainStepHtml("Задержание", 48, "hours") + chainStepHtml("Предварительное следствие", 2, "months") + "</div>" +
         '<div class="actions-row">' +
           '<button class="btn" id="chainAdd" type="button">+ Шаг</button>' +
+          '<button class="btn" id="chainSave" type="button">Сохранить цепочку</button>' +
           '<button class="btn btn-primary" id="chainRun" type="button">Построить</button>' +
           '<button class="btn" id="chainIcs" type="button">Скачать .ics</button>' +
+          '<button class="btn" id="chainClear" type="button">Очистить</button>' +
         "</div>" +
-        '<div id="chainOut" style="margin-top:14px"></div>' +
+        '<div id="chainSaved"></div>' +
+        '<div id="chainOut" role="status" aria-live="polite" aria-atomic="true" style="margin-top:14px"></div>' +
       "</div>" +
 
-      '<h2>Справочник сроков</h2>' +
-      '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll"><table class="tbl"><thead><tr><th>Что</th><th>Срок</th><th>Основание</th></tr></thead><tbody>' +
+      '<h2>Справочник сроков <span class="small muted" id="dlCount"></span></h2>' +
+      '<div class="field" style="margin-bottom:10px"><input class="input" id="dlFilter" placeholder="Фильтр: апелляция, задержание, 10 суток…"></div>' +
+      '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll"><table class="tbl"><thead><tr><th>Что</th><th>Срок</th><th>Основание</th></tr></thead><tbody id="dlBody">' +
       rows + "</tbody></table></div></div>" +
+      '<div id="dlInfo" style="margin-top:10px"></div>' +
 
-      '<div class="disclaimer">Расчёт выполняется по календарным правилам. Порядок исчисления сроков установлен ст. 128 УПК РФ: сроки исчисляются часами, сутками и месяцами; при задержании срок исчисляется с момента фактического задержания. Выходные и праздничные дни учитываются в зависимости от вида срока.</div>';
+      '<h2>Как считаются сроки</h2>' +
+      '<div class="grid grid-2">' +
+        '<div class="card"><b>День события не включается</b>' +
+          '<div class="small muted" style="margin-top:5px">Течение срока начинается на следующий день после календарной даты или события. Часы, сутки и месяцы — ст. 128 УПК РФ; ст. 108 ГПК РФ; ст. 114 АПК РФ; ст. 4.8 КоАП РФ.</div></div>' +
+        '<div class="card"><b>Сутки истекают в 24:00</b>' +
+          '<div class="small muted" style="margin-top:5px">Срок в часах и сутках оканчивается в 24:00 последних суток. При задержании он исчисляется с момента фактического задержания, а не с момента доставления (ст. 128 УПК РФ).</div></div>' +
+        '<div class="card"><b>Месяцы — по числу месяца</b>' +
+          '<div class="small muted" style="margin-top:5px">Срок в месяцах оканчивается в соответствующее число последнего месяца. Если такого числа нет, срок истекает в последний день месяца (ч. 2 ст. 128 УПК РФ, ст. 108 ГПК РФ).</div></div>' +
+        '<div class="card"><b>Нерабочий день — перенос</b>' +
+          '<div class="small muted" style="margin-top:5px">Если окончание приходится на выходной или праздник, последним днём считается следующий рабочий. Исключения — сроки задержания, содержания под стражей и некоторые другие (ч. 2 ст. 128 УПК РФ).</div></div>' +
+      "</div>" +
+
+      '<div class="disclaimer">Расчёт выполняется по календарным правилам. Порядок исчисления сроков установлен ст. 128 УПК РФ: сроки исчисляются часами, сутками и месяцами; при задержании срок исчисляется с момента фактического задержания. Выходные и праздничные дни учитываются в зависимости от вида срока. Проверьте норму и её редакцию по тексту закона в базе.</div>';
   }
 
   function bindDeadlines() {
     var today = new Date();
-    $("#calcDate").value = today.toISOString().slice(0, 10);
+    $("#calcDate").value = isoLocal(today);
 
     var lastCalc = null;   /* {start, end, days} — для истории и .ics */
+    var lastBasis = "";    /* норма, из которой подставлен срок */
     var lastDet = [];      /* события задержания для .ics */
     var lastChain = [];    /* события цепочки для .ics */
+    var detTimer = 0, chainTimer = 0;
 
-    function calc() {
+    function calcCopyText() {
+      if (!lastCalc) return "";
+      return "Начало: " + fmtDateTime(lastCalc.start) + "\n" +
+        "Окончание: " + fmtDateTime(lastCalc.end) + "\n" +
+        "Срок: " + calcUnitLabel(lastCalc.num, lastCalc.unit) +
+        (lastBasis ? "\nОснование: " + lastBasis : "");
+    }
+
+    function calc(silent) {
       var ds = $("#calcDate").value;
-      if (!ds) { toast("Укажите дату"); return; }
+      if (!ds) {
+        lastCalc = null;
+        $("#calcOut").innerHTML = "";
+        $("#calcActions").style.display = "none";
+        if (!silent) toast("Укажите дату");
+        return;
+      }
       var num = parseInt($("#calcNum").value, 10) || 0;
       var unit = $("#calcUnit").value;
       var ts = $("#calcTime").value || "00:00";
       var d = new Date(ds + "T" + ts + ":00");
-      if (isNaN(d.getTime())) { toast("Некорректная дата"); return; }
-      var end = new Date(d.getTime());
-      if (unit === "hours") end.setHours(end.getHours() + num);
-      else if (unit === "days") end.setDate(end.getDate() + num);
-      else end.setMonth(end.getMonth() + num);
-
+      if (isNaN(d.getTime())) { if (!silent) toast("Некорректная дата"); return; }
+      var raw = calcAdd(d, num, unit);
+      var end = raw, shifted = false;
+      var shift = $("#calcShift") ? $("#calcShift").checked : true;
+      if (shift && unit !== "workdays" && !isWorkday(raw)) {
+        end = nextWorkday(raw);
+        shifted = true;
+      }
       var days = Math.round((end - d) / 86400000);
-      lastCalc = { start: d, end: end, days: days };
+      var totalTxt = unit === "hours" ? "" : " · всего " + calcFmtDays(days);
+      var status = calcStatusExact(end);
+      var expired = end.getTime() < Date.now();
+      lastCalc = { start: d, raw: raw, end: end, shifted: shifted,
+        days: days, num: num, unit: unit };
       $("#calcActions").style.display = "";
-      var unitTxt = unit === "hours" ? "часов" : unit === "days" ? "суток" : "месяцев";
       $("#calcOut").innerHTML =
-        '<div class="info-box"><div class="small muted">Начало</div><b>' + fmtDateTime(d) + "</b>" +
-        '<div class="small muted" style="margin-top:8px">Окончание</div><b style="font-size:17px">' + fmtDateTime(end) + "</b>" +
-        '<div class="small muted" style="margin-top:8px">' + fmtDay(end) + " · " + plural(days, ["день", "дня", "дней"]) + " (" + days + ")" +
-        "</div></div>" +
-        '<div class="warn-box" style="margin-top:10px">Последний день срока — до 24:00 указанной даты. Если действие должно быть совершено в организации, срок истекает в час окончания рабочего дня.</div>';
+        '<div class="info-box">' +
+          '<div class="small muted">Начало</div><b>' + fmtDateTime(d) + "</b>" +
+          '<div class="small muted" style="margin-top:8px">Окончание</div><b style="font-size:17px">' + fmtDateTime(end) + "</b>" +
+          '<div class="small muted" style="margin-top:8px">' + fmtDay(end) + " · " + calcUnitLabel(num, unit) + totalTxt + "</div>" +
+          '<div class="small" style="margin-top:8px">Статус: <b>' + esc(status) + "</b></div>" +
+          (lastBasis ? '<div class="calc-formula">Основание: ' + esc(lastBasis) + "</div>" : "") +
+          '<button class="btn btn-sm calc-copy" id="calcCopy" type="button">' + ic("clip") + " Скопировать расчёт</button>" +
+        "</div>" +
+        (expired ? '<div class="warn-box" style="margin-top:10px"><b>Срок уже истёк.</b> Если он пропущен по уважительной причине, готовьте ходатайство о восстановлении или продлении — приложите доказательства.</div>' : "") +
+        (shifted
+          ? '<div class="warn-box" style="margin-top:10px"><b>Срок истекал ' + fmtDateTime(raw) + " (" + dayName(raw) + ").</b> Окончание перенесено на первый рабочий день — <b>" + fmtDateTime(end) + "</b> (" + dayName(end) + "). Основание: ч. 2 ст. 128 УПК РФ.</div>"
+          : '<div class="warn-box" style="margin-top:10px">Последний день срока — до 24:00 указанной даты. Если действие должно быть совершено в организации, срок истекает в час окончания рабочего дня.</div>') +
+        (unit === "workdays" ? '<div class="small muted" style="margin-top:8px">Рабочие дни считаются без выходных и нерабочих праздничных дней (ст. 112 ТК РФ).</div>' : "");
     }
-    $("#calcRun").addEventListener("click", calc);
-    ["calcNum", "calcUnit", "calcDate", "calcTime"].forEach(function (id) {
-      var el = $("#" + id); el.addEventListener("change", calc);
+    $("#calcRun").addEventListener("click", function () { calc(); });
+    ["calcNum", "calcUnit", "calcDate", "calcTime", "calcShift"].forEach(function (id) {
+      var el = $("#" + id);
+      if (el) el.addEventListener("change", function () { lastBasis = ""; calc(true); });
+    });
+    $("#calcOut").addEventListener("click", function (e) {
+      if (!e.target.closest("#calcCopy")) return;
+      var t = calcCopyText();
+      if (t) copyText(t, "Расчёт скопирован");
     });
     $$("#view [data-dur]").forEach(function (chip) {
       chip.addEventListener("click", function () {
+        lastBasis = "";
         $("#calcNum").value = chip.getAttribute("data-dur");
         $("#calcUnit").value = chip.getAttribute("data-unit");
         calc();
@@ -9114,12 +10167,15 @@
           return '<div class="draft-row">' +
             '<button class="btn btn-sm" data-calchist="' + i + '">' + ic("clock") + " " + esc(r.label) + "</button>" +
             '<button class="btn btn-sm btn-danger" data-calcdel="' + i + '" title="Удалить">' + ic("trash") + "</button></div>";
-        }).join("");
+        }).join("") +
+        '<button class="btn btn-sm" data-calcclear type="button" style="margin-top:6px">Очистить историю</button>';
       $$("#view [data-calchist]").forEach(function (b) {
         b.addEventListener("click", function () {
           var r = getCalcHistory()[+b.getAttribute("data-calchist")]; if (!r) return;
           $("#calcDate").value = r.ds; $("#calcNum").value = r.num; $("#calcUnit").value = r.unit;
           if (r.ts) $("#calcTime").value = r.ts;
+          if ($("#calcShift")) $("#calcShift").checked = r.shift == null ? true : !!r.shift;
+          lastBasis = "";
           calc();
         });
       });
@@ -9128,14 +10184,20 @@
           var h = getCalcHistory(); h.splice(+b.getAttribute("data-calcdel"), 1); setCalcHistory(h); renderHistory();
         });
       });
+      var clr = $("#view [data-calcclear]");
+      if (clr) clr.addEventListener("click", function () {
+        if (!confirm("Очистить историю расчётов?")) return;
+        setCalcHistory([]); renderHistory();
+      });
     }
     $("#calcSave").addEventListener("click", function () {
       if (!lastCalc) return;
-      var label = fmtDateRu(lastCalc.start) + " → +" + lastCalc.days + " дн.";
+      var label = fmtDateRu(lastCalc.start) + " +" + calcUnitLabel(lastCalc.num, lastCalc.unit) + " → " + fmtDateRu(lastCalc.end);
       var h = getCalcHistory();
       h.unshift({
-        label: label, ds: $("#calcDate").value, num: $("#calcNum").value,
-        unit: $("#calcUnit").value, ts: $("#calcTime").value, tsStamp: Date.now()
+        label: label, ds: $("#calcDate").value, num: lastCalc.num,
+        unit: lastCalc.unit, ts: $("#calcTime").value,
+        shift: $("#calcShift") ? $("#calcShift").checked : true, tsStamp: Date.now()
       });
       setCalcHistory(h); renderHistory(); toast("Расчёт сохранён в историю");
     });
@@ -9143,17 +10205,101 @@
       if (!lastCalc) { toast("Сначала рассчитайте срок"); return; }
       downloadICS("срок.ics", "Процессуальный срок",
         [{ title: "Окончание срока: " + fmtDateRu(lastCalc.end), start: lastCalc.end,
-           desc: "Начало: " + fmtDateRu(lastCalc.start) + " Срок: " + lastCalc.days + " дн." }]);
+           desc: "Начало: " + fmtDateTime(lastCalc.start) + " · срок: " + calcUnitLabel(lastCalc.num, lastCalc.unit) +
+             (lastCalc.shifted ? " · перенос с " + fmtDateTime(lastCalc.raw) : "") }]);
       toast("Файл .ics сохранён");
     });
     renderHistory();
     calc();
 
-    function det() {
+    /* --- справочник: фильтр и подстановка срока в калькулятор --- */
+    var dlFilter = $("#dlFilter");
+    var dlCount = $("#dlCount");
+    var dlBody = $("#dlBody");
+    var dlInfo = $("#dlInfo");
+
+    function parseTerm(term) {
+      var s = String(term || "").toLowerCase();
+      var m = /(\d+)\s*(час|сут|дн|день|дня|месяц|мес|год|лет|года)/.exec(s);
+      if (!m) return null;
+      var n = parseInt(m[1], 10);
+      if (!n) return null;
+      var w = m[2];
+      var unit = w.indexOf("час") === 0 ? "hours"
+        : (w.indexOf("сут") === 0 || w.indexOf("дн") === 0 || w.indexOf("день") === 0) ? "days"
+        : w.indexOf("мес") === 0 ? "months" : "years";
+      return { num: n, unit: unit };
+    }
+
+    function applyDlFilter() {
+      if (!dlBody) return;
+      var q = (dlFilter.value || "").trim().toLowerCase();
+      var rows = dlBody.querySelectorAll("tr.dl-row");
+      var shown = 0;
+      var tokens = q.split(/\s+/).filter(Boolean);
+      Array.prototype.forEach.call(rows, function (tr) {
+        var d = REF.deadlines[+tr.getAttribute("data-dl")] || {};
+        var hay = (d.t + " " + d.term + " " + d.basis + " " + (d.note || "")).toLowerCase();
+        var words = hay.split(/[^0-9a-zа-яё.]+/i);
+        /* «апелляция» должна находить «апелляционную»: сверяем не только
+           вхождение подстроки, но и начало слова по укороченной основе. */
+        var ok = !tokens.length || tokens.every(function (tok) {
+          if (hay.indexOf(tok) >= 0) return true;
+          var stem = tok.length > 4 ? tok.slice(0, tok.length - 2) : tok;
+          return words.some(function (w) { return w.indexOf(stem) === 0; });
+        });
+        tr.hidden = !ok;
+        if (ok) shown++;
+      });
+      dlCount.textContent = "· " + shown + " из " + rows.length;
+      if (!shown) dlInfo.innerHTML = '<div class="small muted">Ничего не найдено — измените запрос.</div>';
+    }
+
+    function showDeadline(i) {
+      var d = REF.deadlines[i];
+      if (!d) return;
+      var parsed = parseTerm(d.term);
+      lastBasis = parsed ? d.basis : "";
+      if (parsed) {
+        $("#calcNum").value = parsed.num;
+        $("#calcUnit").value = parsed.unit;
+        calc(true);
+      }
+      dlInfo.innerHTML = '<div class="info-box dl-note"><b>' + esc(d.t) + "</b>" +
+        '<div class="small" style="margin-top:4px">' + esc(d.term) + " · " + esc(d.basis) + "</div>" +
+        (d.note ? '<div class="small muted" style="margin-top:6px">' + esc(d.note) + "</div>" : "") +
+        '<div class="small muted" style="margin-top:6px">' +
+          (parsed ? "Срок подставлен в калькулятор." : "Этот срок не выражается числом — используйте его как ориентир.") +
+        "</div></div>";
+    }
+
+    if (dlBody) {
+      dlBody.addEventListener("click", function (e) {
+        var tr = e.target.closest("tr.dl-row");
+        if (tr) showDeadline(+tr.getAttribute("data-dl"));
+      });
+      dlBody.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        var tr = e.target.closest("tr.dl-row");
+        if (!tr) return;
+        e.preventDefault();
+        showDeadline(+tr.getAttribute("data-dl"));
+      });
+    }
+    if (dlFilter) dlFilter.addEventListener("input", applyDlFilter);
+    applyDlFilter();
+
+    function det(silent) {
       var v = $("#detTime").value;
-      if (!v) { toast("Укажите момент задержания"); return; }
+      if (!v) {
+        lastDet = [];
+        $("#detOut").innerHTML = "";
+        if (!silent) toast("Укажите момент задержания");
+        return;
+      }
       var d = new Date(v);
-      if (isNaN(d.getTime())) { toast("Некорректная дата"); return; }
+      if (isNaN(d.getTime())) { if (!silent) toast("Некорректная дата"); return; }
+      var now = new Date();
       var add = function (h) { return new Date(d.getTime() + h * 3600000); };
       var data = [
         ["Составление протокола задержания", add(3), "не более 3 часов с момента доставления"],
@@ -9162,14 +10308,34 @@
         ["Продление задержания судом для представления доказательств", add(72), "не более 72 часов"],
         ["Предъявление обвинения при избранной мере пресечения", add(240), "не более 10 суток"]
       ];
+      var nextIdx = -1;
+      data.forEach(function (r, i) {
+        if (nextIdx < 0 && r[1].getTime() > now.getTime()) nextIdx = i;
+      });
       lastDet = data.map(function (r) {
         return { title: "Срок: " + r[0], start: r[1], desc: r[2] };
       });
-      $("#detOut").innerHTML = '<div class="tbl-scroll"><table class="tbl"><tbody>' + data.map(function (r) {
-        return "<tr><td>" + esc(r[0]) + '<div class="small muted">' + esc(r[2]) + '</div></td><td class="term">' + fmtDateTime(r[1]) + "</td></tr>";
-      }).join("") + "</tbody></table></div>";
+      $("#detOut").innerHTML =
+        '<div class="tbl-scroll"><table class="tbl calc-tbl"><tbody>' + data.map(function (r, i) {
+          var past = r[1].getTime() < now.getTime();
+          var cls = past ? "calc-past" : (i === nextIdx ? "calc-next" : "");
+          return "<tr" + (cls ? ' class="' + cls + '"' : "") + ">" +
+            "<td>" + esc(r[0]) + (i === nextIdx ? ' <span class="small muted">· ближайшая</span>' : "") +
+              '<div class="small muted">' + esc(r[2]) + "</div></td>" +
+            '<td class="term">' + fmtDateTime(r[1]) +
+              '<div class="small muted">' + esc(calcStatusExact(r[1], now)) + "</div></td></tr>";
+        }).join("") + "</tbody></table></div>" +
+        '<button class="btn btn-sm calc-copy" id="detCopy" type="button">' + ic("clip") + " Скопировать точки</button>";
     }
-    $("#detRun").addEventListener("click", det);
+    $("#detRun").addEventListener("click", function () { det(); });
+    $("#detTime").addEventListener("change", function () {
+      clearTimeout(detTimer); detTimer = setTimeout(det, 200);
+    });
+    $("#detOut").addEventListener("click", function (e) {
+      if (!e.target.closest("#detCopy")) return;
+      if (!lastDet.length) { toast("Сначала постройте точки"); return; }
+      copyText(lastDet.map(function (r) { return r.title + " — " + fmtDateTime(r.start) + " (" + r.desc + ")"; }).join("\n"), "Точки скопированы");
+    });
     $("#detIcs").addEventListener("click", function () {
       if (!lastDet.length) { toast("Сначала постройте точки"); return; }
       downloadICS("задержание.ics", "Контрольные точки задержания", lastDet);
@@ -9181,57 +10347,183 @@
 
     /* --- цепочка сроков --- */
     var cs = $("#chainSteps");
-    if (cs) {
-      $("#chainAdd").addEventListener("click", function () {
-        var row = document.createElement("div");
-        row.innerHTML = '<div class="form-row chain-step">' +
-          '<input class="input" data-cs-label placeholder="Действие">' +
-          '<input type="number" class="input" data-cs-num min="0" step="1" placeholder="длит.">' +
-          '<select class="select" data-cs-unit>' +
-            '<option value="hours">часов</option><option value="days" selected>суток</option><option value="months">месяцев</option>' +
-          '</select><button class="btn" data-cs-del type="button" aria-label="Удалить шаг">' + ic("close") + "</button></div>";
-        cs.appendChild(row.firstChild);
+
+    var chainData = function () {
+      return $$("#chainSteps .chain-step").map(function (s) {
+        return {
+          label: s.querySelector("[data-cs-label]").value || "",
+          num: s.querySelector("[data-cs-num]").value,
+          unit: s.querySelector("[data-cs-unit]").value
+        };
       });
-      cs.addEventListener("click", function (e) {
-        var del = e.target.closest("[data-cs-del]");
-        if (del) del.parentNode.remove();
-      });
-    }
-    var chainInit = function () {
-      var n = new Date();
-      $("#chainStart").value = n.getFullYear() + "-" + pad(n.getMonth() + 1) + "-" + pad(n.getDate()) + "T" + pad(n.getHours()) + ":" + pad(n.getMinutes());
     };
-    $("#chainRun").addEventListener("click", function () {
+    var chainPersist = function () {
+      LS.set("chainLast", { start: $("#chainStart").value, steps: chainData() });
+    };
+    var chainFill = function (start, steps) {
+      if (start != null) $("#chainStart").value = start;
+      cs.innerHTML = "";
+      (steps && steps.length ? steps : [{ label: "", num: "", unit: "days" }]).forEach(function (st) {
+        cs.appendChild(chainStepEl(st.label, st.num, st.unit));
+      });
+    };
+    var renderChains = function () {
+      var box = $("#chainSaved"); if (!box) return;
+      var list = getChainSaved();
+      if (!list.length) { box.innerHTML = ""; return; }
+      box.innerHTML = '<div class="section-label" style="margin-top:14px">Сохранённые цепочки (' + list.length + ')</div>' +
+        list.map(function (c, i) {
+          return '<div class="draft-row">' +
+            '<button class="btn btn-sm" data-chain-open="' + i + '">' + ic("clock") + " " + esc(c.name) + "</button>" +
+            '<button class="btn btn-sm btn-danger" data-chain-del="' + i + '" title="Удалить">' + ic("trash") + "</button></div>";
+        }).join("");
+      $$("#view [data-chain-open]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var c = getChainSaved()[+b.getAttribute("data-chain-open")]; if (!c) return;
+          chainFill(c.start, c.steps);
+          runChain();
+          toast("Цепочка загружена");
+        });
+      });
+      $$("#view [data-chain-del]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var list = getChainSaved(); list.splice(+b.getAttribute("data-chain-del"), 1);
+          setChainSaved(list); renderChains();
+        });
+      });
+    };
+
+    var runChain = function (silent) {
       var v = $("#chainStart").value;
-      if (!v) { toast("Укажите начало цепочки"); return; }
+      if (!v) {
+        lastChain = [];
+        $("#chainOut").innerHTML = "";
+        if (!silent) toast("Укажите начало цепочки");
+        return;
+      }
       var cur = new Date(v);
-      if (isNaN(cur.getTime())) { toast("Некорректная дата"); return; }
+      if (isNaN(cur.getTime())) { if (!silent) toast("Некорректная дата"); return; }
       var steps = $$("#chainSteps .chain-step");
-      if (!steps.length) { toast("Добавьте хотя бы один шаг"); return; }
-      var events = [], rows = [];
+      if (!steps.length) {
+        lastChain = [];
+        $("#chainOut").innerHTML = '<div class="small muted">Добавьте хотя бы один шаг.</div>';
+        if (!silent) toast("Добавьте хотя бы один шаг");
+        return;
+      }
+      var events = [], rows = [], now = new Date();
       steps.forEach(function (s) {
         var label = s.querySelector("[data-cs-label]").value || "Действие";
         var num = parseInt(s.querySelector("[data-cs-num]").value, 10) || 0;
         var unit = s.querySelector("[data-cs-unit]").value;
         var start = new Date(cur.getTime());
-        if (unit === "hours") cur.setHours(cur.getHours() + num);
-        else if (unit === "days") cur.setDate(cur.getDate() + num);
-        else cur.setMonth(cur.getMonth() + num);
+        cur = calcAdd(cur, num, unit);
+        rows.push({ label: label, start: start, end: new Date(cur.getTime()),
+          dur: calcUnitLabel(num, unit), past: cur.getTime() < now.getTime() });
         events.push({ title: label + " — окончание", start: new Date(cur.getTime()),
-          desc: "Начало этапа: " + fmtDateTime(start) });
-        rows.push([label, fmtDateTime(start), fmtDateTime(cur), num + " " + (unit === "hours" ? "ч" : unit === "days" ? "сут" : "мес")]);
+          desc: "Начало этапа: " + fmtDateTime(start) + " · " + calcUnitLabel(num, unit) });
+      });
+      var nextIdx = -1;
+      rows.forEach(function (r, i) {
+        if (nextIdx < 0 && r.end.getTime() > now.getTime()) nextIdx = i;
       });
       lastChain = events;
-      $("#chainOut").innerHTML = '<div class="tbl-scroll"><table class="tbl"><thead><tr><th>Этап</th><th>Начало</th><th>Окончание</th><th>Длит.</th></tr></thead><tbody>' +
-        rows.map(function (r) { return "<tr><td>" + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td><td class=\"term\">" + esc(r[2]) + "</td><td>" + esc(r[3]) + "</td></tr>"; }).join("") +
-        "</tbody></table></div>";
+      var total = Math.round((cur - new Date(v)) / 86400000);
+      $("#chainOut").innerHTML =
+        '<div class="info-box" style="margin-bottom:10px"><div class="small muted">Итог цепочки</div>' +
+        '<b style="font-size:17px">' + fmtDateTime(cur) + "</b>" +
+        '<div class="small muted" style="margin-top:6px">От начала прошло ' + calcFmtDays(total) + " · этапов: " + rows.length +
+          (nextIdx >= 0 ? " · ближайший этап: " + esc(rows[nextIdx].label) : "") + "</div>" +
+        '<button class="btn btn-sm calc-copy" id="chainCopy" type="button">' + ic("clip") + " Скопировать график</button></div>" +
+        '<div class="tbl-scroll"><table class="tbl calc-tbl"><thead><tr><th>Этап</th><th>Начало</th><th>Окончание</th><th>Длительность</th></tr></thead><tbody>' +
+        rows.map(function (r, i) {
+          var cls = r.past ? "calc-past" : (i === nextIdx ? "calc-next" : "");
+          return "<tr" + (cls ? ' class="' + cls + '"' : "") + "><td>" + esc(r.label) +
+            (i === nextIdx ? ' <span class="small muted">· ближайший</span>' : "") + "</td><td>" + esc(fmtDateTime(r.start)) +
+            '</td><td class="term">' + esc(fmtDateTime(r.end)) +
+            '<div class="small muted">' + esc(calcStatusExact(r.end, now)) + "</div></td><td>" + esc(r.dur) + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+      chainPersist();
+    };
+    var chainRefresh = function () {
+      clearTimeout(chainTimer);
+      chainTimer = setTimeout(function () { runChain(true); }, 250);
+    };
+
+    if (cs) {
+      $("#chainAdd").addEventListener("click", function () {
+        cs.appendChild(chainStepEl("", "", "days"));
+        chainPersist();
+        runChain(true);
+      });
+      $("#chainPresets").addEventListener("click", function (e) {
+        var p = e.target.closest("[data-chain-preset]");
+        if (!p) return;
+        var item = CHAIN_PRESETS[+p.getAttribute("data-chain-preset")];
+        if (!item) return;
+        cs.appendChild(chainStepEl(item[0], item[1], item[2]));
+        chainPersist();
+        runChain(true);
+      });
+      cs.addEventListener("input", chainRefresh);
+      cs.addEventListener("change", chainRefresh);
+      cs.addEventListener("click", function (e) {
+        var row = e.target.closest(".chain-step");
+        if (!row) return;
+        if (e.target.closest("[data-cs-del]")) { row.remove(); chainPersist(); runChain(true); return; }
+        if (e.target.closest("[data-cs-up]") && row.previousElementSibling) {
+          cs.insertBefore(row, row.previousElementSibling); chainPersist(); runChain(true); return;
+        }
+        if (e.target.closest("[data-cs-down]") && row.nextElementSibling) {
+          cs.insertBefore(row.nextElementSibling, row); chainPersist(); runChain(true);
+        }
+      });
+    }
+    $("#chainStart").addEventListener("change", function () { chainPersist(); runChain(true); });
+    $("#chainOut").addEventListener("click", function (e) {
+      if (!e.target.closest("#chainCopy")) return;
+      if (!lastChain.length) { toast("Сначала постройте цепочку"); return; }
+      copyText(lastChain.map(function (r) { return r.title + " — " + fmtDateTime(r.start); }).join("\n"), "График скопирован");
+    });
+    $("#chainRun").addEventListener("click", function () { runChain(); });
+    $("#chainSave").addEventListener("click", function () {
+      var steps = chainData();
+      if (!steps.length || !steps.some(function (s) { return s.label || s.num; })) {
+        toast("Добавьте хотя бы один шаг"); return;
+      }
+      var start = $("#chainStart").value;
+      var d0 = start ? new Date(start) : new Date();
+      if (isNaN(d0.getTime())) d0 = new Date();
+      var def = "Цепочка от " + fmtDateRu(d0);
+      var name = window.prompt("Название цепочки:", def);
+      if (name == null) return;
+      name = (name || "").trim() || def;
+      var list = getChainSaved();
+      list.unshift({ name: name, start: start, steps: steps, ts: Date.now() });
+      setChainSaved(list); renderChains(); toast("Цепочка сохранена");
+    });
+    $("#chainClear").addEventListener("click", function () {
+      if (!confirm("Очистить цепочку?")) return;
+      chainFill(null, []);
+      $("#chainOut").innerHTML = "";
+      lastChain = [];
+      LS.del("chainLast");
     });
     $("#chainIcs").addEventListener("click", function () {
       if (!lastChain.length) { toast("Сначала постройте цепочку"); return; }
       downloadICS("цепочка-сроков.ics", "Цепочка процессуальных сроков", lastChain);
       toast("Файл .ics сохранён");
     });
-    chainInit();
+
+    var lastState = LS.get("chainLast", null);
+    var n = new Date();
+    var nowVal = n.getFullYear() + "-" + pad(n.getMonth() + 1) + "-" + pad(n.getDate()) + "T" + pad(n.getHours()) + ":" + pad(n.getMinutes());
+    if (lastState && lastState.steps && lastState.steps.length) {
+      chainFill(lastState.start || nowVal, lastState.steps);
+    } else {
+      $("#chainStart").value = nowVal;
+    }
+    renderChains();
+    runChain(true);
   }
 
   /* --- чек-листы --- */
@@ -9315,17 +10607,280 @@
     setDrafts(id, arr.slice(0, 12));
   }
   function removeDraft(id, idx) { var arr = getDrafts(id); arr.splice(idx, 1); setDrafts(id, arr); }
+  function renameDraft(id, idx, name) {
+    var arr = getDrafts(id);
+    if (!arr[idx]) return;
+    arr[idx].name = name;
+    setDrafts(id, arr);
+  }
+  function duplicateDraft(id, idx) {
+    var arr = getDrafts(id);
+    if (!arr[idx]) return;
+    arr.splice(idx + 1, 0, {
+      name: arr[idx].name + " (копия)",
+      vals: JSON.parse(JSON.stringify(arr[idx].vals || {})),
+      ts: Date.now()
+    });
+    setDrafts(id, arr);
+  }
+
+  /* Автосохранение рабочего состояния. В отличие от черновиков, которые
+     пользователь создаёт и называет сам, эта запись тихая: последняя версия
+     каждого документа лежит под его id, и при повторном открытии поля
+     восстанавливаются. Так недописанное заявление не теряется при случайном
+     закрытии вкладки — самая частая потеря в офлайн-редакторе. */
+  function getAutoMap() { return LS.get("autosave", {}) || {}; }
+  function getAuto(id) {
+    var e = getAutoMap()[id];
+    return e && e.vals ? e : null;
+  }
+  function setAuto(id, vals) {
+    var m = getAutoMap();
+    m[id] = { vals: vals || {}, ts: Date.now() };
+    var keys = Object.keys(m);
+    if (keys.length > 200) {
+      keys.sort(function (a, b) { return (m[b].ts || 0) - (m[a].ts || 0); })
+        .slice(200).forEach(function (k) { delete m[k]; });
+    }
+    LS.set("autosave", m);
+  }
+  function clearAuto(id) { var m = getAutoMap(); delete m[id]; LS.set("autosave", m); }
+
+  /* Недавно открытые документы — отдельная короткая память: она отвечает на
+     вопрос «что я делал вчера», не заставляя искать бланк по разделам. */
+  function getRecentDocs() { return LS.get("recentDocs", []) || []; }
+  function pushRecentDoc(kind, id, title) {
+    var arr = getRecentDocs().filter(function (x) { return !(x.kind === kind && x.id === id); });
+    arr.unshift({ kind: kind, id: id, t: title, ts: Date.now() });
+    LS.set("recentDocs", arr.slice(0, 8));
+  }
+  function docById(id) {
+    var t = tplById(id);
+    if (t) return { kind: "template", id: id, t: t.t, fields: t.fields };
+    var s = suitById(id);
+    if (s) return { kind: "suit", id: id, t: s.t, fields: s.fields };
+    return null;
+  }
+  function docHref(kind, id) { return (kind === "suit" ? "#/suit/" : "#/template/") + encodeURIComponent(id); }
+
+  /* Название черновика по умолчанию: лучше «Петров П.П. — 11 октября 2026»,
+     чем безликое «Черновик от…» — по имени сторону документ находится в
+     списке быстрее. */
+  function draftDefaultName(vals) {
+    var keys = ["istets", "fio", "otvet", "zayavitel", "lica", "familia"];
+    var who = "";
+    for (var i = 0; i < keys.length && !who; i++) {
+      var v = vals && vals[keys[i]];
+      if (v != null && String(v).trim()) who = String(v).trim();
+    }
+    var short = who.split(/\s+/).slice(0, 2).join(" ");
+    return (short ? short + " — " : "Черновик — ") + fmtDateRu(new Date());
+  }
+
+  /* Сводка заполненности: поле с автоматическим значением (сегодняшняя дата)
+     в знаменатель не входит — его нельзя «забыть заполнить». Значение,
+     совпадающее с образцом-подсказкой, тоже не считается: «Иванов И.И.» в
+     бланке — это пример, а не данные пользователя. */
+  function fillStats(fields, vals) {
+    var total = 0, filled = 0, missing = [];
+    (fields || []).forEach(function (f) {
+      if (f.src === "today") return;
+      total++;
+      var v = vals ? vals[f.k] : "";
+      var ph = f.p != null ? String(f.p).trim() : "";
+      var s = v != null ? String(v).trim() : "";
+      if (s !== "" && s !== ph) filled++;
+      else missing.push({ k: f.k, l: f.l || f.k });
+    });
+    return { total: total, filled: filled, missing: missing };
+  }
+
+  function meterHtml(stats) {
+    var pct = stats.total ? Math.round(100 * stats.filled / stats.total) : 100;
+    var left = stats.total - stats.filled;
+    var cls = left === 0 ? " is-done" : "";
+    return '<div class="doc-meter' + cls + '">' +
+      '<div class="doc-meter-top"><span>' + (left === 0 ? "Все поля заполнены" :
+        "Заполнено <b>" + stats.filled + "</b> из <b>" + stats.total + "</b>") + "</span>" +
+      '<span class="doc-meter-pct">' + pct + "%</span></div>" +
+      '<div class="doc-meter-bar"><i style="width:' + pct + '%"></i></div>' +
+      (left ? '<div class="doc-meter-miss"><span class="small muted">Не заполнено:</span>' +
+        stats.missing.slice(0, 4).map(function (m) {
+          return '<button type="button" class="doc-miss" data-miss="' + esc(m.k) + '" title="Перейти к полю">' + esc(m.l) + "</button>";
+        }).join("") +
+        (stats.missing.length > 4 ? '<span class="small muted">и ещё ' + (stats.missing.length - 4) + "</span>" : "") +
+        "</div>" : "") +
+      "</div>";
+  }
+
+  /* ---------- общая форма документа (шаблоны и иски) ----------
+     Поля группируются по смыслу: стороны и реквизиты, обстоятельства,
+     суммы. Это экономит прокрутку на длинных бланках и сразу показывает,
+     какие данные участвуют в расчёте цены иска. */
+  var FORM_GROUP_DEFS = [
+    { k: "req", t: "Стороны и реквизиты" },
+    { k: "rest", t: "Обстоятельства и данные" },
+    { k: "sums", t: "Суммы и расчёт" }
+  ];
+
+  function formGroupOf(f) {
+    if (f.type === "number") return "sums";
+    if (f.src || /(^|_)(fio|adres|adresat|addr|istets|otvet|zayavitel|zainteres|sud|court|organ|dolzhnost|gorod|data|child|brak|telefon|tel|email|inn|ogrn|pasport|predstav|oper|lica|familia|prokuror)(_|$)/i.test(f.k)) return "req";
+    if (/(sum|debt|percent|price|duty|monthly|year|stoimost|ushcherb|moral|neustoyka|cena|ubytki|avans|dolg|procent|rashod|kompens|zarpl|salary|platezh|vznos)/i.test(f.k)) return "sums";
+    return "rest";
+  }
+
+  function formFieldHtml(f, attr, value, opts) {
+    var auto = f.src ? ' <span class="tpl-auto">авто</span>' : "";
+    var ph = esc(f.p || "");
+    var val = esc(value == null ? "" : value);
+    var inp;
+    if (f.type === "textarea") {
+      inp = '<textarea class="input js-grow" rows="3" ' + attr + '="' + esc(f.k) + '" placeholder="' + ph + '">' + val + "</textarea>";
+    } else if (f.type === "number") {
+      inp = '<div class="input-money"><input class="input" type="number" inputmode="decimal" min="0" step="any" ' +
+        attr + '="' + esc(f.k) + '" value="' + val + '" placeholder="' + ph + '"><span aria-hidden="true">₽</span></div>';
+    } else {
+      inp = '<input class="input" ' + attr + '="' + esc(f.k) + '" value="' + val + '" placeholder="' + ph + '">';
+    }
+    var hint = opts && opts.hint ? opts.hint(f) : "";
+    return '<div class="field" data-field="' + esc(f.k) + '"><label>' + esc(f.l) + auto + "</label>" + inp +
+      (hint ? '<div class="field-hint">' + esc(hint) + "</div>" : "") + "</div>";
+  }
+
+  function formFieldsHtml(fields, attr, vals, opts) {
+    fields = fields || [];
+    var groups = {}, present = [];
+    FORM_GROUP_DEFS.forEach(function (g) { groups[g.k] = []; });
+    fields.forEach(function (f) {
+      var g = formGroupOf(f);
+      groups[g].push(f);
+    });
+    FORM_GROUP_DEFS.forEach(function (g) { if (groups[g.k].length) present.push(g); });
+    if (present.length < 2) {
+      return fields.map(function (f) { return formFieldHtml(f, attr, vals[f.k], opts); }).join("");
+    }
+    return present.map(function (g) {
+      return '<div class="form-group"><div class="form-group-h"><span>' + esc(g.t) + "</span>" +
+        '<span class="small muted">' + groups[g.k].length + "</span></div>" +
+        groups[g.k].map(function (f) { return formFieldHtml(f, attr, vals[f.k], opts); }).join("") + "</div>";
+    }).join("");
+  }
+
+  function autoGrow(el) {
+    if (!el || el.tagName !== "TEXTAREA") return;
+    el.style.height = "auto";
+    var h = el.scrollHeight;
+    if (h) el.style.height = Math.min(Math.max(h, 74), 340) + "px";
+  }
+
+  function autoGrowAll() {
+    $$("textarea.js-grow").forEach(autoGrow);
+  }
+
+  function focusFormField(attr, key) {
+    var el = $$("[" + attr + "]").filter(function (x) { return x.getAttribute(attr) === key; })[0];
+    if (!el) return;
+    try { el.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {}
+    el.focus();
+    if (el.select) el.select();
+  }
+
+  /* Подсказки «не заполнено» кликабельны: переводят к нужному полю и
+     выделяют образец, чтобы его было легко заменить. */
+  function bindMissingJump(boxSel, attr) {
+    var box = $(boxSel);
+    if (!box) return;
+    box.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-miss]") : null;
+      if (!b) return;
+      focusFormField(attr, b.getAttribute("data-miss"));
+    });
+  }
+
+  /* Enter — следующее поле, Ctrl+Enter — сохранить черновик. */
+  function bindFormKeys(attr, saveNow) {
+    var inputs = $$("[" + attr + "]");
+    inputs.forEach(function (el, i) {
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault(); saveNow(); toast("Черновик сохранён"); return;
+        }
+        if (e.key === "Enter" && !e.shiftKey && el.tagName !== "TEXTAREA") {
+          e.preventDefault();
+          var nx = inputs[i + 1];
+          if (nx) { nx.focus(); if (nx.select) nx.select(); }
+        }
+      });
+      if (el.tagName === "TEXTAREA") el.addEventListener("input", function () { autoGrow(el); });
+      autoGrow(el);
+    });
+  }
+
+  /* Выгрузка одного черновика или всех сразу в переносимый JSON. */
+  function draftBundle(items) {
+    return JSON.stringify({ format: "rflaws-drafts", version: 1,
+      exported: new Date().toISOString(), items: items }, null, 2);
+  }
+  function allDraftItems() {
+    var m = LS.get("drafts", {}) || {}, out = [];
+    Object.keys(m).forEach(function (id) {
+      var doc = docById(id);
+      (m[id] || []).forEach(function (d, di) {
+        out.push({ id: id, idx: di, kind: doc ? doc.kind : "", title: doc ? doc.t : "",
+          name: d.name, vals: d.vals, ts: d.ts });
+      });
+    });
+    out.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    return out;
+  }
+  /* Импорт понимает и полный набор, и одиночный черновик. Неизвестный id
+     пропускаем с предупреждением: чужой файл не должен молча разложить
+     данные по случайным документам. */
+  function importDraftBundle(text, done) {
+    var data;
+    try { data = JSON.parse(String(text || "").replace(/^\ufeff/, "")); } catch (e) { toast("Файл не похож на черновики: повреждён JSON"); return; }
+    var items = data && Array.isArray(data.items) ? data.items : (data && data.vals ? [data] : []);
+    if (!items.length) { toast("В файле нет черновиков"); return; }
+    var added = 0, skipped = 0;
+    items.forEach(function (it) {
+      var doc = it.id ? docById(it.id) : null;
+      if (!doc) { skipped++; return; }
+      addDraft(doc.id, it.name || draftDefaultName(it.vals), it.vals || {});
+      added++;
+    });
+    if (done) done();
+    toast(added ? "Загружено черновиков: " + added + (skipped ? ", пропущено: " + skipped : "") :
+      "Не удалось сопоставить черновики с документами");
+  }
+  function readJsonFile(file, cb) {
+    if (!file) return;
+    var fr = new FileReader();
+    fr.onload = function () { cb(String(fr.result || "")); };
+    fr.onerror = function () { toast("Не удалось прочитать файл"); };
+    fr.readAsText(file);
+  }
 
   function draftBarHtml(id) {
     var arr = getDrafts(id);
-    if (!arr.length) return '<div class="small muted" style="margin-top:8px">Сохраните черновик — он останется в этом браузере, и можно вернуться к недописанному документу.</div>';
+    if (!arr.length) return '<div class="small muted" style="margin-top:8px">Сохраните черновик — он останется в этом браузере, и можно вернуться к недописанному документу. Черновики можно переименовать, копировать и выгрузить в файл.</div>';
     return '<div class="drafts">' +
       '<div class="section-label" style="margin-top:10px">Мои черновики (' + arr.length + ')</div>' +
       arr.map(function (d, i) {
+        var when = d.ts ? new Date(d.ts) : null;
+        var stamp = when && !isNaN(when.getTime())
+          ? pad(when.getDate()) + "." + pad(when.getMonth() + 1) + "." + when.getFullYear() + " " +
+            pad(when.getHours()) + ":" + pad(when.getMinutes())
+          : "";
         return '<div class="draft-row">' +
-          '<button class="btn btn-sm" data-draft-load="' + i + '">' + ic("doc") + " " + esc(d.name) + "</button>" +
-          '<button class="btn btn-sm btn-danger" data-draft-del="' + i + '" title="Удалить черновик">' + ic("trash") + "</button>" +
-          "</div>";
+          '<button class="btn btn-sm draft-load" data-draft-load="' + i + '" title="Загрузить черновик">' +
+            ic("doc") + " " + esc(d.name) + (stamp ? ' <span class="small muted">' + esc(stamp) + "</span>" : "") + "</button>" +
+          '<span class="draft-tools">' +
+            '<button class="btn btn-sm" data-draft-rename="' + i + '" title="Переименовать" aria-label="Переименовать черновик">Переименовать</button>' +
+            '<button class="btn btn-sm" data-draft-dup="' + i + '" title="Создать копию" aria-label="Создать копию черновика">Копия</button>' +
+            '<button class="btn btn-sm" data-draft-export="' + i + '" title="Скачать в файл .json" aria-label="Скачать черновик в файл">Файл</button>' +
+            '<button class="btn btn-sm btn-danger" data-draft-del="' + i + '" title="Удалить черновик" aria-label="Удалить черновик">' + ic("trash") + "</button>" +
+          "</span></div>";
       }).join("") + "</div>";
   }
 
@@ -9347,6 +10902,7 @@
      значений, writeVal(k,v) записывает в поле, refresh() перерисовывает документ. */
   function bindDrafts(id, attr, readVals, writeVal, refresh) {
     var box = $("#" + (attr === "data-tf" ? "tplDrafts" : "suitDrafts"));
+    var doc = docById(id);
     function paint() {
       if (!box) return;
       box.innerHTML = draftBarHtml(id);
@@ -9354,7 +10910,34 @@
         b.addEventListener("click", function () {
           var d = getDrafts(id)[+b.getAttribute("data-draft-load")]; if (!d) return;
           Object.keys(d.vals || {}).forEach(function (k) { writeVal(k, d.vals[k]); });
-          refresh(); toast("Черновик загружен: " + d.name);
+          refresh();
+          /* Загруженный черновик сразу становится рабочим состоянием:
+             иначе следующее открытие вернуло бы более старую авто-версию. */
+          setAuto(id, readVals());
+          toast("Черновик загружен: " + d.name);
+        });
+      });
+      $$("[data-draft-rename]", box).forEach(function (b) {
+        b.addEventListener("click", function () {
+          var i = +b.getAttribute("data-draft-rename"), d = getDrafts(id)[i]; if (!d) return;
+          var name = window.prompt("Новое название черновика:", d.name);
+          if (name === null) return;
+          renameDraft(id, i, (name || "").trim() || d.name);
+          paint(); toast("Черновик переименован");
+        });
+      });
+      $$("[data-draft-dup]", box).forEach(function (b) {
+        b.addEventListener("click", function () {
+          duplicateDraft(id, +b.getAttribute("data-draft-dup")); paint(); toast("Создана копия черновика");
+        });
+      });
+      $$("[data-draft-export]", box).forEach(function (b) {
+        b.addEventListener("click", function () {
+          var d = getDrafts(id)[+b.getAttribute("data-draft-export")]; if (!d) return;
+          download("chernovik-" + norm(d.name || "document").slice(0, 40).replace(/\s+/g, "-") + ".json",
+            draftBundle([{ id: id, kind: doc ? doc.kind : "", title: doc ? doc.t : "",
+              name: d.name, vals: d.vals, ts: d.ts }]), "application/json");
+          toast("Черновик сохранён в файл");
         });
       });
       $$("[data-draft-del]", box).forEach(function (b) {
@@ -9365,7 +10948,7 @@
     }
     var saveBtn = $(attr === "data-tf" ? "#tplDraftSave" : "#suitDraftSave");
     if (saveBtn) saveBtn.addEventListener("click", function () {
-      var def = "Черновик от " + fmtDateRu(new Date());
+      var def = draftDefaultName(readVals());
       var name = window.prompt("Название черновика:", def);
       if (name === null) return;
       addDraft(id, (name || "").trim() || def, readVals());
@@ -9582,6 +11165,8 @@
                   plural((t.fields || []).length, ["поле", "поля", "полей"]) +
                   ((t.articles || []).length ? " · " + (t.articles || []).length + " " +
                     plural((t.articles || []).length, ["статья", "статьи", "статей"]) : "") +
+                  (getDrafts(t.id).length ? " · " + getDrafts(t.id).length + " " +
+                    plural(getDrafts(t.id).length, ["черновик", "черновика", "черновиков"]) : "") +
                 "</span>" +
                 '<span class="tpl-chev" aria-hidden="true">▸</span>' +
               "</button>" +
@@ -9607,12 +11192,13 @@
       ": уголовный процесс, административные правонарушения, гражданский и арбитражный процесс, трудовые споры, обращения и надзор. " +
       "Заполните поля — документ собирается сразу, с шапкой, реквизитами, пунктами и подписями. Его можно скопировать с форматированием, скачать в Word, сохранить текстом или распечатать.</p>" +
       tabStrip(DOC_TABS, "templates") +
-      prof + bar + cards +
+      prof + docsHubHtml() + bar + cards +
       '<div class="empty" id="tplEmpty" hidden><div class="ico">' + ic("search") + '</div><div>Ничего не найдено. Измените запрос или очистите поиск.</div></div>' +
       '<div class="disclaimer">Шаблоны носят справочный характер и требуют адаптации к материалам конкретного дела, а также проверки актуальных требований ведомственных приказов и бланков.</div>';
   }
 
   function bindTemplates() {
+    bindDocsHub();
     var save = $("#profSave"), clr = $("#profClear");
     if (save) save.addEventListener("click", function () {
       var p = {};
@@ -9688,22 +11274,133 @@
     });
   }
 
+  /* --- сводка «Мои документы» на списках шаблонов и исков ---
+     Одна панель вместо поиска по разделам: что открывали последним, какие
+     черновики лежат без движения и где остались рабочие версии. Клик по
+     черновику сразу открывает документ с его значениями. */
+  var _pendingDraft = null;
+  function docsHubHtml() {
+    var drafts = allDraftItems();
+    var autoMap = getAutoMap();
+    var autos = Object.keys(autoMap).map(function (id) {
+      var doc = docById(id);
+      return doc && autoMap[id] && autoMap[id].vals ? { doc: doc, ts: autoMap[id].ts } : null;
+    }).filter(Boolean).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    var recents = getRecentDocs().map(function (x) {
+      var doc = docById(x.id);
+      return doc ? { doc: doc, ts: x.ts } : null;
+    }).filter(Boolean);
+    if (!drafts.length && !autos.length && !recents.length) return "";
+
+    function when(ts) {
+      if (!ts) return "";
+      var d = new Date(ts);
+      if (isNaN(d.getTime())) return "";
+      return pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear() + " " +
+        pad(d.getHours()) + ":" + pad(d.getMinutes());
+    }
+    var recentHtml = recents.length ? '<div class="section-label">Недавно открывали</div><div class="chips">' +
+      recents.map(function (x) {
+        return '<div class="chip" data-go="' + esc(docHref(x.doc.kind, x.doc.id)) + '">' + esc(x.doc.t) + "</div>";
+      }).join("") + "</div>" : "";
+    var draftHtml = drafts.length ? '<div class="section-label">Черновики</div><div class="doc-hub-list">' +
+      drafts.map(function (x, i) {
+        return '<div class="doc-hub-row">' +
+          '<button class="lnk doc-hub-open" data-go="' + esc(docHref(x.kind || (docById(x.id) || {}).kind, x.id)) + '"' +
+            ' data-hub-doc="' + esc(x.id) + '" data-hub-doc-idx="' + x.idx + '">' +
+            esc((docById(x.id) || {}).t || x.title || x.id) + " — " + esc(x.name) + "</button>" +
+          '<span class="small muted">' + esc(when(x.ts)) + "</span>" +
+          '<button class="ibtn ibtn-del" data-hub-del="' + esc(x.id) + '" data-hub-del-idx="' + x.idx + '" ' +
+            'title="Удалить черновик" aria-label="Удалить черновик">✕</button>' +
+          "</div>";
+      }).join("") + "</div>" : "";
+    var autoHtml = autos.length ? '<div class="section-label">Рабочие версии (восстанавливаются при открытии)</div><div class="doc-hub-list">' +
+      autos.map(function (x) {
+        return '<div class="doc-hub-row">' +
+          '<button class="lnk" data-go="' + esc(docHref(x.doc.kind, x.doc.id)) + '">' + esc(x.doc.t) + "</button>" +
+          '<span class="small muted">' + esc(when(x.ts)) + "</span>" +
+          '<button class="ibtn ibtn-del" data-hub-forget="' + esc(x.doc.id) + '" ' +
+            'title="Удалить рабочую версию" aria-label="Удалить рабочую версию">✕</button>' +
+          "</div>";
+      }).join("") + "</div>" : "";
+
+    return '<details class="doc-hub" id="docHub">' +
+      "<summary><span class=\"doc-hub-t\">Мои документы</span>" +
+        (drafts.length ? '<span class="badge">' + drafts.length + " " +
+          plural(drafts.length, ["черновик", "черновика", "черновиков"]) + "</span>" : "") +
+        '<span class="small muted">' + (autos.length ? autos.length + " " +
+          plural(autos.length, ["рабочая версия", "рабочие версии", "рабочих версий"]) : "рабочих версий нет") +
+        "</span></summary>" +
+      '<div class="doc-hub-body">' + recentHtml + draftHtml + autoHtml +
+        '<div class="actions-row">' +
+          (drafts.length ? '<button class="btn btn-sm" id="docsExportAll">' + ic("file") + " Скачать все черновики</button>" : "") +
+          '<button class="btn btn-sm" id="docsImportBtn">' + ic("folder") + " Загрузить черновики из файла</button>" +
+          '<input type="file" id="docsImportFile" accept=".json,application/json" hidden>' +
+        "</div>" +
+        '<div class="small muted" style="margin-top:6px">Черновики и рабочие версии хранятся только в этом браузере. Файл .json переносит их на другое устройство.</div>' +
+      "</div></details>";
+  }
+
+  function bindDocsHub() {
+    var exportAll = $("#docsExportAll");
+    if (exportAll) exportAll.addEventListener("click", function () {
+      var items = allDraftItems();
+      if (!items.length) { toast("Черновиков нет"); return; }
+      download("chernoviki.json", draftBundle(items), "application/json");
+      toast("Скачано черновиков: " + items.length);
+    });
+    var importBtn = $("#docsImportBtn"), importFile = $("#docsImportFile");
+    if (importBtn && importFile) {
+      importBtn.addEventListener("click", function () { importFile.click(); });
+      importFile.addEventListener("change", function () {
+        readJsonFile(importFile.files && importFile.files[0], function (text) {
+          importDraftBundle(text, function () { render(); });
+        });
+        importFile.value = "";
+      });
+    }
+    $$("[data-hub-del]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        removeDraft(b.getAttribute("data-hub-del"), +b.getAttribute("data-hub-del-idx"));
+        toast("Черновик удалён"); render();
+      });
+    });
+    $$("[data-hub-forget]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        clearAuto(b.getAttribute("data-hub-forget"));
+        toast("Рабочая версия удалена"); render();
+      });
+    });
+    $$("[data-hub-doc]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        _pendingDraft = { id: b.getAttribute("data-hub-doc"), idx: +b.getAttribute("data-hub-doc-idx") };
+      });
+    });
+  }
+
+  /* Значения черновика, выбранного в «Моих документах»: применяются при
+     открытии страницы документа, до отрисовки. */
+  function takePendingDraft(id, writeVal) {
+    if (!_pendingDraft || _pendingDraft.id !== id) return null;
+    var d = getDrafts(id)[_pendingDraft.idx];
+    _pendingDraft = null;
+    if (!d) return null;
+    Object.keys(d.vals || {}).forEach(function (k) { writeVal(k, d.vals[k]); });
+    return d;
+  }
+
   /* --- один документ --- */
 
   function viewTemplate(id) {
     var t = tplById(id);
     if (!t) return '<div class="empty"><div class="ico">' + ic("file") + '</div><div>Шаблон не найден.</div></div>';
     var profile = getProfile();
-    var fields = (t.fields || []).map(function (f) {
-      var v = tplValue(f, profile);
-      var auto = f.src ? ' <span class="tpl-auto">авто</span>' : "";
-      var inp = f.type === "textarea"
-        ? '<textarea class="input" rows="3" data-tf="' + esc(f.k) + '" placeholder="' + esc(f.p || "") + '">' + esc(v) + "</textarea>"
-        : '<input class="input" data-tf="' + esc(f.k) + '" value="' + esc(v) + '" placeholder="' + esc(f.p || "") + '">';
-      return '<div class="field"><label>' + esc(f.l) + auto + "</label>" + inp + "</div>";
-    }).join("");
+    var vals = {};
+    (t.fields || []).forEach(function (f) { vals[f.k] = tplValue(f, profile); });
+    var fields = formFieldsHtml(t.fields, "data-tf", vals);
 
     var arts = (t.articles || []).map(function (aid) { return byId[aid]; }).filter(Boolean);
+    pushRecentDoc("template", t.id, t.t);
 
     return '<div class="crumbs"><span class="lnk" data-go="#/templates">Шаблоны документов</span></div>' +
       "<h1>" + esc(t.t) + "</h1>" +
@@ -9711,7 +11408,8 @@
       tabStrip(DOC_TABS, "templates") +
       '<div class="split">' +
         "<div>" +
-          '<div class="card"><div class="section-label" style="margin-top:0">Данные для подстановки</div>' + fields +
+          '<div class="card" id="tplForm" data-doc-id="' + esc(t.id) + '"><div class="section-label" style="margin-top:0">Данные для подстановки</div>' +
+            '<div id="tplMeter"></div>' + fields +
             casePickBar() +
             '<div class="actions-row">' +
               '<button class="btn" id="tplReset">Сбросить к образцу</button>' +
@@ -9720,6 +11418,8 @@
               '<button class="btn" id="tplDraftSave">Сохранить черновик</button>' +
             "</div>" +
             '<div id="tplDrafts"></div>' +
+            '<div class="small muted doc-auto" id="tplAuto"></div>' +
+            '<div class="small muted form-keys">Enter — следующее поле, Ctrl+Enter — сохранить черновик</div>' +
             (!profile.fio ? '<div class="small muted" style="margin-top:8px">Подсказка: заполните «Мои реквизиты» в списке шаблонов — должность и ФИО будут подставляться сами.</div>' : "") +
           "</div>" +
           (arts.length ? '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Правовое основание</div>' +
@@ -9731,7 +11431,7 @@
             ic("clip") + " Статьи в подборку</button></div></div>" : "") +
         "</div>" +
         "<div>" +
-          '<div class="card"><div class="section-label" style="margin-top:0">Готовый документ</div>' +
+          '<div class="card doc-preview-card"><div class="section-label" style="margin-top:0">Готовый документ</div>' +
           '<div class="doc-sheet" id="tplOut"></div>' +
           '<div class="actions-row">' +
             '<button class="btn btn-primary" id="tplCopyRich">' + ic("clip") + " Скопировать</button>" +
@@ -9749,28 +11449,80 @@
     if (!t) return;
     var out = $("#tplOut");
 
+    /* Форма ищется по id и проверяется по data-doc-id: отложенное
+       автосохранение прошлого документа не должно читать поля нового. */
+    function isCurrent() {
+      var root = $("#tplForm");
+      return !!root && root.getAttribute("data-doc-id") === t.id;
+    }
+    function formFields() {
+      return isCurrent() ? Array.prototype.slice.call($("#tplForm").querySelectorAll("[data-tf]")) : [];
+    }
     function vals() {
       var v = {};
-      $$("[data-tf]").forEach(function (el) { v[el.getAttribute("data-tf")] = el.value; });
+      formFields().forEach(function (el) { v[el.getAttribute("data-tf")] = el.value; });
       return v;
+    }
+    /* Поле ищется перебором, а не селектором: ключ приходит из localStorage,
+       а кривой селектор бросает исключение и ломает загрузку черновика. */
+    function setField(k, v) {
+      var el = formFields().filter(function (x) { return x.getAttribute("data-tf") === k; })[0];
+      if (el) el.value = v == null ? "" : v;
     }
     function screen() { return docHtml(t.blocks, vals(), false); }
     function word() { return docHtml(t.blocks, vals(), true); }
     function plain() { return docText(t.blocks, vals()); }
-    function refresh() { out.innerHTML = screen(); }
+    function paintMeter() {
+      var box = $("#tplMeter");
+      if (box) box.innerHTML = meterHtml(fillStats(t.fields, vals()));
+    }
+    var autoTimer = null;
+    function paintAuto(ts) {
+      var el = $("#tplAuto");
+      if (!el) return;
+      var d = ts ? new Date(ts) : null;
+      el.textContent = d && !isNaN(d.getTime())
+        ? "Рабочая версия сохранена " + pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear() +
+          " в " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + " — откроется сама при следующем визите"
+        : "Изменения сохраняются автоматически в этом браузере";
+    }
+    function saveNow() {
+      clearTimeout(autoTimer);
+      if (!isCurrent()) return;
+      setAuto(t.id, vals());
+      paintAuto(Date.now());
+    }
+    function scheduleAuto() {
+      clearTimeout(autoTimer);
+      autoTimer = setTimeout(saveNow, 450);
+    }
+    function refresh() { out.innerHTML = screen(); paintMeter(); autoGrowAll(); }
 
-    $$("[data-tf]").forEach(function (el) {
-      el.addEventListener("input", refresh);
-      el.addEventListener("change", refresh);
+    /* Автосохранение поднимается до первого рендера; черновик, выбранный в
+       «Моих документах», имеет приоритет над последней рабочей версией. */
+    var auto = getAuto(t.id);
+    if (auto) {
+      Object.keys(auto.vals || {}).forEach(function (k) { setField(k, auto.vals[k]); });
+      paintAuto(auto.ts);
+    } else paintAuto(0);
+    var pd = takePendingDraft(t.id, setField);
+    if (pd) {
+      setAuto(t.id, vals()); paintAuto(Date.now());
+      toast("Открыт черновик: " + pd.name);
+    }
+
+    formFields().forEach(function (el) {
+      el.addEventListener("input", function () { refresh(); scheduleAuto(); });
+      el.addEventListener("change", saveNow);
     });
 
     $("#tplReset").addEventListener("click", function () {
       var profile = getProfile();
-      $$("[data-tf]").forEach(function (el) {
+      formFields().forEach(function (el) {
         var f = (t.fields || []).filter(function (x) { return x.k === el.getAttribute("data-tf"); })[0];
         el.value = f ? tplValue(f, profile) : "";
       });
-      refresh(); toast("Поля сброшены к образцу");
+      refresh(); saveNow(); toast("Поля сброшены к образцу");
     });
     var fp = $("#tplFillProfile"); if (fp) fp.addEventListener("click", function () {
       var profile = getProfile();
@@ -9778,21 +11530,16 @@
         toast("Сначала заполните «Мои реквизиты» в списке шаблонов");
         return;
       }
-      $$("[data-tf]").forEach(function (el) {
+      formFields().forEach(function (el) {
         var f = (t.fields || []).filter(function (x) { return x.k === el.getAttribute("data-tf"); })[0];
         if (f) el.value = tplValue(f, profile);
       });
-      refresh(); toast("Поля заполнены из «Моих реквизитов»");
+      refresh(); saveNow(); toast("Поля заполнены из «Моих реквизитов»");
     });
-    bindDrafts(t.id, "data-tf", vals, function (k, v) {
-      /* Ищем поле перебором, а не селектором: ключ приходит из хранилища,
-         а кривой селектор бросает исключение и ломает всю загрузку черновика. */
-      var el = $$("[data-tf]").filter(function (x) { return x.getAttribute("data-tf") === k; })[0];
-      if (el) el.value = v;
-    }, refresh);
+    bindDrafts(t.id, "data-tf", vals, setField, refresh);
     $("#tplClear").addEventListener("click", function () {
-      $$("[data-tf]").forEach(function (el) { el.value = ""; });
-      refresh(); toast("Поля очищены");
+      formFields().forEach(function (el) { el.value = ""; });
+      refresh(); saveNow(); toast("Поля очищены");
     });
 
     $("#tplCopyRich").addEventListener("click", function () {
@@ -9810,11 +11557,13 @@
     });
 
     bindCasePick("data-tf", {
-      after: refresh,
+      after: function () { refresh(); saveNow(); },
       title: function () { return t.t; },
       text: plain,
       kind: "Документ по шаблону"
     });
+    bindMissingJump("#tplMeter", "data-tf");
+    bindFormKeys("data-tf", saveNow);
 
     refresh();
   }
@@ -9919,7 +11668,9 @@
             '<div style="font-weight:620">' + esc(s.t) + "</div>" +
             '<div class="small muted" style="margin-top:4px">' + esc(s.basis || "") + "</div>" +
             '<div class="small muted" style="margin-top:8px">' + (s.articles || []).length + " " +
-            plural((s.articles || []).length, ["статья", "статьи", "статей"]) + "</div></div>";
+            plural((s.articles || []).length, ["статья", "статьи", "статей"]) +
+            (getDrafts(s.id).length ? " · " + getDrafts(s.id).length + " " +
+              plural(getDrafts(s.id).length, ["черновик", "черновика", "черновиков"]) : "") + "</div></div>";
         }).join("") + "</div>" +
         "</div></section>";
     }).join("");
@@ -9938,12 +11689,13 @@
       '<p class="lead">' + all.length + " " + plural(all.length, ["готовое исковое заявление", "готовых исковых заявления", "готовых исковых заявлений"]) +
       " по гражданским, административным и арбитражным делам: взыскание долга, алименты, защита прав потребителя, расторжение брака, возмещение вреда, установление факта, спор с органом власти. " +
       "Заполните суммы — цена иска и госпошлина подставятся и пересчитаются автоматически, документ можно скачать в Word, выгрузить текстом или распечатать.</p>" +
-      tabStrip(DOC_TABS, "suits") + bar + cards +
+      tabStrip(DOC_TABS, "suits") + docsHubHtml() + bar + cards +
       '<div class="empty" id="suitEmpty" hidden><div class="ico">' + ic("search") + '</div><div>Ничего не найдено. Измените запрос или очистите поиск.</div></div>' +
       '<div class="disclaimer">Заявления носят справочный характер и требуют адаптации к обстоятельствам дела, проверки подсудности и актуальных размеров госпошлины (ст. 333.19/333.21 НК РФ).</div>';
   }
 
   function bindSuits() {
+    bindDocsHub();
     function setSuitGroup(sec, open) {
       setGroupOpen(sec, "[data-suit-group-toggle]", ".tpl-group-body", open);
     }
@@ -9999,16 +11751,20 @@
     var s = suitById(id);
     if (!s) return '<div class="empty"><div class="ico">' + ic("file") + '</div><div>Исковое заявление не найдено.</div></div>';
     var profile = getProfile();
-    var fields = (s.fields || []).map(function (f) {
-      var v = tplValue(f, profile);
-      var inp = f.type === "number"
-        ? '<input class="input" type="number" min="0" step="1000" data-sf="' + esc(f.k) + '" value="' + esc(v) + '" placeholder="' + esc(f.p || "") + '">'
-        : '<input class="input" data-sf="' + esc(f.k) + '" value="' + esc(v) + '" placeholder="' + esc(f.p || "") + '">';
-      return '<div class="field"><label>' + esc(f.l) + "</label>" + inp + "</div>";
-    }).join("");
+    var vals = {};
+    (s.fields || []).forEach(function (f) { vals[f.k] = tplValue(f, profile); });
+    var priceKeys = {};
+    if (s.calc && s.calc.price) {
+      if (s.calc.price.parts) s.calc.price.parts.forEach(function (k) { priceKeys[k] = 1; });
+      if (s.calc.price.field) priceKeys[s.calc.price.field] = 1;
+    }
+    var fields = formFieldsHtml(s.fields, "data-sf", vals, {
+      hint: function (f) { return priceKeys[f.k] ? "Входит в цену иска" : ""; }
+    });
     var arts = (s.articles || []).map(function (aid) { return byId[aid]; }).filter(Boolean);
     var steps = (s.steps || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
     var att = (s.att || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
+    pushRecentDoc("suit", s.id, s.t);
 
     return '<div class="crumbs"><span class="lnk" data-go="#/suits">Исковые заявления</span></div>' +
       "<h1>" + esc(s.t) + "</h1>" +
@@ -10017,7 +11773,8 @@
       '<div class="split">' +
         "<div>" +
           (steps ? '<div class="card"><div class="section-label" style="margin-top:0">Как подать</div><ol class="suit-steps">' + steps + "</ol></div>" : "") +
-          '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Данные для подстановки</div>' + fields +
+          '<div class="card" style="margin-top:12px" id="suitForm" data-doc-id="' + esc(s.id) + '"><div class="section-label" style="margin-top:0">Данные для подстановки</div>' +
+            '<div id="suitMeter"></div>' + fields +
             casePickBar() +
             '<div class="actions-row">' +
               '<button class="btn" id="suitReset">Сбросить к образцу</button>' +
@@ -10026,10 +11783,14 @@
               '<button class="btn" id="suitDraftSave">Сохранить черновик</button>' +
             "</div>" +
             '<div id="suitDrafts"></div>' +
+            '<div class="small muted doc-auto" id="suitAuto"></div>' +
+            '<div class="small muted form-keys">Enter — следующее поле, Ctrl+Enter — сохранить черновик</div>' +
           "</div>" +
-          '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Расчёт</div>' +
-            '<div class="field"><label>Цена иска, ₽</label><input class="input" id="suitPrice" readonly></div>' +
-            '<div class="field"><label>Госпошлина, ₽</label><input class="input" id="suitDuty" readonly></div>' +
+          '<div class="card calc-card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Расчёт</div>' +
+            '<div class="calc-money"><div class="calc-money-row"><span>Цена иска</span>' +
+              '<input class="calc-money-input" id="suitPrice" aria-label="Цена иска" readonly value="0 ₽"></div>' +
+            '<div class="calc-money-row"><span>Госпошлина</span>' +
+              '<input class="calc-money-input" id="suitDuty" aria-label="Госпошлина" readonly value="0 ₽"></div></div>' +
             '<div class="small muted" id="suitDutyNote"></div></div>' +
           (att ? '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Приложите к иску</div><ul class="suit-att">' + att + "</ul></div>" : "") +
           (arts.length ? '<div class="card" style="margin-top:12px"><div class="section-label" style="margin-top:0">Правовое основание</div><div class="chips">' +
@@ -10037,7 +11798,7 @@
             '</div><div class="actions-row"><button class="btn" data-col-batch="' + esc((s.articles || []).join(",")) + '">' + ic("clip") + " Статьи в подборку</button></div></div>" : "") +
         "</div>" +
         "<div>" +
-          '<div class="card"><div class="section-label" style="margin-top:0">Готовое заявление</div>' +
+          '<div class="card doc-preview-card"><div class="section-label" style="margin-top:0">Готовое заявление</div>' +
           '<div class="doc-sheet" id="suitOut"></div>' +
           '<div class="actions-row">' +
             '<button class="btn btn-primary" id="suitCopyRich">' + ic("clip") + " Скопировать</button>" +
@@ -10056,9 +11817,18 @@
     var out = $("#suitOut");
 
     function isFree() { return !!(s.calc && s.calc.duty && s.calc.duty.free); }
+    /* См. bindTemplate: отложенный таймер прошлого иска не должен читать
+       и пересчитывать поля открытого сейчас документа. */
+    function isCurrent() {
+      var root = $("#suitForm");
+      return !!root && root.getAttribute("data-doc-id") === s.id;
+    }
+    function formFields() {
+      return isCurrent() ? Array.prototype.slice.call($("#suitForm").querySelectorAll("[data-sf]")) : [];
+    }
     function vals() {
       var v = {};
-      $$("[data-sf]").forEach(function (el) { v[el.getAttribute("data-sf")] = el.value; });
+      formFields().forEach(function (el) { v[el.getAttribute("data-sf")] = el.value; });
       var price = suitPriceNum(s, v);
       var duty = suitDutyInfo(s, v);
       /* В тексте заявления за суммой уже стоит «₽», поэтому подставляем
@@ -10070,26 +11840,65 @@
       var dn = $("#suitDutyNote"); if (dn) dn.textContent = duty.note;
       return v;
     }
+    function setField(k, v) {
+      var el = formFields().filter(function (x) { return x.getAttribute("data-sf") === k; })[0];
+      if (el) el.value = v == null ? "" : v;
+    }
     function screen() { return docHtml(s.blocks, vals(), false); }
     function word() { return docHtml(s.blocks, vals(), true); }
     function plain() { return docText(s.blocks, vals()); }
-    function refresh() { out.innerHTML = screen(); }
+    function paintMeter() {
+      var box = $("#suitMeter");
+      if (box) box.innerHTML = meterHtml(fillStats(s.fields, vals()));
+    }
+    var autoTimer = null;
+    function paintAuto(ts) {
+      var el = $("#suitAuto");
+      if (!el) return;
+      var d = ts ? new Date(ts) : null;
+      el.textContent = d && !isNaN(d.getTime())
+        ? "Рабочая версия сохранена " + pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear() +
+          " в " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + " — откроется сама при следующем визите"
+        : "Изменения сохраняются автоматически в этом браузере";
+    }
+    function saveNow() {
+      clearTimeout(autoTimer);
+      if (!isCurrent()) return;
+      setAuto(s.id, vals());
+      paintAuto(Date.now());
+    }
+    function scheduleAuto() {
+      clearTimeout(autoTimer);
+      autoTimer = setTimeout(saveNow, 450);
+    }
+    function refresh() { out.innerHTML = screen(); paintMeter(); autoGrowAll(); }
 
-    $$("[data-sf]").forEach(function (el) {
-      el.addEventListener("input", refresh);
-      el.addEventListener("change", refresh);
+    var auto = getAuto(s.id);
+    if (auto) {
+      Object.keys(auto.vals || {}).forEach(function (k) { setField(k, auto.vals[k]); });
+      paintAuto(auto.ts);
+    } else paintAuto(0);
+    var pd = takePendingDraft(s.id, setField);
+    if (pd) {
+      setAuto(s.id, vals()); paintAuto(Date.now());
+      toast("Открыт черновик: " + pd.name);
+    }
+
+    formFields().forEach(function (el) {
+      el.addEventListener("input", function () { refresh(); scheduleAuto(); });
+      el.addEventListener("change", saveNow);
     });
     var rst = $("#suitReset"); if (rst) rst.addEventListener("click", function () {
       var p = getProfile();
-      $$("[data-sf]").forEach(function (el) {
+      formFields().forEach(function (el) {
         var f = (s.fields || []).filter(function (x) { return x.k === el.getAttribute("data-sf"); })[0];
         el.value = f ? tplValue(f, p) : "";
       });
-      refresh(); toast("Поля сброшены к образцу");
+      refresh(); saveNow(); toast("Поля сброшены к образцу");
     });
     var clr = $("#suitClear"); if (clr) clr.addEventListener("click", function () {
-      $$("[data-sf]").forEach(function (el) { el.value = ""; });
-      refresh(); toast("Поля очищены");
+      formFields().forEach(function (el) { el.value = ""; });
+      refresh(); saveNow(); toast("Поля очищены");
     });
     var sfp = $("#suitFillProfile"); if (sfp) sfp.addEventListener("click", function () {
       var profile = getProfile();
@@ -10097,18 +11906,13 @@
         toast("Сначала заполните «Мои реквизиты» в списке шаблонов");
         return;
       }
-      $$("[data-sf]").forEach(function (el) {
+      formFields().forEach(function (el) {
         var f = (s.fields || []).filter(function (x) { return x.k === el.getAttribute("data-sf"); })[0];
         if (f) el.value = tplValue(f, profile);
       });
-      refresh(); toast("Поля заполнены из «Моих реквизитов»");
+      refresh(); saveNow(); toast("Поля заполнены из «Моих реквизитов»");
     });
-    bindDrafts(s.id, "data-sf", vals, function (k, v) {
-      /* Ищем поле перебором, а не селектором: ключ приходит из хранилища,
-         а кривой селектор бросает исключение и ломает всю загрузку черновика. */
-      var el = $$("[data-sf]").filter(function (x) { return x.getAttribute("data-sf") === k; })[0];
-      if (el) el.value = v;
-    }, refresh);
+    bindDrafts(s.id, "data-sf", vals, setField, refresh);
     var cr = $("#suitCopyRich"); if (cr) cr.addEventListener("click", function () { copyRich(word(), plain(), "Заявление скопировано"); });
     var tx = $("#suitTxt"); if (tx) tx.addEventListener("click", function () { download(s.id + ".txt", plain(), "text/plain"); toast("Файл сохранён"); });
     var dc = $("#suitDoc"); if (dc) dc.addEventListener("click", function () {
@@ -10118,11 +11922,13 @@
     var pr = $("#suitPrint"); if (pr) pr.addEventListener("click", function () { printDoc("", '<div class="doc-sheet doc-print">' + word() + "</div>"); });
 
     bindCasePick("data-sf", {
-      after: refresh,
+      after: function () { refresh(); saveNow(); },
       title: function () { return s.t; },
       text: plain,
       kind: "Исковое заявление"
     });
+    bindMissingJump("#suitMeter", "data-sf");
+    bindFormKeys("data-sf", saveNow);
 
     refresh();
   }
@@ -10260,7 +12066,7 @@
 
     var head = '<div class="article-head">' +
       '<div class="article-cite">Дело · изменено ' + esc(fmtDate(new Date(c.updated || c.created))) + "</div>" +
-      '<div class="article-title">' + ic("folder") + " " + esc(c.title) + "</div>" +
+      '<h1 class="article-title">' + ic("folder") + " " + esc(c.title) + "</h1>" +
       '<div class="result-meta"><span>' + items.length + " " + plural(items.length, ["норма", "нормы", "норм"]) + "</span>" +
         "<span>" + c.notes.length + " " + plural(c.notes.length, ["заметка", "заметки", "заметок"]) + "</span>" +
         "<span>" + docs.length + " " + plural(docs.length, ["документ", "документа", "документов"]) + "</span>" +
@@ -10467,7 +12273,7 @@
         fr.onload = function () {
           var add = 0;
           try {
-            var data = JSON.parse(String(fr.result));
+            var data = JSON.parse(String(fr.result).replace(/^\ufeff/, ""));
             var list = data && data.cases;
             if (!Array.isArray(list)) throw new Error("нет списка дел");
             list.forEach(function (c) {
@@ -10920,7 +12726,7 @@
         fr.onload = function () {
           var added = 0, known = 0;
           try {
-            var data = JSON.parse(String(fr.result));
+            var data = JSON.parse(String(fr.result).replace(/^\ufeff/, ""));
             var list = data && Array.isArray(data.col) ? data.col : (Array.isArray(data) ? data : null);
             if (!list) throw new Error("нет списка");
             list.forEach(function (e) {
@@ -12756,10 +14562,10 @@
       tabStrip(CMP_TABS, "diff") +
       '<p class="lead">' + esc(c.full) + " · " + esc(c.short) + "</p>" +
       '<div class="card diff-ctl">' +
-        '<div class="diff-sel"><label>Первая редакция</label><select class="input" id="diffFrom"' +
+        '<div class="diff-sel"><label for="diffFrom">Первая редакция</label><select class="input" id="diffFrom"' +
           (hasVer ? "" : ' data-forced="1"') + ">" + optHtml(diffState.from || (hasVer ? verList(id)[0].vid : "current")) + "</select></div>" +
         '<div class="diff-arrow">→</div>' +
-        '<div class="diff-sel"><label>Вторая редакция</label><select class="input" id="diffTo">' +
+        '<div class="diff-sel"><label for="diffTo">Вторая редакция</label><select class="input" id="diffTo">' +
           optHtml(diffState.to || "online") + "</select></div>" +
         '<div class="diff-act"><button class="btn btn-primary" id="diffRun">Сравнить</button></div>' +
       "</div>" +
@@ -13305,7 +15111,7 @@
     if (!out || !out.textContent.trim()) { toast("Сначала разберите ситуацию в Помощнике"); return; }
     var q = ($("#asInput") && $("#asInput").value || "").trim();
     var title = q ? q.slice(0, 80) : "Помощник — вывод";
-    var safe = "pomoshnik-" + (new Date()).toISOString().slice(0, 10);
+    var safe = "pomoshnik-" + isoLocal(new Date());
     if (kind === "txt") {
       download(safe + ".txt", "Помощник. " + title + "\n\n" + out.innerText, "text/plain");
       toast("Вывод сохранён в .txt");
@@ -15108,10 +16914,14 @@
     });
 
     var si = $("#searchInput");
-    var liveTmr = 0;
     si.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
-        clearTimeout(liveTmr);
+        /* Выделенную подсказку обрабатывает её собственный обработчик.
+           Без этой проверки Enter успевал сначала открыть выдачу поиска,
+           а затем выбранный пункт — и в истории оставалось две записи. */
+        var sg = $("#searchSug");
+        if (sg && !sg.hidden && sg.querySelector(".sg-item.on")) return;
+        clearTimeout(liveSearchTimer);
         var q = si.value.trim();
         if (q) go("#/search/" + encodeURIComponent(q));
       }
@@ -15120,17 +16930,18 @@
        больше не обязателен. Задержка 300 мс гасит перерисовку на каждой
        букве; один знак не ищем — по нему в выдачу попадает пол-базы. */
     si.addEventListener("input", function () {
-      clearTimeout(liveTmr);
+      clearTimeout(liveSearchTimer);
       var q = si.value.trim();
       var onSearch = state.route.name === "search";
       if (onSearch && q === (state.route.q || "")) return;
       if (!q) {
-        if (onSearch) liveTmr = setTimeout(function () { goSearchLive(""); }, 300);
+        if (onSearch) liveSearchTimer = setTimeout(function () { goSearchLive(""); }, 300);
         return;
       }
       if (q.length < 2) return;
-      liveTmr = setTimeout(function () { goSearchLive(q); }, 300);
+      liveSearchTimer = setTimeout(function () { goSearchLive(q); }, 300);
     });
+    bindSearchSuggest();
 
     /* Предзагрузка полного текста при наведении: пока курсор идёт от строки
        списка к статье, файл источника уже скачивается, и статья открывается
@@ -15307,6 +17118,9 @@
     });
 
     window.addEventListener("hashchange", function () {
+      /* адрес сменили в обход go() (ссылка, ручная правка строки) — живой
+         поиск к старому экрану больше не относится */
+      clearTimeout(liveSearchTimer);
       /* см. hashFromPop: парное событие к popstate уже отрисовано */
       if (hashFromPop !== null) {
         var same = hashFromPop === (location.hash || "#/home");

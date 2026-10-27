@@ -9,7 +9,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <title>Правовой консультант — кодексы, сроки, памятки, шаблоны</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
-<link rel="apple-touch-icon" href="favicon.svg">
+<link rel="apple-touch-icon" href="icons/icon-180.png" sizes="180x180">
+<!-- Манифест: имя, цвета и адрес запуска для установки на телефон и рабочий
+     стол. Без него браузер добавлял ярлык «как есть» — с адресом страницы и
+     без знания, что приложение должно открываться отдельным окном. -->
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="description" content="Полные тексты кодексов и законов РФ: поиск по статьям, разбор ситуации, калькуляторы сроков и пошлин, чек-листы следственных действий и шаблоны документов. Работает офлайн.">
 <!-- Как выглядит ссылка на сайт в мессенджерах, соцсетях и поиске.
      Адрес сайта один и тот же во всех тегах — если приложение когда-нибудь
@@ -20,10 +24,10 @@
 <meta property="og:locale" content="ru_RU">
 <meta property="og:url" content="https://ztrpgz.github.io/pravovoy-konsultant/">
 <meta property="og:title" content="Правовой консультант — кодексы, сроки, памятки, шаблоны документов">
-<meta property="og:description" content="363 источника и 24 855 статей: поиск по тексту, разбор ситуации с указанием норм, калькуляторы сроков и пошлин, памятки, чек-листы и готовые шаблоны. Бесплатно, без регистрации, работает офлайн.">
+<meta property="og:description" content="392 источника и 26 266 статей: поиск по тексту, разбор ситуации с указанием норм, калькуляторы сроков и пошлин, памятки, чек-листы и готовые шаблоны. Бесплатно, без регистрации, работает офлайн.">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Правовой консультант — кодексы, сроки, памятки, шаблоны документов">
-<meta name="twitter:description" content="Поиск по 19 000 статей, разбор ситуации, калькуляторы сроков и пошлин, чек-листы и бланки. Бесплатно, без регистрации, работает офлайн.">
+<meta name="twitter:description" content="Поиск по 26 266 статьям, разбор ситуации, калькуляторы сроков и пошлин, чек-листы и бланки. Бесплатно, без регистрации, работает офлайн.">
 <!-- Метка версии из адреса (?v=…). GitHub Pages не даёт задавать заголовки
      кеширования: и разметка, и styles.css, и app.js уходят с max-age=600.
      Из-за этого браузер до десяти минут показывал старую вёрстку и старый
@@ -198,10 +202,12 @@
       </div>
       <div class="search-wrap">
         <span class="search-icon ico" data-ico="search" aria-hidden="true"></span>
-        <input id="searchInput" class="search-input" type="search" role="searchbox"
-               aria-label="Поиск по статьям законов"
+        <input id="searchInput" class="search-input" type="search" role="combobox"
+               aria-label="Поиск по статьям законов" aria-autocomplete="list"
+               aria-controls="searchSug" aria-expanded="false"
                placeholder="Номер, название или слова из текста статьи — например: ст 91 УПК, обыск, взятка"
                autocomplete="off" spellcheck="false">
+        <div class="search-sug" id="searchSug" role="listbox" aria-label="Подсказки поиска" hidden></div>
       </div>
       <div class="topbar-actions">
         <!-- Роль: переключатель живёт в верхней панели, а не в левом меню —

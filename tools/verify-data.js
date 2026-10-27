@@ -276,6 +276,22 @@ const seenScenIds = {};
 check("памятки оперативнику: структура и ссылки на статьи", badScen.length === 0,
   badScen.length ? badScen.slice(0, 6).join("; ") : (ref.scenarios || []).length + " памяток");
 
+/* Чек-листы: уникальный id, название, правовое основание и содержательные
+   пункты. Пустой пункт или чек-лист из двух строк бесполезен на практике —
+   такой лучше поймать на сборке, чем в браузере. */
+const badCheck = [];
+const seenCheckIds = {};
+(ref.checklists || []).forEach(function (c) {
+  const where = c.id || c.t || "(без id)";
+  if (!c.id || !c.t) badCheck.push(where + ": нет id или названия");
+  if (!c.basis) badCheck.push(where + ": нет правового основания");
+  if (!Array.isArray(c.items) || c.items.length < 5) badCheck.push(where + ": меньше пяти пунктов");
+  (c.items || []).forEach(function (x) { if (!String(x).trim()) badCheck.push(where + ": пустой пункт"); });
+  if (c.id) { if (seenCheckIds[c.id]) badCheck.push("дубль id: " + c.id); seenCheckIds[c.id] = 1; }
+});
+check("чек-листы: структура, основание и уникальность", badCheck.length === 0,
+  badCheck.length ? badCheck.slice(0, 6).join("; ") : (ref.checklists || []).length + " чек-листов");
+
 /* Правовые разборы «Помощника»: структура, ссылки и связность уточнений.
    Каждый ключ из qual.need обязан существовать среди вариантов ответов — иначе
    вариант квалификации невозможно «включить» ответом на вопрос. */
@@ -1134,7 +1150,8 @@ if (searchSrc) {
     /\(strong \+ weak(?:\s*\+\s*synStrong)?\) < need/.test(searchSrc) && /&&\s*!tb/.test(searchSrc),
     "нужен номер статьи либо покрытие слов запроса; исключение — нормы курируемого разбора");
   check("есть отсечка нерелевантного «хвоста» выдачи",
-    /out\[0\]\.s\s*\*/.test(searchSrc), "порог считается от лучшего результата");
+    /var cut\s*=\s*\((?:cutBase \|\| )?out\[0\]\.s\)\s*\*/.test(searchSrc),
+    "порог считается от лучшего результата (без редакторской надбавки)");
   const parseSrc = extractFn("parseQuery") || "";
   check("числа из описания ситуации не считаются номерами статей",
     /useNums/.test(parseSrc) && /useNums/.test(searchSrc),
@@ -1305,6 +1322,18 @@ check("перенос с нерабочего дня применяется то
   /!\$\("#cSkip"\)\.checked && !isWorkday\(end\)/.test(appSrc) &&
   /нерабочее время включается в срок/.test(appSrc),
   "ч. 2 ст. 128 УПК РФ: перенос есть, но отключается для мер пресечения");
+
+check("производственный календарь: праздники ст. 112 ТК РФ",
+  (calcArr("RU_HOLIDAYS").match(/\[\d+,\s*\d+\]/g) || []).length === 14 &&
+  /function holidaySet\(/.test(appSrc) && /function isHoliday\(/.test(appSrc) &&
+  /w !== 0 && w !== 6 && !isHoliday\(d\)/.test(appSrc),
+  "14 праздничных дат и учёт их в isWorkday вместе с переносом выходного");
+
+check("цепочка сроков: рабочие дни, порядок шагов и сохранение",
+  /data-cs-up/.test(appSrc) && /data-cs-down/.test(appSrc) &&
+  /getChainSaved\(/.test(appSrc) && /function chainStepEl\(/.test(appSrc) &&
+  /cur = calcAdd\(cur, num, unit\)/.test(appSrc),
+  "перемещение шагов, сохранённые цепочки и единый расчёт через calcAdd");
 
 check("вкладка «Под стражей» опирается на действующие нормы УПК",
   /ч\. 2 ст\. 94 УПК РФ/.test(appSrc) && /ч\. 7 ст\. 108 УПК РФ/.test(appSrc) &&
@@ -1962,9 +1991,16 @@ const swSrc = fs.existsSync(swPath) ? fs.readFileSync(swPath, "utf8") : "";
 check("воркер офлайн-работы существует и уходит на хостинг",
   !!swSrc && distMod.FILES.indexOf("sw.js") >= 0,
   swSrc ? "sw.js · в списке публикации: " + (distMod.FILES.indexOf("sw.js") >= 0) : "файла нет");
-check("стратегия воркера — сначала сеть, кеш только при её отсутствии",
-  /fetch\(req\)\.then/.test(swSrc) && /\.catch\(function \(\) \{[\s\S]{0,400}caches\.match\(req\)/.test(swSrc),
-  "иначе правки застревали бы в кеше воркера — та же беда, что была с HTTP-кешем");
+check("кеш воркера включается, когда сети нет",
+  /fromNetwork\(req\)/.test(swSrc) && /\.catch\(function \(\) \{[\s\S]{0,400}caches\.match\(req\)/.test(swSrc),
+  "иначе без сети приложение не открылось бы");
+check("адреса с меткой версии отдаются из кеша сразу",
+  /function versioned\(url\)/.test(swSrc) &&
+  /caches\.match\(req\)\.then\(function \(hit\) \{ return hit \|\| fromNetwork\(req\); \}\)/.test(swSrc),
+  "?v=<отпечаток> обещает неизменность — сеть на каждом открытии не нужна");
+check("адреса без метки версии идут сначала в сеть",
+  /versioned\(url\)[\s\S]{0,400}: fromNetwork\(req\)/.test(swSrc),
+  "правки, выложенные под тем же адресом, не должны застревать в кеше воркера");
 check("воркер не отдаёт из кеша отпечаток сборки",
   /version\\\.json/.test(swSrc) && /alwaysNetwork/.test(swSrc),
   "по нему приложение узнаёт о новой редакции базы");
@@ -1988,6 +2024,34 @@ check("страница рассказывает о себе поиску и с�
   /property="og:description"/.test(htmlSrc) && /property="og:locale" content="ru_RU"/.test(htmlSrc) &&
   /name="twitter:card"/.test(htmlSrc),
   "иначе ссылка в мессенджере выглядит безымянной");
+
+/* --- установка на телефон и рабочий стол ----------------------------------
+   Без манифеста браузер добавляет ярлык «как есть»: с адресом страницы и без
+   понимания, что приложение должно открываться отдельным окном. */
+const manifPath = path.join(ROOT, "manifest.webmanifest");
+const manifSrc = fs.existsSync(manifPath) ? fs.readFileSync(manifPath, "utf8") : "";
+let manif = null;
+try { manif = JSON.parse(manifSrc); } catch (e) {}
+check("манифест установки существует и связан со страницей",
+  !!manif && /rel="manifest" href="manifest\.webmanifest"/.test(htmlSrc) &&
+  distMod.FILES.indexOf("manifest.webmanifest") >= 0,
+  manif ? "manifest.webmanifest · в списке публикации: " + (distMod.FILES.indexOf("manifest.webmanifest") >= 0) : "файла нет или он не разбирается");
+check("манифест называет приложение, адрес запуска и цвета",
+  !!manif && !!manif.name && !!manif.short_name && !!manif.start_url &&
+  manif.display === "standalone" && !!manif.theme_color && !!manif.background_color &&
+  manif.lang === "ru" && manif.scope === "./",
+  manif ? manif.name + " · " + manif.start_url + " · " + manif.display : "полей не хватает");
+check("манифест несёт иконку приложения",
+  !!manif && Array.isArray(manif.icons) && manif.icons.length > 0 &&
+  manif.icons.every(function (i) { return !!i.src && !!i.type; }),
+  manif && manif.icons ? manif.icons.map(function (i) { return i.src; }).join(", ") : "иконок нет");
+check("иконки манифеста существуют и уедут на хостинг",
+  !!manif && manif.icons.every(function (i) {
+    return fs.existsSync(path.join(ROOT, i.src)) &&
+      (distMod.FILES.indexOf(i.src) >= 0 ||
+        distMod.DIRS.some(function (d) { return i.src.indexOf(d + "/") === 0; }));
+  }),
+  manif && manif.icons ? manif.icons.map(function (i) { return i.src; }).join(", ") : "иконок нет");
 
 /* --- заход без JavaScript -------------------------------------------------
    Стили подключаются скриптом (метка версии через document.write). Значит,

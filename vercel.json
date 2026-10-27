@@ -63,7 +63,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!app\\.js|styles\\.css|data/|robots\\.txt|favicon\\.ico).*)",
+      "source": "/((?!app\\.js|styles\\.css|data/|manifest\\.webmanifest|robots\\.txt|favicon\\.ico).*)",
       "destination": "/index.html"
     }
   ]

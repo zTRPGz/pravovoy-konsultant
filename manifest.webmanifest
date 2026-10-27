@@ -1,0 +1,58 @@
+{
+  "id": "./",
+  "name": "Правовой консультант",
+  "short_name": "Правовой",
+  "description": "Кодексы и законы РФ: поиск по статьям, разбор ситуации, калькуляторы сроков и пошлин, памятки и шаблоны документов. Работает офлайн.",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#080b12",
+  "theme_color": "#080b12",
+  "categories": ["books", "education", "productivity"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Поиск статей",
+      "short_name": "Поиск",
+      "url": "./#/search/"
+    },
+    {
+      "name": "Калькуляторы",
+      "short_name": "Расчёты",
+      "url": "./#/calc"
+    },
+    {
+      "name": "Памятки и чек-листы",
+      "short_name": "Памятки",
+      "url": "./#/scenarios"
+    }
+  ]
+}

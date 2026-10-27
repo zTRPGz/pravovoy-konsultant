@@ -16,6 +16,7 @@
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
+const vm = require("vm");
 const { JSDOM, VirtualConsole } = require("jsdom");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -40,6 +41,17 @@ const REG = (() => {
   return box.RF_CODES || [];
 })();
 const countKind = (k) => REG.filter((c) => c.kind === k).length;
+
+/* Читает собранный полный текст источника из data/full/<id>.js.
+   Файлы приложения — обычные скрипты для браузера (window.RF_FULL), поэтому
+   выполняем их в изолированной песочнице, а не через require. */
+function readFullRows(id) {
+  const f = path.join(ROOT, "data", "full", id + ".js");
+  if (!fs.existsSync(f)) return [];
+  const box = { window: {} };
+  vm.runInNewContext(fs.readFileSync(f, "utf8"), box, { filename: id + ".js" });
+  return (box.window.RF_FULL || {})[id] || [];
+}
 
 const N_SOURCES = VER.sources;
 const N_ARTICLES = VER.articles;
@@ -100,6 +112,12 @@ server.listen(0, "127.0.0.1", async () => {
   const $ = s => d.querySelector(s);
   const $$ = s => Array.from(d.querySelectorAll(s));
   const T = s => ($(s) ? $(s).textContent.trim() : null);
+  /* Результат расчёта — живая область: без role=status скринридер молчит
+     после нажатия «Рассчитать». */
+  const liveStatus = id => {
+    const el = $("#" + id);
+    return !!el && el.getAttribute("role") === "status" && el.getAttribute("aria-live") === "polite";
+  };
   const nav = async (hash, ms) => { w.location.hash = hash; await wait(ms || 120); };
   /* Ждём наступления условия вместо фиксированной паузы: разделы с ленивой
      загрузкой (граф связей грузит 99 полных текстов) на медленной машине не
@@ -228,7 +246,8 @@ server.listen(0, "127.0.0.1", async () => {
   ok("устаревший слой RF_EXTRA пуст", ((w.RF_EXTRA || {}).articles || []).length === 0);
   ok("снимок актуальности", Object.keys((w.RF_FRESH || {}).docs || {}).length === N_SOURCES);
   ok("модуль разбора подключён", !!(w.RF_PARSE && w.RF_PARSE.parseDoc));
-  ok("справочный слой", ((w.RF_REF || {}).deadlines || []).length === 28);
+  ok("справочный слой", ((w.RF_REF || {}).deadlines || []).length >= 28,
+    ((w.RF_REF || {}).deadlines || []).length + " сроков");
   ok("счётчик статей в интерфейсе", T("#totalCount") === String(N_ARTICLES), T("#totalCount"));
   ok("список источников в боковой панели", $$("#codeNav .nav-item").length === N_SOURCES, $$("#codeNav .nav-item").length);
   ok("localStorage доступен", (() => { try { w.localStorage.setItem("t", "1"); return true; } catch (e) { return false; } })());
@@ -279,6 +298,68 @@ server.listen(0, "127.0.0.1", async () => {
   await nav("#/search/" + encodeURIComponent("срок предварительного следствия"), 120);
   ok("«срок предварительного следствия» — не больше 15 результатов (без «хвоста»)",
     $$("#view .result").length > 0 && $$("#view .result").length <= 15, $$("#view .result").length + " результатов");
+
+  /* Подсказки набираются по ходу ввода: «гос тайне» — это ещё не точное
+     название акта, но приложение должно само узнать закон о гостайне и
+     показать редакцию. */
+  const sugInput = $("#searchInput");
+  sugInput.value = "гос тайне";
+  sugInput.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(300);
+  const sugBox = $("#searchSug");
+  ok("подсказки открываются по ходу набора", !!sugBox && !sugBox.hidden,
+    sugBox ? sugBox.textContent.slice(0, 80) : "панели нет");
+  const actSug = sugBox && sugBox.querySelector('[data-sug-go="#/code/fz5485taina"]');
+  ok("«гос тайне» узнаёт закон о государственной тайне", !!actSug,
+    sugBox ? Array.from(sugBox.querySelectorAll("[data-sug-go]")).map(x => x.getAttribute("data-sug-go")).slice(0, 4).join(", ") : "");
+  ok("закон о гостайне стоит первым, а не ведомственная инструкция",
+    !!actSug && sugBox.querySelector(".sg-item") === actSug,
+    sugBox && sugBox.querySelector(".sg-item") ? sugBox.querySelector(".sg-item").getAttribute("data-sug-go") : "");
+  ok("в подсказке акта видны редакция и объём",
+    !!actSug && /ред\./.test(actSug.textContent) && /36/.test(actSug.textContent),
+    actSug ? actSug.textContent : "");
+  ok("в подсказках есть и статьи", !!sugBox && !!sugBox.querySelector(".sg-h"));
+  sugInput.dispatchEvent(new w.KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+  await wait(30);
+  const sugActive = $("#searchSug .sg-item.on");
+  ok("стрелка вниз выделяет первую подсказку", !!sugActive,
+    sugActive ? sugActive.getAttribute("data-sug-go") : "нет выделения");
+  const sugGo = sugActive && sugActive.getAttribute("data-sug-go");
+  if (sugActive) sugActive.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(250);
+  ok("клик по подсказке открывает выбранный раздел", w.location.hash === sugGo,
+    w.location.hash + " / " + sugGo);
+  ok("после выбора панель подсказок закрыта", $("#searchSug").hidden);
+  /* Слитная бытовая форма: «гостайне» без пробела. */
+  sugInput.value = "гостайне";
+  sugInput.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(300);
+  ok("слитная форма «гостайне» тоже узнаётся",
+    !!$('#searchSug [data-sug-go="#/code/fz5485taina"]'),
+    $("#searchSug") ? $("#searchSug").textContent.slice(0, 80) : "");
+  sugInput.value = "";
+  sugInput.dispatchEvent(new w.Event("input", { bubbles: true }));
+
+  /* Enter на выделенной подсказке: общий обработчик строки поиска не должен
+     успеть открыть выдачу первым — иначе в истории остаются две записи, а
+     «Назад» возвращает не туда. Уходим на главную штатным переходом, чтобы
+     стек навигации приложения был в известном состоянии. */
+  const homeNav = $('.nav-item[data-nav="home"][data-href]');
+  if (homeNav) homeNav.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(150);
+  sugInput.value = "гос тайне";
+  sugInput.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(300);
+  sugInput.dispatchEvent(new w.KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+  await wait(30);
+  const histBefore = w.history.length;
+  sugInput.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  await wait(250);
+  ok("Enter на выделенной подсказке открывает её",
+    w.location.hash === "#/code/fz5485taina", w.location.hash);
+  ok("Enter не создаёт лишней записи в истории",
+    w.history.length - histBefore === 1, "прирост " + (w.history.length - histBefore));
+  ok("после Enter панель подсказок закрыта", $("#searchSug").hidden);
 
   section = "4. Статья и ленивая загрузка полного текста"; console.log("\n" + section);
   await nav("#/article/uk-105", 300);
@@ -1027,12 +1108,30 @@ server.listen(0, "127.0.0.1", async () => {
   await nav("#/deadlines");
   ok("калькулятор рассчитал", /Окончание/.test($("#calcOut").textContent));
   ok("контрольные точки по задержанию", $$("#detOut tr").length === 5, $$("#detOut tr").length + " точек");
+  ok("ближайшая контрольная точка подсвечена", !!$("#detOut tr.calc-next"),
+    $("#detOut tr.calc-next") ? T("#detOut tr.calc-next") : "нет");
+  ok("справочник сроков пополнился", $$("#dlBody tr.dl-row").length >= 35,
+    $$("#dlBody tr.dl-row").length + " сроков");
+  ok("результаты сроков объявляются скринридеру",
+    ["calcOut", "detOut", "chainOut"].every(liveStatus));
+  $$("#dlBody tr.dl-row")[0].dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(60);
+  ok("строка справочника подставляет срок", $("#calcNum").value === "48" && $("#calcUnit").value === "hours" &&
+    /ст\. 10/.test(T("#calcOut")), $("#calcNum").value + " " + $("#calcUnit").value + " · " + T("#calcOut").slice(0, 70));
+  $("#dlFilter").value = "апелляция";
+  $("#dlFilter").dispatchEvent(new w.Event("input", { bubbles: true }));
+  const dlShown = $$("#dlBody tr.dl-row").filter(tr => !tr.hidden).length;
+  ok("фильтр справочника сужает список", dlShown > 0 && dlShown < 15, dlShown + " строк");
+  $("#dlFilter").value = "";
+  $("#dlFilter").dispatchEvent(new w.Event("input", { bubbles: true }));
 
   section = "7b. Калькуляторы"; console.log("\n" + section);
   ok("в меню есть пункт «Калькуляторы»", $$('.nav-item[data-nav="calc"]').length === 1);
   await nav("#/calc", 200);
   ok("раздел калькуляторов открылся", /^Калькуляторы/.test(T("#view h1") || ""), T("#view h1"));
   ok("шесть вкладок расчётов", $$("#view .tabs .tab").length === 6, $$("#view .tabs .tab").length);
+  ok("результаты раздела калькуляторов объявляются скринридеру",
+    ["cOut", "cCaseOut"].every(liveStatus));
 
   /* процессуальные сроки: дата окончания и перенос с нерабочего дня */
   ok("дата начала подставлена", /^\d{4}-\d{2}-\d{2}$/.test($("#cDate").value), $("#cDate").value);
@@ -1066,6 +1165,8 @@ server.listen(0, "127.0.0.1", async () => {
   /* давность и зачёт */
   await nav("#/calc/limit", 200);
   ok("вкладка давности активна", /Давность и зачёт/.test(T("#view .tab.on") || ""));
+  ok("результаты давности и зачёта объявляются скринридеру",
+    ["lOut", "aOut", "sOut"].every(liveStatus));
   $("#lDate").value = "2020-05-05";
   $("#lCat").value = "mid";
   $("#lRun").dispatchEvent(new w.Event("click", { bubbles: true }));
@@ -1086,6 +1187,8 @@ server.listen(0, "127.0.0.1", async () => {
 
   /* пошлины и проценты */
   await nav("#/calc/money", 200);
+  ok("результаты пошлин и процентов объявляются скринридеру",
+    ["dOut", "nOut", "pOut"].every(liveStatus));
   $("#dKind").value = "prop";
   $("#dKind").dispatchEvent(new w.Event("change", { bubbles: true }));
   $("#dPrice").value = "500000";
@@ -1115,6 +1218,7 @@ server.listen(0, "127.0.0.1", async () => {
   await nav("#/calc/custody", 200);
   ok("контрольные точки задержания построены", $$("#kOut tbody tr").length === 10,
     $$("#kOut tbody tr").length + " точек");
+  ok("результат по срокам под стражей объявляется скринридеру", liveStatus("kOut"));
   ok("среди точек есть предельный срок задержания",
     /Предельный срок задержания без суда/.test(T("#kOut")) && /ст\. 94/.test(T("#kOut")));
   $("#kTime").value = "2026-01-01T09:30";
@@ -1179,12 +1283,121 @@ server.listen(0, "127.0.0.1", async () => {
   w.document.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
   ok("с клавиатуры: 8 * 8 = 64", T("#scValue") === "64", T("#scValue"));
 
+  section = "7c. Производственный календарь, история и цепочка сроков"; console.log("\n" + section);
+  await nav("#/calc", 250);
+  $("#cDate").value = "2026-01-01";
+  $("#cNum").value = "1";
+  $("#cUnit").value = "days";
+  $("#cWorkdays").checked = true;
+  $("#cRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(120);
+  ok("рабочие дни пропускают новогодние праздники — 09.01.2026",
+    /09\.01\.2026/.test(T("#cOut")), T("#cOut").slice(0, 100));
+  $("#cWorkdays").checked = false;
+  $("#cRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(120);
+  ok("без режима рабочих дней срок остаётся календарным",
+    /02\.01\.2026/.test(T("#cOut")), T("#cOut").slice(0, 100));
+
+  $("#cSave").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(80);
+  ok("расчёт сохраняется в историю", $$("#cHist [data-basehist]").length === 1,
+    $$("#cHist [data-basehist]").length + " записей");
+
+  const grabbedCalc = [];
+  const origClickCalc = w.HTMLAnchorElement.prototype.click;
+  w.HTMLAnchorElement.prototype.click = function () { if (this.download) grabbedCalc.push(this.download); };
+  $("#cIcs").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(700);
+  ok("срок выгружается в календарь", grabbedCalc.indexOf("срок.ics") !== -1, grabbedCalc.join(", ") || "ничего");
+  $("#cCaseRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(80);
+  grabbedCalc.length = 0;
+  $("#cCaseIcs").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(700);
+  ok("контрольные точки по делу выгружаются в календарь",
+    grabbedCalc.indexOf("точки-по-делу.ics") !== -1, grabbedCalc.join(", ") || "ничего");
+  w.HTMLAnchorElement.prototype.click = origClickCalc;
+
+  await nav("#/deadlines", 250);
+  ok("в цепочке есть типовые этапы", $$("#chainPresets .chip").length >= 4,
+    $$("#chainPresets .chip").length + " пресетов");
+  const chainWas = $$("#chainSteps .chain-step").length;
+  $("#chainAdd").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ok("шаг цепочки добавляется", $$("#chainSteps .chain-step").length === chainWas + 1,
+    $$("#chainSteps .chain-step").length + " шагов");
+  $$("#chainPresets .chip")[0].dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  ok("типовой этап добавляется в цепочку", $$("#chainSteps .chain-step").length === chainWas + 2,
+    $$("#chainSteps .chain-step").length + " шагов");
+
+  const chainBefore = $$("#chainSteps .chain-step").map(s => s.querySelector("[data-cs-label]").value);
+  $$("#chainSteps .chain-step")[1].querySelector("[data-cs-up]")
+    .dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  const chainAfter = $$("#chainSteps .chain-step").map(s => s.querySelector("[data-cs-label]").value);
+  ok("шаг цепочки перемещается выше", chainAfter[0] === chainBefore[1] && chainAfter[1] === chainBefore[0],
+    chainAfter.join(" → "));
+
+  $("#chainRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(100);
+  ok("итог цепочки считается", /Итог цепочки/.test(T("#chainOut")) && /этапов:/.test(T("#chainOut")),
+    T("#chainOut").slice(0, 90));
+  ok("в цепочке подсвечен ближайший этап", !!$("#chainOut tr.calc-next"),
+    $("#chainOut tr.calc-next") ? T("#chainOut tr.calc-next") : "нет");
+  const chainNumEl = $$("#chainSteps .chain-step")[0].querySelector("[data-cs-num]");
+  const chainOutWas = T("#chainOut");
+  chainNumEl.value = "6";
+  chainNumEl.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(400);
+  ok("цепочка пересчитывается на лету без кнопки", T("#chainOut") !== chainOutWas && /Итог цепочки/.test(T("#chainOut")),
+    T("#chainOut").slice(0, 80));
+
+  const origPromptChain = w.prompt;
+  w.prompt = () => "Цепочка проверки";
+  $("#chainSave").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(100);
+  ok("цепочка сохраняется в список", $$("#chainSaved [data-chain-open]").length === 1,
+    $$("#chainSaved [data-chain-open]").length + " цепочек");
+  ok("сохранённая цепочка лежит в localStorage",
+    /Цепочка проверки/.test(w.localStorage.getItem("rflaws.chains") || ""));
+  w.prompt = origPromptChain;
+
+  $("#calcDate").value = "2026-10-08";
+  $("#calcNum").value = "3";
+  $("#calcUnit").value = "days";
+  $("#calcShift").checked = true;
+  $("#calcRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(80);
+  ok("калькулятор сроков переносит окончание с воскресенья",
+    /12\.10\.2026/.test(T("#calcOut")) && /Срок истекал/.test(T("#calcOut")), T("#calcOut").slice(0, 100));
+  $("#calcShift").checked = false;
+  $("#calcRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(80);
+  ok("перенос можно отключить", /11\.10\.2026/.test(T("#calcOut")) && !/Срок истекал/.test(T("#calcOut")),
+    T("#calcOut").slice(0, 100));
+  $("#calcUnit").value = "workdays";
+  $("#calcNum").value = "1";
+  $("#calcDate").value = "2026-01-01";
+  $("#calcRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(80);
+  ok("в сроках считаются рабочие дни без новогодних праздников",
+    /09\.01\.2026/.test(T("#calcOut")), T("#calcOut").slice(0, 100));
+
+  ["rflaws.chains", "rflaws.chainLast", "rflaws.calcBaseHistory", "rflaws.calcHistory"]
+    .forEach(k => w.localStorage.removeItem(k));
+
   await nav("#/deadlines", 150);
   ok("прежний раздел сроков не сломан", /Окончание/.test($("#calcOut").textContent));
 
   section = "8. Чек-листы и шаблоны"; console.log("\n" + section);
   await nav("#/checklists");
-  ok("список чек-листов", $$("#view .card").length === 10, $$("#view .card").length);
+  const clCount = (w.RF_REF.checklists || []).length;
+  ok("список чек-листов", $$("#view .card").length === clCount, $$("#view .card").length + " из " + clCount);
+  ok("добавлены чек-листы следственных действий",
+    ["lichny-obysk", "vyemka", "arest-imushchestva", "osvidetelstvovanie", "ochnaya-stavka", "opoznanie", "proverka-pokazaniy"]
+      .every(id => (w.RF_REF.checklists || []).some(c => c.id === id)));
+  ok("добавлены гражданские чек-листы",
+    ["uvolnenie-proverka", "potrebitel-isk", "nasledstvo-dokumenty"]
+      .every(id => (w.RF_REF.checklists || []).some(c => c.id === id)));
   await nav("#/checklist/" + w.RF_REF.checklists[0].id);
   ok("чек-лист открылся", $$("#view ol.steps li").length > 3, $$("#view ol.steps li").length + " пунктов");
   await nav("#/checklist/proverka-dokumentov");
@@ -1274,6 +1487,38 @@ server.listen(0, "127.0.0.1", async () => {
   ok("реквизиты сохраняются в localStorage",
     (w.localStorage.getItem("rflaws.profile") || "").indexOf("Петров") !== -1,
     w.localStorage.getItem("rflaws.profile"));
+
+  /* новые отрасли и улучшенная форма: группы полей, подсказки, суммы */
+  ok("шаблоны покрывают покупки, семью и наследство",
+    tplGroups.includes("Покупки и услуги") && tplGroups.includes("Семья и наследство"),
+    tplGroups.join(", "));
+  await nav("#/template/pretenziya-potrebitel");
+  ok("претензия потребителя открылась", !!$("#tplOut"), T("#view h1"));
+  ok("поля шаблона сгруппированы по смыслу", $$("#tplForm .form-group-h").length >= 2,
+    $$("#tplForm .form-group-h").length + " групп");
+  ok("незаполненные поля — кликабельные подсказки",
+    $$("#tplMeter [data-miss]").length > 0, $$("#tplMeter [data-miss]").length + " подсказок");
+  const missBtn = $("#tplMeter [data-miss]");
+  if (missBtn) {
+    const missKey = missBtn.getAttribute("data-miss");
+    missBtn.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+    await wait(40);
+    ok("подсказка переводит к нужному полю",
+      d.activeElement === $("#tplForm [data-tf='" + missKey + "']"),
+      missKey + " → " + (d.activeElement || {}).tagName);
+  }
+  ok("у числового поля есть обозначение рублей", $$("#tplForm .input-money").length > 0);
+  const growArea = $("#tplForm textarea.js-grow");
+  ok("многострочное поле растягивается по содержимому",
+    !!growArea && growArea.style.height !== "", growArea && growArea.style.height);
+  const firstTf = $("#tplForm [data-tf]");
+  if (firstTf) {
+    firstTf.focus();
+    firstTf.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await wait(30);
+    ok("Enter переводит к следующему полю", d.activeElement !== firstTf,
+      (d.activeElement || {}).getAttribute ? d.activeElement.getAttribute("data-tf") : "");
+  }
 
   /* --- один документ: структура «как официальный бланк», а не сплошной текст --- */
   await nav("#/template/vozbuzhdenie");
@@ -1388,11 +1633,103 @@ server.listen(0, "127.0.0.1", async () => {
     /освобождён/.test($("#suitDuty").value) && /333\.36/.test($("#suitDutyNote").textContent),
     $("#suitDuty").value + " · " + $("#suitDutyNote").textContent.slice(0, 50));
 
+  /* новые иски: раздел имущества, ДТП, восстановление, наследство, приставы */
+  await nav("#/suit/isk-razdel-imushchestva");
+  ok("иск о разделе имущества открылся", !!$("#suitOut"), T("#view h1"));
+  ok("форма иска сгруппирована", $$("#suitForm .form-group-h").length >= 2,
+    $$("#suitForm .form-group-h").length + " групп");
+  ok("поле, входящее в цену иска, подписано", /Входит в цену иска/.test(T("#suitForm") || ""), T("#suitForm").slice(0, 80));
+  const stoimostEl = $("#suitForm [data-sf='stoimost']");
+  stoimostEl.value = "1000000";
+  stoimostEl.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(60);
+  ok("цена иска из нового поля считается", /1\s?000\s?000/.test($("#suitPrice").value), $("#suitPrice").value);
+  await nav("#/suit/isk-dtp");
+  ok("иск о возмещении ущерба от ДТП открылся", !!$("#suitOut"), T("#view h1"));
+  ok("ущерб и расходы участвуют в цене иска", $$("#suitForm .field-hint").length >= 2,
+    $$("#suitForm .field-hint").length + " подсказок");
+  await nav("#/suit/isk-vosstanovlenie-rabota");
+  ok("иск о восстановлении на работе открылся", !!$("#suitOut"), T("#view h1"));
+  ok("фиксированная пошлина за неимущественный иск", /3\s?000/.test($("#suitDuty").value), $("#suitDuty").value);
+  await nav("#/suit/isk-nasledstvo-fakt");
+  ok("заявление об установлении факта принятия наследства открылось", !!$("#suitOut"), T("#view h1"));
+  ok("пошлина особого производства", /3\s?000/.test($("#suitDuty").value), $("#suitDuty").value);
+  await nav("#/suit/isk-pristav");
+  ok("иск об оспаривании действий пристава открылся", !!$("#suitOut"), T("#view h1"));
+  ok("у иска к приставу есть основание пошлины", /333\.19/.test($("#suitDutyNote").textContent || ""),
+    ($("#suitDutyNote").textContent || "").slice(0, 60));
+
+  section = "8c. Автосохранение и управление черновиками"; console.log("\n" + section);
+
+  await nav("#/template/vozbuzhdenie");
+  const autoField = () => $("#view [data-tf='fio']") || $("#view [data-tf]");
+  ok("индикатор заполненности документа есть",
+    /Заполнено|Все поля заполнены/.test(T("#tplMeter") || ""), T("#tplMeter"));
+  const af = autoField();
+  af.value = "Автосохранённое значение";
+  af.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(700);
+  ok("автосохранение отмечает сохранение",
+    /Рабочая версия сохранена/.test(T("#tplAuto") || ""), T("#tplAuto"));
+  ok("значения рабочей версии легли в localStorage",
+    (w.localStorage.getItem("rflaws.autosave") || "").indexOf("Автосохранённое значение") !== -1);
+
+  await nav("#/templates");
+  ok("на списке появилась панель «Мои документы»", !!$("#docHub"));
+  await nav("#/template/vozbuzhdenie");
+  ok("рабочая версия восстановлена при повторном открытии",
+    autoField().value === "Автосохранённое значение", autoField().value);
+
+  const origPrompt = w.prompt;
+  w.prompt = () => "Черновик проверки";
+  $("#tplDraftSave").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(120);
+  ok("черновик сохраняется по кнопке", $$("#tplDrafts [data-draft-load]").length === 1,
+    $$("#tplDrafts [data-draft-load]").length + " черновиков");
+  w.prompt = () => "Переименованный черновик";
+  $("[data-draft-rename='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(80);
+  ok("черновик переименовывается", /Переименованный черновик/.test(T("#tplDrafts") || ""), T("#tplDrafts"));
+  $("[data-draft-dup='0']").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(80);
+  ok("копия черновика создаётся", $$("#tplDrafts [data-draft-load]").length === 2,
+    $$("#tplDrafts [data-draft-load]").length + " черновиков");
+  w.prompt = origPrompt;
+
+  const af2 = autoField();
+  af2.value = "Другое значение";
+  af2.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(650);
+  await nav("#/templates", 350);
+  const hub = $("#docHub");
+  if (hub) hub.open = true;
+  const hubOpen = $("[data-hub-doc]");
+  ok("в «Моих документах» есть строка черновика", !!hubOpen);
+  if (hubOpen) {
+    hubOpen.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+    await wait(400);
+    ok("черновик из «Моих документов» открывается с его значениями",
+      autoField().value === "Автосохранённое значение", autoField().value);
+  }
+
+  await nav("#/suit/isk-dolg");
+  ok("индикатор заполненности иска есть",
+    /Заполнено|Все поля заполнены/.test(T("#suitMeter") || ""), T("#suitMeter"));
+
+  ["rflaws.drafts", "rflaws.autosave", "rflaws.recentDocs"].forEach(k => w.localStorage.removeItem(k));
+
   section = "9. Избранное и тема"; console.log("\n" + section);
   await nav("#/article/upk-182", 1300);
   $("[data-fav]").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
   await wait(150);
   ok("кнопка переключилась", /В избранном/.test($("[data-fav]").textContent), $("[data-fav]").textContent.trim());
+  /* Тост сообщает о действии и зрячим, и скринридеру. */
+  const toastBox = $(".toast");
+  ok("тост объявляется скринридеру",
+    !!toastBox && toastBox.getAttribute("role") === "status" &&
+    toastBox.getAttribute("aria-live") === "polite" &&
+    toastBox.getAttribute("aria-atomic") === "true",
+    toastBox ? "role=" + toastBox.getAttribute("role") + " · aria-live=" + toastBox.getAttribute("aria-live") : "тоста нет");
   ok("сохранено в localStorage", w.localStorage.getItem("rflaws.fav") === '["upk-182"]', w.localStorage.getItem("rflaws.fav"));
 
   /* личные заметки к статье */
@@ -2509,6 +2846,16 @@ server.listen(0, "127.0.0.1", async () => {
   const scenCards = $$("#view .scen-card");
   ok("карточки памяток отрисованы", scenCards.length === w.RF_REF.scenarios.length,
     scenCards.length + " карточек из " + w.RF_REF.scenarios.length);
+  const scenGroups = Array.from(new Set(w.RF_REF.scenarios.map(s => s.group)));
+  ok("памятки покрывают гражданские ситуации, а не только ОРД",
+    scenGroups.some(g => /Работа/i.test(g)) && scenGroups.some(g => /Семья/i.test(g)) &&
+    scenGroups.some(g => /Покупки/i.test(g)) && scenGroups.some(g => /Административ/i.test(g)),
+    scenGroups.join(", "));
+  await nav("#/scenario/uvolnenie", 200);
+  ok("новая памятка об увольнении открывается",
+    /Увольнение/.test(T("#view h1") || "") && $$("#view ol.steps li").length >= 6,
+    (T("#view h1") || "") + " · " + $$("#view ol.steps li").length + " шагов");
+  await nav("#/scenarios", 300);
   ok("вкладки «Оперативнику» на месте", $$('#view .tab[data-go="#/checklists"]').length === 1);
   ok("активный пункт меню — памятки",
     !!($('.nav-item[data-nav="scenarios"]') && $('.nav-item[data-nav="scenarios"]').classList.contains("active")));

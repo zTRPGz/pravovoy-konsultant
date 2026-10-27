@@ -8,7 +8,8 @@
    доступным по прямым ссылкам, а у Cloudflare Pages ещё и попадёт в
    лимит 20 000 файлов. Поэтому наружу уходит только собранный минимум:
 
-     index.html  app.js  styles.css  favicon.svg  sw.js  robots.txt  data/**
+     index.html  app.js  styles.css  favicon.svg  manifest.webmanifest
+     icons/**  sw.js  robots.txt  data/**
 
    Плюс сюда же кладутся правила кеширования (_headers) и .nojekyll.
 
@@ -28,8 +29,8 @@ const ROOT = path.resolve(__dirname, "..");
 const OUT = path.join(ROOT, "dist");
 
 /* Что уходит на хостинг. Всё остальное в корне — служебное. */
-const FILES = ["index.html", "app.js", "styles.css", "favicon.svg", "sw.js", "robots.txt"];
-const DIRS = ["data"];
+const FILES = ["index.html", "app.js", "styles.css", "favicon.svg", "manifest.webmanifest", "sw.js", "robots.txt"];
+const DIRS = ["data", "icons"];
 
 /* Лимиты Cloudflare Pages (бесплатный план) — по ним же ориентируемся и на
    других хостингах: 25 MiB на файл и 20 000 файлов. Превышение не роняет

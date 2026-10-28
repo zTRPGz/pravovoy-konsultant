@@ -7,7 +7,7 @@
  */
 "use strict";
 
-const { ask } = require("../lib/gigachat");
+const { ask, errorText } = require("../lib/gigachat");
 const g = require("../lib/guard");
 
 module.exports = async function handler(req, res) {
@@ -40,8 +40,8 @@ module.exports = async function handler(req, res) {
     res.status(200).json({ ok: true, plain: out.plain, cite: out.cite });
   } catch (e) {
     const code = e && e.status ? e.status : 502;
-    console.error("[ask]", e && e.message ? e.message : e);
-    res.status(code).json({ error: "GigaChat недоступен: " + (e && e.message ? e.message : "неизвестная ошибка") });
+    console.error("[ask]", errorText(e), e && e.cause ? e.cause : "");
+    res.status(code).json({ error: "GigaChat недоступен: " + errorText(e) });
   }
 };
 

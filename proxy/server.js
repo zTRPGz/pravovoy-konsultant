@@ -10,7 +10,7 @@
 "use strict";
 
 const http = require("http");
-const { ask } = require("./lib/gigachat");
+const { ask, errorText } = require("./lib/gigachat");
 const g = require("./lib/guard");
 
 const PORT = Number(process.env.PORT || 8080);
@@ -68,8 +68,8 @@ const server = http.createServer(async function (req, res) {
     return send(res, 200, { ok: true, plain: out.plain, cite: out.cite }, cors);
   } catch (e) {
     const code = e && e.status ? e.status : 502;
-    console.error("[ask]", e && e.message ? e.message : e);
-    return send(res, code, { error: "GigaChat недоступен: " + (e && e.message ? e.message : "неизвестная ошибка") }, cors);
+    console.error("[ask]", errorText(e), e && e.cause ? e.cause : "");
+    return send(res, code, { error: "GigaChat недоступен: " + errorText(e) }, cors);
   }
 });
 

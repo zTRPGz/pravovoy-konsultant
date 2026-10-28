@@ -28,6 +28,22 @@ function mock() {
   return String(process.env.GIGACHAT_MOCK || "") === "1";
 }
 
+/* У сетевой ошибки fetch причина лежит в e.cause: без неё в браузере
+   остаётся бесполезное «fetch failed». Код причины (ENOTFOUND, ECONNRESET,
+   CERT_HAS_EXPIRED) секретов не раскрывает и сразу показывает, что чинить. */
+function errorText(e) {
+  const msg = e && e.message ? e.message : String(e);
+  const parts = [];
+  let c = e && e.cause, depth = 0;
+  while (c && depth < 3) {
+    const s = c.code || c.message || String(c);
+    if (s && msg.indexOf(String(s)) === -1 && parts.indexOf(String(s)) === -1) parts.push(String(s));
+    c = c.cause;
+    depth++;
+  }
+  return parts.length ? msg + " (" + parts.join(" / ") + ")" : msg;
+}
+
 async function fetchToken() {
   if (mock()) return { value: "mock-token", exp: Date.now() + 30 * 60 * 1000 };
   const id = process.env.GIGACHAT_CLIENT_ID || "";
@@ -219,4 +235,4 @@ function mockAnswer(body) {
   };
 }
 
-module.exports = { ask: ask, parseAnswer: parseAnswer, buildMessages: buildMessages, getToken: getToken, mock: mock };
+module.exports = { ask: ask, parseAnswer: parseAnswer, buildMessages: buildMessages, getToken: getToken, mock: mock, errorText: errorText };

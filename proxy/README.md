@@ -103,20 +103,54 @@ node proxy/server.js
 Отдельное замечание: если прокси стоит **за пределами РФ**, GigaChat может
 отклонить запрос по региону. Российская площадка снимает оба вопроса сразу.
 
-### Vercel (быстрее всего)
+### Vercel (быстрее всего, бесплатный Hobby)
+
+**Через сайт (рекомендую).** Импортируйте репозиторий в Vercel и в поле
+**Root Directory** укажите `proxy` — иначе Vercel возьмёт корневой
+`vercel.json` и начнёт собирать статический сайт вместо прокси. Framework
+Preset — **Other**, Build Command и Output Directory оставьте пустыми.
+
+**Через CLI:**
 
 ```bash
 cd proxy
-npx vercel            # первый деплой, отвечает на вопросы
+npx vercel            # каталог proxy уже корень проекта
 npx vercel --prod
 ```
 
-- `api/ask.js` автоматически становится эндпоинтом `/api/ask`.
-- Переменные (`GIGACHAT_CLIENT_ID`, `GIGACHAT_CLIENT_SECRET`,
-  `GIGACHAT_SCOPE`, `ALLOWED_ORIGINS`) — в Settings → Environment Variables.
-- Сертификат НУЦ: положите `russian_trusted_root_ca.pem` в `proxy/` и задайте
-  `NODE_EXTRA_CA_CERTS=./russian_trusted_root_ca.pem`.
-- Адрес для сайта: `https://<проект>.vercel.app/api`.
+В **Settings → Environment Variables** добавьте:
+
+| Переменная | Значение |
+|---|---|
+| `GIGACHAT_CLIENT_ID` | id из кабинета developers.sber.ru |
+| `GIGACHAT_CLIENT_SECRET` | секрет — только здесь, не в git |
+| `GIGACHAT_SCOPE` | `GIGACHAT_API_PERS` для физлиц, `GIGACHAT_API_CORP` для юрлиц |
+| `GIGACHAT_MODEL` | `GigaChat` |
+| `ALLOWED_ORIGINS` | `https://ztrpgz.github.io` — точный Origin, строчными |
+| `NODE_EXTRA_CA_CERTS` | `/var/task/russian_trusted_root_ca.pem` |
+
+Сертификат НУЦ уже лежит в `proxy/`, а `proxy/vercel.json` добавляет его в
+пакет функции (`includeFiles`) и даёт запросу 60 секунд (`maxDuration`). Без
+этого файла сертификат в бандл не попадает, и Node падает на
+`SELF_SIGNED_CERT_IN_CHAIN`.
+
+`api/ask.js` автоматически становится эндпоинтом `/api/ask`. Адрес для сайта:
+`https://<проект>.vercel.app/api` (без `/ask` — его дописывает клиент).
+
+Файл `proxy/.vercelignore` не даёт загрузить локальный `.env` с ключами в
+сборку. Проверьте, что он есть, прежде чем запускать `vercel` из CLI.
+
+Проверка после деплоя:
+
+```bash
+curl -i -X OPTIONS https://<проект>.vercel.app/api/ask \
+  -H "Origin: https://ztrpgz.github.io" \
+  -H "Access-Control-Request-Method: POST"
+```
+
+В ответе должны быть `204` и `Access-Control-Allow-Origin:
+https://ztrpgz.github.io`. Если GigaChat отклоняет запрос по региону,
+бесплатный Vercel не подойдёт — нужна российская площадка (см. ниже).
 
 ### Обычный VPS (самый предсказуемый)
 

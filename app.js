@@ -5975,6 +5975,7 @@
             '<input class="input" id="asAiUrl" type="url" inputmode="url" placeholder="https://ваш-прокси.example" value="' +
             esc(aiCfg().url) + '"></div>' +
           '<div class="small" id="asAiState"></div>' +
+          '<div class="small muted" style="margin-top:6px">Кнопка «Объяснить» появится под разбором — сначала нажмите «Разобрать».</div>' +
         "</details>" +
       "</div>" +
       '<div id="asOut"></div>' +

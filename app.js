@@ -32,7 +32,7 @@
   function norm(s) {
     /* Пустая строка — самый частый вход: у большинства статей нет ни
        аннотации, ни ключевых слов, а searchable() зовёт norm() семь раз на
-       каждую из 24 855 записей при запуске. Пять проходов регулярками на
+       каждую из 26 266 записей при запуске. Пять проходов регулярками на
        пустом месте стоили заметной доли времени открытия сайта. */
     if (s == null || s === "") return "";
     return String(s)
@@ -3399,6 +3399,9 @@
        событием видимости). */
     window.addEventListener("pagehide", rememberReading);
     document.addEventListener("visibilitychange", function () {
+      /* Фоновые эффекты (дрейф и пульсации) замирают в скрытой вкладке:
+         браузер и так тормозит rAF, но CSS-анимации продолжают жечь кадры. */
+      document.body.classList.toggle("page-hidden", document.visibilityState === "hidden");
       if (document.visibilityState === "hidden") rememberReading();
     });
     window.addEventListener("resize", function () {
@@ -3529,7 +3532,7 @@
     toggleReadMenu(false);
     toggleRoleMenu(false);
     if (r.name === "home") v.innerHTML = viewHome();
-    else if (r.name === "search") { v.innerHTML = viewSearch(r.q); afterSearch(r.q); }
+    else if (r.name === "search") { v.innerHTML = viewSearch(r.q); afterSearch(r.q); addRecentSearch(r.q); }
     else if (r.name === "terms") { v.innerHTML = viewTerms(r.q); bindTerms(); }
     else if (r.name === "term") { v.innerHTML = viewTerm(r.arg); }
     else if (r.name === "sources") { v.innerHTML = viewSources(); bindSources(); }
@@ -3633,6 +3636,8 @@
       void v.offsetWidth;
       v.classList.add("view-anim");
       staggerIn(v);
+      animateCounts(v);
+      revealIn(v);
     }
   }
 
@@ -3643,12 +3648,79 @@
   try {
     reduceMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   } catch (e) {}
+  var themeAnimTimer = 0;
   function staggerIn(root) {
     if (!root || reduceMotion) return;
     var els = root.querySelectorAll(".help-start > *, .grid-4 > *, .grid-feature > *, .grid-3 > .quick-card, .tool-grid > *, .tiles > *");
     for (var i = 0, n = 0; i < els.length && n < 18; i++, n++) {
       els[i].style.animationDelay = (n * 20) + "ms";
       els[i].classList.add("rise");
+    }
+  }
+
+  /* Счётчики на главной: цифры «набегают» от нуля за 0,6 с. Это не украшение
+     ради украшения — так сразу видно, что числа живые, а не нарисованы в
+     разметке. Значения читаются из готового текста, поэтому данные и вёрстка
+     остаются единственным источником правды. */
+  function animateCounts(root) {
+    if (!root || reduceMotion) return;
+    var els = root.querySelectorAll(".hd-cell b, .stat-num");
+    for (var i = 0; i < els.length; i++) {
+      (function (el) {
+        var raw = el.textContent.trim();
+        if (!/^[\d\s\u00a0]+$/.test(raw)) return;
+        /* Цель запоминаем один раз: при повторном запуске (после
+           вступительного экрана) текст уже может быть на середине счёта, и
+           дочитать его до этого промежуточного значения было бы ошибкой. */
+        var target = parseInt(el.getAttribute("data-count-target"), 10);
+        if (!isFinite(target)) {
+          target = parseInt(raw.replace(/\D/g, ""), 10);
+          if (!isFinite(target)) return;
+          el.setAttribute("data-count-target", String(target));
+        }
+        if (target < 100) return;
+        /* Новый запуск отменяет прежний: иначе два requestAnimationFrame
+           писали бы в один элемент по очереди и число дёргалось бы. */
+        var gen = (parseInt(el.getAttribute("data-count-gen"), 10) || 0) + 1;
+        el.setAttribute("data-count-gen", String(gen));
+        var start = 0;
+        function tick(now) {
+          if (parseInt(el.getAttribute("data-count-gen"), 10) !== gen) return;
+          if (!start) start = now;
+          var p = Math.min(1, (now - start) / 620);
+          el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))).toLocaleString("ru-RU");
+          if (p < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      })(els[i]);
+    }
+  }
+
+  /* Секции ниже первого экрана проявляются при прокрутке. Класс ставится
+     только элементам, которые сейчас за пределами экрана: если
+     IntersectionObserver недоступен или включён reduced-motion, содержимое
+     просто остаётся видимым — без «пустых» блоков. */
+  var revealObs = null;
+  function revealIn(root) {
+    if (!root || reduceMotion || typeof IntersectionObserver !== "function") return;
+    if (!revealObs) {
+      revealObs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          en.target.classList.add("in");
+          revealObs.unobserve(en.target);
+        });
+      }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+    } else {
+      revealObs.disconnect();
+    }
+    var els = root.querySelectorAll(".home-sec, .src-teaser, .oper-panel, .resume, .grid-4");
+    var vh = window.innerHeight || 800, shown = 0;
+    for (var i = 0; i < els.length && shown < 8; i++) {
+      if (els[i].getBoundingClientRect().top < vh * 0.9) continue;
+      els[i].classList.add("reveal");
+      revealObs.observe(els[i]);
+      shown++;
     }
   }
 
@@ -4022,6 +4094,22 @@
       (w.length ? " — " + esc(w.join(", ")) : "") + "</span>";
   }
 
+  /* Недавние запросы: личная история поиска, только в браузере. Нужна,
+     чтобы повторный запрос не набирать заново; хранится не больше шести. */
+  function getRecentSearch() {
+    var arr = LS.get("recentSearch", []);
+    return Array.isArray(arr) ? arr.slice(0, 6) : [];
+  }
+  function addRecentSearch(q) {
+    q = (q || "").trim();
+    if (q.length < 2) return;
+    var arr = getRecentSearch().filter(function (x) {
+      return String(x).toLowerCase() !== q.toLowerCase();
+    });
+    arr.unshift(q);
+    LS.set("recentSearch", arr.slice(0, 6));
+  }
+
   function viewSearch(q) {
     q = q || "";
     if (!q.trim()) {
@@ -4045,7 +4133,22 @@
            "\"тайное хищение чужого имущества\"", "стража -несовершеннолетних"].map(function (x) {
             return '<div class="chip" data-go="#/search/' + encodeURIComponent(x) + '">' + esc(x) + "</div>";
           }).join("") +
-        "</div>";
+        "</div>" +
+        (function () {
+          var recent = getRecentSearch();
+          if (!recent.length) return "";
+          return '<div class="search-history">' +
+            '<div class="section-label">Недавние запросы</div>' +
+            '<div class="chips">' +
+              recent.map(function (x) {
+                return '<div class="chip" data-go="#/search/' + encodeURIComponent(x) + '">' + esc(x) + "</div>";
+              }).join("") +
+            "</div>" +
+            '<p class="small muted" style="margin:8px 0 0">' +
+              '<button class="lnk" type="button" data-clear-search-history>Очистить историю</button>' +
+            "</p>" +
+          "</div>";
+        })();
     }
     var p = parseQuery(q);
     /* Родовой указатель («ук») и номер акта без номера статьи («69-фз») —
@@ -4667,6 +4770,7 @@
 
     var actions = '<div class="actions-row">' +
       '<button class="btn btn-primary" data-copy-cite="' + esc(cite(a)) + '">Скопировать ссылку</button>' +
+      (navigator.share ? '<button class="btn" data-share-art="' + esc(id) + '">' + ic("share") + " Поделиться</button>" : "") +
       '<button class="btn" data-copy-full="' + esc(id) + '">Скопировать с реквизитами</button>' +
       '<button class="btn" data-copy-gost="' + esc(id) + '">Ссылка по ГОСТ</button>' +
       '<button class="btn" data-copy-art="' + esc(id) + '">Скопировать текст</button>' +
@@ -13553,9 +13657,9 @@
      без внешних библиотек (работает офлайн).
 
      Сам граф приходит готовым (data/graph.js) — его считает сборка. Раньше
-     раздел строил граф сам и ради этого подгружал полные тексты ВСЕХ 330
-     актов: 118 МБ и десятки секунд ожидания на пустом кеше. Файл графа
-     весит 50 КБ и подтягивается один раз, только когда раздел открыт.
+     раздел строил граф сам и ради этого подгружал полные тексты ВСЕХ 392
+     актов: 138 МБ и десятки секунд ожидания на пустом кеше. Файл графа
+     весит около 60 КБ и загружается один раз вместе с базой.
      ------------------------------------------------------------------------ */
   var GRAPH_NODE_LIMIT = 28;
   var GRAPH_DATA = window.RF_GRAPH || null;
@@ -13767,11 +13871,31 @@
      из кнопок, и найти нужное было не легче, чем в самом приложении.
      Теперь: сверху короткий ряд задач (сразу переход, раскрывать ничего не
      нужно), ниже — смысловые разделы вместо двенадцати. */
+  /* Кнопка установки — только когда сайт открыт в браузере, а не уже как
+     приложение: в установленном режиме предлагать нечего. */
+  function installAppHtml() {
+    var standalone = false;
+    try {
+      standalone = navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    } catch (e) {}
+    if (standalone) return "";
+    return '<div class="actions-row" style="margin-top:10px">' +
+      '<button class="btn btn-primary" type="button" data-install-app>' + ic("phone") + " Установить приложение</button>" +
+      "</div>";
+  }
+
   function viewHelp() {
     var sec = function (title, ico, body) {
       return '<details class="help-sec"><summary>' + ic(ico) + "<span>" + esc(title) + "</span></summary>" +
         '<div class="help-body">' + body + "</div></details>";
     };
+    /* Состав базы считаем по реестру, а не пишем числа руками: иначе справка
+       расходится с данными после каждой ночной сборки (так и было — в ней
+       оставались 330 актов и 22 600 статей при 392 и 26 266). */
+    var kinds = { code: 0, law: 0, fkz: 0, decree: 0, plenum: 0, review: 0 };
+    CODES.forEach(function (c) { if (kinds[c.kind] != null) kinds[c.kind]++; });
+    var nArticles = arts.length.toLocaleString("ru-RU");
     var start = '<div class="tiles help-start">' +
       quickCard("search", "Найти статью", "Номер, название или слова из текста — например «обыск в жилище»", "#/home", "blue") +
       quickCard("book", "Что значит термин", "Словарь определений со ссылками на нормы: преступление, обыск, алименты", "#/terms", "green") +
@@ -13795,6 +13919,7 @@
         "<p>Ищется и внутри полного текста статей: совпадения выводятся блоком «Найдено в текстах статей» с подсветкой. Слова приводятся к основе, поэтому «алименты» найдёт и «алиментов».</p>" +
         "<p>Запрос расширяется близкими по смыслу словами: по «кража» находятся и нормы о хищении, по «взятке» — о подкупе. Точные слова запроса всегда выше, расширение указано под строкой результатов.</p>" +
         "<p>Быстрый переход и поиск с клавиатуры — <b>Ctrl + K</b> (или <b>/</b>): статьи, разделы и источники без мыши. Термины ищутся там же — наберите слово, и первым делом появится его определение.</p>" +
+        "<p>Повторный запрос не нужно набирать заново: на пустой странице поиска видны <b>недавние запросы</b>. Они хранятся только в вашем браузере и очищаются одной кнопкой.</p>" +
         "<p>Не знаете, как называется нужное? Раздел <b>«Термины»</b> — " + TERMS.length + " определений с синонимами: «умышленно» находит «умысел», «дубинка» — «специальные средства», «развод» — «расторжение брака». У каждого термина — ссылки на нормы, из которых взято определение. То же определение показывается над результатами обычного поиска, когда запрос совпал с термином.</p>") +
 
       sec("Помощник: разбор ситуации", "compass",
@@ -13831,13 +13956,15 @@
       sec("Свои данные: подборка, дела, экспорт", "clip",
         "<p>Кнопка «В подборку» есть на странице статьи и в поиске. <b>«Подборка норм»</b> хранит рабочий набор по делу с заметками и выгрузкой, <b>«Дела»</b> — папки по делам с журналом, нормами, заметками и вложениями.</p>" +
         "<p><b>«Шаблоны и иски»</b> — один раздел с двумя вкладками: бланки документов по отраслям права и готовые исковые заявления. Поля подставляются из ваших данных, готовый документ скачивается как .docx.</p>" +
-        "<p>На странице статьи — «Скопировать ссылку», «с реквизитами», «Ссылка по ГОСТ» и «Скачать .docx».</p>" +
+        "<p>На странице статьи — «Скопировать ссылку», «с реквизитами», «Ссылка по ГОСТ» и «Скачать .docx». На телефоне рядом есть <b>«Поделиться»</b> — откроется системное окно, чтобы отправить статью в мессенджер или сохранить в заметки.</p>" +
         "<p>Кнопка <b>Aa</b> — размер текста, межстрочный интервал и ширина колонки; <b>☾ / ☀</b> — тёмная и светлая тема. Подборка, избранное, дела, заметки и настройки хранятся только в вашем браузере.</p>") +
 
       sec("Телефон и планшет", "phone",
         "<p>На узком экране боковое меню открывается кнопкой слева вверху — или <b>свайпом от левого края вправо</b>; закрыть меню можно свайпом влево.</p>" +
         "<p>Между разделами можно ходить <b>свайпами</b>: проведите пальцем <b>вправо</b> — назад, <b>влево</b> — вперёд, как кнопки «Назад»/«Вперёд» в панели.</p>" +
-        "<p>Свайп не сработает, если жест начат на горизонтально прокручиваемом элементе (таблица сравнения, строка вкладок) или на выделенном тексте — чтобы случайно не уехать со страницы, когда вы просто читаете. Мелкий сдвиг тоже не считается: нужно провести палец заметно по горизонтали.</p>") +
+        "<p>Свайп не сработает, если жест начат на горизонтально прокручиваемом элементе (таблица сравнения, строка вкладок) или на выделенном тексте — чтобы случайно не уехать со страницы, когда вы просто читаете. Мелкий сдвиг тоже не считается: нужно провести палец заметно по горизонтали.</p>" +
+        "<p>Приложение можно <b>установить на домашний экран</b>: в Safari — «Поделиться» → «На экран „Домой“», в Chrome — меню → «Добавить на главный экран». Оно откроется отдельным окном и продолжит работать офлайн.</p>" +
+        installAppHtml()) +
 
       sec("Роль: под кого работает подсказка", "user",
         "<p>Кнопка <b>роли</b> — в верхней панели справа (значок человека рядом с настройками чтения). Выберите оперативника, следователя, адвоката или госорган — приложение поднимет наверх то, что чаще нужно вашей работе.</p>" +
@@ -13845,7 +13972,16 @@
         "<p>Главная, чек-листы и шаблоны перестраиваются по приоритету роли, а в поиске результат помечается «по вашей роли» и отдельным блоком под выдачей. Основной порядок выдачи при этом не меняется: юридически верный ответ остаётся на своём месте.</p>") +
 
       sec("Состав базы", "scales",
-        "<p>Конституция РФ, 24 кодекса, 105 федеральных законов (включая ФЗ о полиции, об ОРД, о ФСБ, о Росгвардии, о прокуратуре, о Следственном комитете, об оружии, о наркотических средствах, о противодействии коррупции, о государственной тайне), 14 федеральных конституционных законов, 6 постановлений Правительства РФ (ПДД, правила регистрационного и миграционного учёта, правила оборота оружия, положение о воинском учёте и военно-врачебной экспертизе), 99 постановлений Пленума Верховного Суда РФ и 81 обзор судебной практики, утверждённый Президиумом ВС РФ. Всего — 330 актов и более 22 600 статей и пунктов в действующих редакциях.</p>" +
+        "<p>Конституция РФ, " + kinds.code + " " + plural(kinds.code, ["кодекс", "кодекса", "кодексов"]) +
+        ", " + kinds.law + " " + plural(kinds.law, ["федеральный закон", "федеральных закона", "федеральных законов"]) +
+        " (включая ФЗ о полиции, об ОРД, о ФСБ, о Росгвардии, о прокуратуре, о Следственном комитете, об оружии, о наркотических средствах, о противодействии коррупции, о государственной тайне), " +
+        kinds.fkz + " " + plural(kinds.fkz, ["федеральный конституционный закон", "федеральных конституционных закона", "федеральных конституционных законов"]) +
+        ", " + kinds.decree + " " + plural(kinds.decree, ["постановление Правительства РФ", "постановления Правительства РФ", "постановлений Правительства РФ"]) +
+        " (ПДД, правила регистрационного и миграционного учёта, правила оборота оружия, положение о воинском учёте и военно-врачебной экспертизе), " +
+        kinds.plenum + " " + plural(kinds.plenum, ["постановление Пленума Верховного Суда РФ", "постановления Пленума Верховного Суда РФ", "постановлений Пленума Верховного Суда РФ"]) +
+        " и " + kinds.review + " " + plural(kinds.review, ["обзор судебной практики, утверждённый Президиумом ВС РФ", "обзора судебной практики, утверждённых Президиумом ВС РФ", "обзоров судебной практики, утверждённых Президиумом ВС РФ"]) +
+        ". Всего — " + CODES.length + " " + plural(CODES.length, ["акт", "акта", "актов"]) + " и " + nArticles + " " +
+        plural(arts.length, ["статья и пункт", "статьи и пункта", "статей и пунктов"]) + " в действующих редакциях.</p>" +
         "<p>Тексты получены с официального портала правовой информации <b>actual.pravo.gov.ru</b> и с <b>sudact.ru</b> (судебная практика); дата редакции указана у каждого источника и каждой статьи.</p>") +
 
       "</div>" +
@@ -16855,6 +16991,50 @@
       var cp = e.target.closest("[data-copy-cite]");
       if (cp) { copyText(cp.getAttribute("data-copy-cite"), "Ссылка скопирована"); return; }
 
+      var csh = e.target.closest("[data-clear-search-history]");
+      if (csh) {
+        LS.set("recentSearch", []);
+        render();
+        toast("История поиска очищена");
+        return;
+      }
+
+      var shr = e.target.closest("[data-share-art]");
+      if (shr) {
+        var shId = shr.getAttribute("data-share-art");
+        var shArt = byId[shId];
+        if (!shArt) return;
+        var shUrl = location.origin + location.pathname + "#/article/" + encodeURIComponent(shId);
+        var shTitle = cite(shArt) + ". " + shArt.t;
+        try {
+          navigator.share({ title: shTitle, text: shTitle, url: shUrl }).catch(function (err) {
+            /* Закрытие системного окна — не ошибка, копировать ссылку не нужно. */
+            if (err && err.name === "AbortError") return;
+            copyText(shUrl, "Ссылка скопирована");
+          });
+        } catch (err2) { copyText(shUrl, "Ссылка скопирована"); }
+        return;
+      }
+
+      var ia = e.target.closest("[data-install-app]");
+      if (ia) {
+        if (installPrompt && installPrompt.prompt) {
+          var promptEvent = installPrompt;
+          installPrompt = null;
+          try {
+            promptEvent.prompt();
+            if (promptEvent.userChoice && promptEvent.userChoice.then) {
+              promptEvent.userChoice.then(function () {}).catch(function () {});
+            }
+          } catch (err3) {
+            toast("Откройте меню браузера → «Установить приложение»");
+          }
+        } else {
+          toast("Откройте меню браузера → «Установить приложение» или «Добавить на главный экран»");
+        }
+        return;
+      }
+
       var cf = e.target.closest("[data-copy-full]");
       if (cf) {
         var af = byId[cf.getAttribute("data-copy-full")];
@@ -16991,7 +17171,15 @@
 
     $("#themeBtn").addEventListener("click", function () {
       state.theme = state.theme === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", state.theme);
+      var root = document.documentElement;
+      /* Плавная смена темы: класс живёт чуть дольше перехода в CSS и снимается
+         сам. При reduced-motion тема переключается мгновенно, как и раньше. */
+      if (!reduceMotion) {
+        root.classList.add("theme-switching");
+        clearTimeout(themeAnimTimer);
+        themeAnimTimer = setTimeout(function () { root.classList.remove("theme-switching"); }, 320);
+      }
+      root.setAttribute("data-theme", state.theme);
       LS.set("theme", state.theme);
       $("#themeBtn").innerHTML = ic(state.theme === "dark" ? "sun" : "moon");
       setThemeColor();
@@ -17224,6 +17412,16 @@
     bindGlobal();
     bindSwipe();
     bindScrollUI();
+
+    /* Сеть пропала или вернулась: справочник работает офлайн, поэтому важно
+       сказать об этом словами, а не оставлять человека гадать, почему молчит
+       проверка актуальности. */
+    window.addEventListener("offline", function () {
+      toast("Нет сети — справочник продолжает работать офлайн");
+    });
+    window.addEventListener("online", function () {
+      toast("Соединение восстановлено");
+    });
     /* Адрес начальной записи приводим к каноническому виду и помечаем её
        нулевой точкой стека: дальше go() добавляет записи, и «Назад» браузера
        идёт ровно по ним. Через replaceState, а не присваиванием location.hash:
@@ -17237,6 +17435,11 @@
       histOk = false;
       if (!location.hash) location.hash = "#/home";
     }
+    /* Раздел рисуем сразу, не дожидаясь проверки актуальности: она ходит в
+       сеть, и на медленном канале человек секундами видел бы экран «Загружаем
+       базу», хотя данные уже в памяти. Повторный render() ниже раньше стирал
+       анимацию первого кадра (классы stagger/reveal) — и главная открывалась
+       без неё. */
     render();
 
     /* Граф перекрёстных ссылок нужен Помощнику, чтобы отбирать судебную
@@ -17293,14 +17496,6 @@
        если на хостинге появилась новая сборка (см. checkBuild) */
     startBuildWatch();
 
-    /* Раздел рисуем сразу, не дожидаясь проверки актуальности. Проверка ходит
-       в сеть, а её ответа на медленном канале (или без сети, пока не сработает
-       таймаут) можно ждать секундами — и всё это время человек видел экран
-       «Загружаем базу», хотя данные уже лежали в памяти. Замер в Edge: первый
-       заход за день показывал содержимое через 6,2 с вместо 1 с. Проверка
-       тихая: ответит — обновит значок в панели, а раздел «Актуальность»
-       перерисует только если он открыт (см. runDailyCheck). */
-    render();
     if (dailyCheckDue()) {
       setTimeout(function () { runDailyCheck(false); }, 1200);
     } else {
@@ -17333,6 +17528,16 @@
     else window.addEventListener("load", reg);
   }
 
+  /* Установка приложения: Chrome и Edge присылают событие, когда сайт готов
+     к установке, но показать системное окно можно только из обработчика
+     нажатия. Поэтому событие запоминаем, а кнопку выводим в справке. */
+  var installPrompt = null;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    installPrompt = e;
+  });
+  window.addEventListener("appinstalled", function () { installPrompt = null; });
+
   function setupIntro() {
     var el = $("#intro");
     if (!el) return;
@@ -17348,6 +17553,10 @@
     if (!el || el.hidden || el.classList.contains("hide")) return;
     el.classList.add("hide");
     setTimeout(function () { el.hidden = true; }, 320);
+    /* Первый кадр главной рисуется под вступительным экраном, и счётчики
+       успевают досчитать впустую. Повторяем их, когда экран ушёл: числа
+       «набегают» уже на глазах. */
+    if (state.route && state.route.name === "home") animateCounts($("#view"));
   }
 
   /* --- если что-то всё-таки сломалось --------------------------------------

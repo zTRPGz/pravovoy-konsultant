@@ -3689,3 +3689,140 @@ textarea.js-grow { resize: vertical; overflow: hidden; min-height: 74px; line-he
 .chain-step [data-cs-num] { flex: 0 1 110px; }
 .chain-step [data-cs-unit] { flex: 0 1 140px; }
 .chain-step .btn { flex: 0 0 auto; padding: 9px 10px; }
+
+/* =========================================================================
+   Отклик, движение и экономия ресурсов
+   -------------------------------------------------------------------------
+   Добавки к «плавности» выше: мягкое выделение текста, блик основной
+   кнопки, подсветка карточек, появление секций при прокрутке и пауза
+   фоновых эффектов. Длительности короткие (150–500 мс); бесконечные
+   анимации отключаются в prefers-reduced-motion и на телефоне.
+   ========================================================================= */
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  color: var(--text);
+}
+
+/* Смена темы: app.js ставит .theme-switching на 300 мс, чтобы фон, панели
+   и текст переходили плавно, а не переключались одним кадром. */
+html.theme-switching body,
+html.theme-switching .topbar,
+html.theme-switching .sidebar,
+html.theme-switching .card,
+html.theme-switching .stat,
+html.theme-switching .hero,
+html.theme-switching .quick-card,
+html.theme-switching .tool-link,
+html.theme-switching .input,
+html.theme-switching .search-input,
+html.theme-switching .btn {
+  transition: background-color .3s ease, color .3s ease, border-color .3s ease;
+}
+
+/* Верхняя панель с blur пересчитывается на каждом кадре прокрутки. Пока
+   идёт жест, размытие снимаем — панель остаётся плотной, а композитор не
+   тратит кадры на пересчёт полупрозрачного слоя. */
+body.is-scrolling .topbar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+}
+[data-theme="light"] body.is-scrolling .topbar {
+  background: color-mix(in srgb, var(--bg-2) 96%, transparent);
+}
+
+/* На телефоне дрейф фона не нужен: пятна выглядят так же, но полноэкранная
+   анимация не тратит GPU и батарею. */
+@media (max-width: 760px) {
+  body::before { animation: none; }
+}
+
+/* Скрытая вкладка: замирают все декоративные бесконечные анимации. */
+body.page-hidden::before,
+body.page-hidden .hero::before,
+body.page-hidden .hd-live i {
+  animation-play-state: paused;
+}
+
+/* Карточка-вход: тонкая цветная линия сверху проявляется при наведении. */
+.quick-card::before {
+  content: "";
+  position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(90deg, var(--t, var(--accent)), transparent 80%);
+  opacity: 0; transform: scaleX(.3); transform-origin: left;
+  transition: opacity .18s ease, transform .3s cubic-bezier(.2,.7,.3,1);
+  pointer-events: none;
+}
+.quick-card:hover::before,
+.quick-card:focus-visible::before { opacity: 1; transform: scaleX(1); }
+
+/* Основная кнопка: при наведении по ней пробегает мягкий световой блик. */
+.btn-primary { position: relative; overflow: hidden; }
+.btn-primary::after {
+  content: "";
+  position: absolute; top: -20%; bottom: -20%; left: -55%; width: 38%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.3), transparent);
+  transform: skewX(-18deg);
+  transition: left .55s ease;
+  pointer-events: none;
+}
+.btn-primary:hover::after { left: 120%; }
+
+/* Нажатие: плитки чуть «продавливаются» — отклик виден до перехода. */
+.chip:active,
+.hd-chip:active,
+.quick-card:active,
+.tool-link:active,
+.code-card:active { transform: translateY(0) scale(.985); }
+
+/* Подсказки поиска и командная строка появляются мягко, а не рывком. */
+@keyframes sugIn {
+  from { opacity: 0; transform: translateY(-6px) scale(.992); }
+  to   { opacity: 1; transform: none; }
+}
+.search-sug:not([hidden]) {
+  animation: sugIn .16s cubic-bezier(.2,.7,.3,1) both;
+  transform-origin: top center;
+}
+@keyframes paletteIn {
+  from { opacity: 0; transform: translateY(-10px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+.palette-backdrop.open { animation: fadeIn .16s ease both; }
+.palette-backdrop.open .palette { animation: paletteIn .2s cubic-bezier(.2,.7,.3,1) both; }
+
+/* Раскрывающийся раздел справки: содержимое проявляется, а не прыгает. */
+@keyframes bodyIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+.help-sec[open] > .help-body,
+.disclaimer-collapse[open] > .disclaimer { animation: bodyIn .2s ease both; }
+
+/* Секции ниже первого экрана проявляются при прокрутке. Класс ставит app.js
+   и только тем блокам, которые сейчас за пределами экрана. */
+.reveal {
+  opacity: 0; transform: translateY(16px);
+  transition: opacity .45s ease, transform .5s cubic-bezier(.2,.7,.3,1);
+}
+.reveal.in { opacity: 1; transform: none; }
+
+/* Недавние запросы: чипы истории и кнопка очистки. */
+.search-history { margin-top: 18px; }
+button.lnk {
+  background: none; border: 0; border-bottom: 1px dotted currentColor;
+  padding: 0; font: inherit; color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-card::before,
+  .btn-primary::after { display: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+@media print {
+  .reveal { opacity: 1 !important; transform: none !important; }
+}
+

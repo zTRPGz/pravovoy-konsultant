@@ -58,9 +58,12 @@ curl -o russian_trusted_root_ca.pem \
   https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt
 ```
 
-Дальше — `NODE_EXTRA_CA_CERTS=/полный/путь/russian_trusted_root_ca.pem`.
-Отключать проверку сертификата (`NODE_TLS_REJECT_UNAUTHORIZED=0`) нельзя: это
-открывает перехват трафика вместе с токеном доступа.
+Сертификат прокси загружает сам: сначала читает `proxy/russian_trusted_root_ca.pem`,
+а если файла рядом нет — берёт встроенную копию из `proxy/lib/russian-root-ca.js`.
+Поэтому `NODE_EXTRA_CA_CERTS` не обязателен: на serverless-площадках путь внутри
+сборки другой, и переменная молча игнорируется. Отключать проверку сертификата
+(`NODE_TLS_REJECT_UNAUTHORIZED=0`) нельзя: это открывает перехват трафика вместе
+с токеном доступа.
 
 ## 3. Локальная проверка (без ключей)
 
@@ -131,15 +134,24 @@ npx vercel --prod
 | `GIGACHAT_SCOPE` | `GIGACHAT_API_PERS` для физлиц, `GIGACHAT_API_CORP` для юрлиц |
 | `GIGACHAT_MODEL` | `GigaChat` |
 | `ALLOWED_ORIGINS` | `https://ztrpgz.github.io` — точный Origin, строчными |
-| `NODE_EXTRA_CA_CERTS` | `/var/task/russian_trusted_root_ca.pem` |
 
-Сертификат НУЦ уже лежит в `proxy/`, а `proxy/vercel.json` добавляет его в
-пакет функции (`includeFiles`) и даёт запросу 60 секунд (`maxDuration`). Без
-этого файла сертификат в бандл не попадает, и Node падает на
-`SELF_SIGNED_CERT_IN_CHAIN`.
+`NODE_EXTRA_CA_CERTS` на Vercel больше не нужен: сертификат НУЦ встроен в
+`proxy/lib/russian-root-ca.js` (и дополнительно читается из `.pem`, если файл
+оказался в сборке). На serverless путь внутри бандла другой, поэтому переменная
+раньше молча не срабатывала и запрос падал на `SELF_SIGNED_CERT_IN_CHAIN`.
 
-`api/ask.js` автоматически становится эндпоинтом `/api/ask`. Адрес для сайта:
-`https://<проект>.vercel.app/api` (без `/ask` — его дописывает клиент).
+`proxy/vercel.json` даёт функции 60 секунд на ответ модели.
+
+Маршрут зависит от того, что Vercel собрал из проекта. Проверьте после деплоя:
+
+```bash
+curl https://<проект>.vercel.app/health
+```
+
+Если вернулся JSON `{"ok":true,...}` — работает `server.js`. Адрес для сайта:
+`https://<проект>.vercel.app` (в поле «Адрес прокси»), клиент сам дописывает
+`/ask`. Если `/health` отдаёт 404, а `/api/ask` отвечает на POST — работает
+serverless-адаптер, и адрес для сайта: `https://<проект>.vercel.app/api`.
 
 Файл `proxy/.vercelignore` не даёт загрузить локальный `.env` с ключами в
 сборку. Проверьте, что он есть, прежде чем запускать `vercel` из CLI.
@@ -147,7 +159,7 @@ npx vercel --prod
 Проверка после деплоя:
 
 ```bash
-curl -i -X OPTIONS https://<проект>.vercel.app/api/ask \
+curl -i -X OPTIONS https://<проект>.vercel.app/ask \
   -H "Origin: https://ztrpgz.github.io" \
   -H "Access-Control-Request-Method: POST"
 ```
@@ -267,7 +279,8 @@ curl -X POST https://proxy.example.ru/ask \
 
 Ожидаемый ответ — `{"ok":true,"plain":"…","cite":["uk-111"]}`. Если приходит
 `GigaChat 401` — неверные ключи или `scope`; `GigaChat 402` — кончилась квота;
-`SELF_SIGNED_CERT_IN_CHAIN` — не подключён сертификат НУЦ.
+`SELF_SIGNED_CERT_IN_CHAIN` — сертификат НУЦ не попал в сборку: проверьте, что
+рядом лежит `lib/russian-root-ca.js` (прокси берёт его, если `.pem` недоступен).
 
 ## 8. Файлы
 
@@ -276,6 +289,7 @@ proxy/
   server.js          автономный сервер (VPS, Timeweb, Yandex Cloud)
   api/ask.js         serverless-адаптер для Vercel
   lib/gigachat.js    OAuth, запрос, разбор и фильтрация ответа
+  lib/russian-root-ca.js  корневой сертификат НУЦ Минцифры (встроенная копия)
   lib/guard.js       CORS, лимиты, чтение тела
   test/smoke.js      15 проверок без ключей
   .env.example       все переменные с пояснениями

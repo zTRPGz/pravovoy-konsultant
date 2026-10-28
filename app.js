@@ -6239,7 +6239,7 @@
       '<div class="aib-out"></div>';
     out.appendChild(box);
     var btn = box.querySelector("[data-ai-run]"), dst = box.querySelector(".aib-out");
-    btn.addEventListener("click", function () {
+    function runAi() {
       if (dst.getAttribute("data-busy")) return;
       dst.setAttribute("data-busy", "1");
       btn.disabled = true;
@@ -6250,11 +6250,16 @@
         var msg = String(e && e.message ? e.message : e);
         if (/abort/i.test(msg)) msg = "сервер не ответил за 30 секунд";
         dst.innerHTML = '<div class="warn-box">Не получилось: ' + esc(msg) +
-          '. Разбор выше от этого не зависит — он сделан локально.</div>';
+          '. Разбор выше от этого не зависит — он сделан локально.' +
+          '<div style="margin-top:8px"><button class="btn btn-sm" type="button" data-ai-retry>Повторить</button></div></div>';
       }).finally(function () {
         dst.removeAttribute("data-busy");
         btn.disabled = false;
       });
+    }
+    btn.addEventListener("click", runAi);
+    dst.addEventListener("click", function (e) {
+      if (e.target && e.target.closest("[data-ai-retry]")) runAi();
     });
   }
 

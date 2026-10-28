@@ -12,11 +12,63 @@
  */
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
+const http = require("http");
+const https = require("https");
+const tls = require("tls");
+
 const OAUTH_URL = process.env.GIGACHAT_OAUTH_URL || "https://ngw.devices.sberbank.ru:9443/api/v2/oauth";
 const API_URL = process.env.GIGACHAT_API_URL || "https://gigachat.devices.sberbank.ru/api/v1/chat/completions";
 const SCOPE = process.env.GIGACHAT_SCOPE || "GIGACHAT_API_PERS";
 const MODEL = process.env.GIGACHAT_MODEL || "GigaChat";
 const TIMEOUT_MS = Number(process.env.GIGACHAT_TIMEOUT_MS || 25000);
+
+/* Корневой сертификат НУЦ Минцифры нужен, чтобы Node доверял TLS GigaChat.
+   Сначала пробуем файл рядом с прокси (его можно заменить, не трогая код), а
+   если файла нет — берём встроенную копию: на Vercel PEM рядом с serverless-
+   функцией может не оказаться, и соединение падает с SELF_SIGNED_CERT_IN_CHAIN. */
+const CA_PATH = path.join(__dirname, "..", "russian_trusted_root_ca.pem");
+let CA = null;
+function caCert() {
+  if (CA === null) {
+    try { CA = fs.readFileSync(CA_PATH, "utf8"); } catch (e) { CA = ""; }
+    if (!CA) CA = require("./russian-root-ca");
+  }
+  return CA ? tls.rootCertificates.concat(CA) : undefined;
+}
+
+/* Запрос через http/https, а не глобальный fetch: только здесь можно передать
+   сертификат НУЦ напрямую. Возвращает { status, text }; сетевые ошибки
+   пробрасывает с кодом (SELF_SIGNED_CERT_IN_CHAIN, ENOTFOUND, ECONNRESET). */
+function request(url, opts) {
+  opts = opts || {};
+  return new Promise(function (resolve, reject) {
+    const u = new URL(url);
+    const mod = u.protocol === "http:" ? http : https;
+    const body = opts.body == null ? "" : String(opts.body);
+    const headers = Object.assign({}, opts.headers || {});
+    if (body) headers["Content-Length"] = Buffer.byteLength(body);
+    const req = mod.request(u, {
+      method: opts.method || "GET",
+      headers: headers,
+      ca: u.protocol === "https:" ? caCert() : undefined,
+      timeout: opts.timeout || TIMEOUT_MS
+    }, function (res) {
+      const chunks = [];
+      res.on("data", function (c) { chunks.push(c); });
+      res.on("end", function () {
+        resolve({ status: res.statusCode || 0, text: Buffer.concat(chunks).toString("utf8") });
+      });
+    });
+    req.on("timeout", function () {
+      req.destroy(new Error("таймаут " + Math.round((opts.timeout || TIMEOUT_MS) / 1000) + " с"));
+    });
+    req.on("error", reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
 
 /* Токен живёт 30 минут; обновляем за минуту до истечения и никогда не
    запрашиваем дважды параллельно — иначе при первом же всплеске запросов
@@ -28,16 +80,21 @@ function mock() {
   return String(process.env.GIGACHAT_MOCK || "") === "1";
 }
 
-/* У сетевой ошибки fetch причина лежит в e.cause: без неё в браузере
-   остаётся бесполезное «fetch failed». Код причины (ENOTFOUND, ECONNRESET,
-   CERT_HAS_EXPIRED) секретов не раскрывает и сразу показывает, что чинить. */
+/* У сетевой ошибки причина лежит в e.code (https-запрос) или e.cause (fetch):
+   без неё в браузере остаётся бесполезное «fetch failed». Код причины
+   (ENOTFOUND, ECONNRESET, SELF_SIGNED_CERT_IN_CHAIN) секретов не раскрывает
+   и сразу показывает, что чинить. */
 function errorText(e) {
   const msg = e && e.message ? e.message : String(e);
   const parts = [];
+  const add = function (x) {
+    const s = x && (x.code || x.message || String(x));
+    if (s && msg.indexOf(String(s)) === -1 && parts.indexOf(String(s)) === -1) parts.push(String(s));
+  };
+  if (e) add(e.code ? e : null);
   let c = e && e.cause, depth = 0;
   while (c && depth < 3) {
-    const s = c.code || c.message || String(c);
-    if (s && msg.indexOf(String(s)) === -1 && parts.indexOf(String(s)) === -1) parts.push(String(s));
+    add(c);
     c = c.cause;
     depth++;
   }
@@ -50,19 +107,24 @@ async function fetchToken() {
   const secret = process.env.GIGACHAT_CLIENT_SECRET || "";
   if (!id || !secret) throw new Error("не заданы GIGACHAT_CLIENT_ID и GIGACHAT_CLIENT_SECRET");
   const auth = Buffer.from(id + ":" + secret).toString("base64");
-  const r = await fetch(OAUTH_URL, {
-    method: "POST",
-    headers: {
-      Authorization: "Basic " + auth,
-      RqUID: cryptoRandomUuid(),
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json"
-    },
-    body: "scope=" + encodeURIComponent(SCOPE),
-    signal: AbortSignal.timeout(TIMEOUT_MS)
-  });
-  const text = await r.text();
-  if (!r.ok) throw new Error("OAuth " + r.status + ": " + text.slice(0, 300));
+  let r;
+  try {
+    r = await request(OAUTH_URL, {
+      method: "POST",
+      headers: {
+        Authorization: "Basic " + auth,
+        RqUID: cryptoRandomUuid(),
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json"
+      },
+      body: "scope=" + encodeURIComponent(SCOPE),
+      timeout: TIMEOUT_MS
+    });
+  } catch (e) {
+    throw new Error("OAuth: сеть недоступна — " + errorText(e));
+  }
+  const text = r.text;
+  if (r.status < 200 || r.status >= 300) throw new Error("OAuth " + r.status + ": " + text.slice(0, 300));
   let j;
   try { j = JSON.parse(text); } catch (e) { throw new Error("OAuth: ответ не JSON"); }
   if (!j.access_token) throw new Error("OAuth: нет access_token");
@@ -147,23 +209,28 @@ async function ask(body) {
   if (mock()) return mockAnswer(body || {});
 
   const t = await getToken();
-  const r = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + t,
-      "Content-Type": "application/json",
-      Accept: "application/json"
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: messages,
-      temperature: 0.2,
-      max_tokens: 700
-    }),
-    signal: AbortSignal.timeout(TIMEOUT_MS)
-  });
-  const raw = await r.text();
-  if (!r.ok) {
+  let r;
+  try {
+    r = await request(API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + t,
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: messages,
+        temperature: 0.2,
+        max_tokens: 700
+      }),
+      timeout: TIMEOUT_MS
+    });
+  } catch (e) {
+    throw new Error("GigaChat: сеть недоступна — " + errorText(e));
+  }
+  const raw = r.text;
+  if (r.status < 200 || r.status >= 300) {
     const e = new Error("GigaChat " + r.status + ": " + raw.slice(0, 300));
     e.status = r.status === 401 ? 502 : r.status;
     throw e;
@@ -186,11 +253,23 @@ function parseAnswer(content, body) {
   if (start !== -1) {
     const end = matchBrace(raw, start);
     if (end !== -1) {
+      const block = raw.slice(start, end + 1);
       try {
-        const j = JSON.parse(raw.slice(start, end + 1));
+        const j = JSON.parse(block);
         if (j && typeof j.plain === "string") plain = j.plain;
         if (j && Array.isArray(j.cite)) cite = j.cite;
-      } catch (e) { /* оставляем текст как есть */ }
+      } catch (e) {
+        /* Модель иногда отдаёт почти-JSON без кавычек: «… {cite: tk236}».
+           Такой хвост — служебный, в тексте объяснения он не нужен. Убираем его,
+           только если в блоке нет plain: иначе можно потерять сам ответ. */
+        const hasPlain = /["']?plain["']?\s*:/.test(block);
+        const hasCite = /["']?cite["']?\s*:/.test(block);
+        if (!hasPlain && hasCite) {
+          plain = (raw.slice(0, start) + " " + raw.slice(end + 1)).replace(/\s+/g, " ").trim();
+          cite = block.replace(/^[^:]*:/, "").replace(/[\[\]{}"']/g, " ")
+            .split(/[,\s]+/).filter(Boolean);
+        }
+      }
     }
   }
   const allowed = {};

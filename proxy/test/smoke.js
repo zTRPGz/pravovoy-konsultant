@@ -51,6 +51,18 @@ check("пустой cite допустим", function () {
   assert.deepStrictEqual(r.cite, []);
 });
 
+check("текст с последней строкой CITE сохраняет абзацы", function () {
+  const r = parseAnswer("Первый абзац.\n\nВторой абзац.\nCITE: uk-111, uk-222", { norms: [{ id: "uk-111" }, { id: "uk-222" }] });
+  assert.strictEqual(r.plain, "Первый абзац.\n\nВторой абзац.");
+  assert.deepStrictEqual(r.cite, ["uk-111", "uk-222"]);
+});
+
+check("CITE, приписанный к последнему предложению, тоже разбирается", function () {
+  const r = parseAnswer("Объяснение. CITE: uk-111", { norms: [{ id: "uk-111" }] });
+  assert.strictEqual(r.plain, "Объяснение.");
+  assert.deepStrictEqual(r.cite, ["uk-111"]);
+});
+
 /* --- живой сервер в mock-режиме ----------------------------------------- */
 const child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
   env: Object.assign({}, process.env, {

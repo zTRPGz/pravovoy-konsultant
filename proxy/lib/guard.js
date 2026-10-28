@@ -5,14 +5,14 @@
  *   - CORS и проверка Origin/Referer по белому списку (браузер чужого сайта
  *     не сможет позвать прокси из скрипта);
  *   - лимит запросов на IP в минуту и на весь процесс в сутки;
- *   - ограничение размера тела (8 КБ) и длины текста;
+ *   - ограничение размера тела (16 КБ) и длины текста;
  *   - необязательный общий токен (SHARED_TOKEN) для собственных сборок.
  * Это не полноценная защита (IP подделывается заголовком, если прокси стоит за
  * доверенным балансировщиком), но она отсекает случайный и массовый перебор.
  */
 "use strict";
 
-const MAX_BODY = 8 * 1024;
+const MAX_BODY = 16 * 1024;
 const PER_IP = Number(process.env.RATE_LIMIT_PER_MIN || 12);
 const PER_DAY = Number(process.env.RATE_LIMIT_PER_DAY || 400);
 
@@ -87,7 +87,7 @@ function readBody(req) {
       chunks.push(c);
     });
     req.on("end", function () {
-      if (over) { reject(Object.assign(new Error("тело запроса больше 8 КБ"), { status: 413 })); return; }
+      if (over) { reject(Object.assign(new Error("тело запроса больше 16 КБ"), { status: 413 })); return; }
       const s = Buffer.concat(chunks).toString("utf8");
       if (!s) return resolve({});
       try { resolve(JSON.parse(s)); } catch (e) { reject(Object.assign(new Error("ожидался JSON"), { status: 400 })); }

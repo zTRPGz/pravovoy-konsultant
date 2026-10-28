@@ -6169,7 +6169,10 @@
       if (!id || seen[id] || !byId[id]) return;
       seen[id] = 1;
       var a = byId[id], c = codeById(a.c) || {};
-      norms.push({ id: id, code: c.short || a.c, num: a.dn, title: a.t });
+      /* Короткая выдержка помогает модели объяснить норму по существу,
+         а не пересказывать одно название. Текст нормы — публичный. */
+      var gist = String(a.g || "").replace(/\s+/g, " ").trim().slice(0, 280);
+      norms.push({ id: id, code: c.short || a.c, num: a.dn, title: a.t, gist: gist });
     });
     return {
       text: String(text || "").slice(0, 2000),

@@ -3061,6 +3061,7 @@ body::-webkit-scrollbar-track { background: transparent; }
   .chapter { border: none; }
   .chapter > summary { display: none; }
   .chapter-body { border: none; padding: 0; }
+  .reveal { opacity: 1 !important; transform: none !important; }
 
   body.printing > .app,
   body.printing > .toast,
@@ -3821,8 +3822,3 @@ button.lnk {
   .btn-primary::after { display: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
 }
-
-@media print {
-  .reveal { opacity: 1 !important; transform: none !important; }
-}
-

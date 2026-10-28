@@ -119,6 +119,22 @@ function parseList(html) {
   return out;
 }
 
+/* Документы, которых нет в каталоге sudact.ru, хотя их страницы открываются.
+   Постановление № 15 от 16.05.2017 (административный надзор) уже разобрано в
+   базе — 52 пункта, — но строки в /vsrf/plenum/ нет. Без этого списка ночная
+   сборка, перезаписывая plenums.json по каталогу, молча выбросила бы акт. */
+const KNOWN = [
+  {
+    slug: "law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-16052017_2",
+    url: BASE + "/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-16052017_2/",
+    adopted: "16.05.2017",
+    number: "15",
+    redaction: "22.12.2022",
+    title_short: "О некоторых вопросах, возникающих при рассмотрении судами дел " +
+      "об административном надзоре за лицами, освобожденными из мест лишения свободы"
+  }
+];
+
 async function loadCatalogue(noCache) {
   const seen = Object.create(null);
   const all = [];
@@ -138,6 +154,12 @@ async function loadCatalogue(noCache) {
     process.stdout.write("  стр. " + p + ": " + rows.length + " (" + fresh + " новых)\n");
     if (!fresh) break;
   }
+  KNOWN.forEach((r) => {
+    if (seen[r.slug]) return;
+    seen[r.slug] = 1;
+    all.push(r);
+    process.stdout.write("  вне каталога: " + r.adopted + " № " + r.number + "\n");
+  });
   return all;
 }
 

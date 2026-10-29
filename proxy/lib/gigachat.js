@@ -22,7 +22,7 @@ const OAUTH_URL = process.env.GIGACHAT_OAUTH_URL || "https://ngw.devices.sberban
 const API_URL = process.env.GIGACHAT_API_URL || "https://gigachat.devices.sberbank.ru/api/v1/chat/completions";
 const SCOPE = process.env.GIGACHAT_SCOPE || "GIGACHAT_API_PERS";
 const MODEL = process.env.GIGACHAT_MODEL || "GigaChat";
-const TIMEOUT_MS = Number(process.env.GIGACHAT_TIMEOUT_MS || 25000);
+const TIMEOUT_MS = Number(process.env.GIGACHAT_TIMEOUT_MS || 35000);
 
 /* Корневой сертификат НУЦ Минцифры нужен, чтобы Node доверял TLS GigaChat.
    Сначала пробуем файл рядом с прокси (его можно заменить, не трогая код), а
@@ -267,7 +267,9 @@ function parseAnswer(content, body) {
      с начала строки. */
   const cm = raw.match(/\s*CITE[ \t]*:[ \t]*([^\n]*)[ \t]*$/i);
   if (cm) {
-    cite = cm[1].split(/[,\s]+/).filter(Boolean);
+    cite = cm[1].split(/[,\s]+/)
+      .map(function (x) { return x.replace(/[\[\]{}"'`]+/g, "").replace(/[.,;:]+$/, ""); })
+      .filter(Boolean);
     plain = raw.slice(0, cm.index).trim();
   } else {
     const start = raw.indexOf("{");

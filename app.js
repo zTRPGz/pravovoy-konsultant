@@ -5966,14 +5966,17 @@
         '<details class="as-ai">' +
           "<summary>" + ic("chat") + " Объяснение простыми словами (GigaChat, необязательно)</summary>" +
           '<div class="small muted" style="margin:6px 0">Сайт разбирает ситуацию сам, офлайн и без передачи данных — ' +
-            "этот блок ничего не меняет. Если его включить, описание ситуации и перечень уже подобранных норм уйдут " +
-            "на ваш прокси-сервер, а он — в GigaChat. Ключ GigaChat хранится на сервере, в браузере его нет. " +
-            "По умолчанию выключено.</div>" +
+            "этот блок ничего не меняет. Если его включить, описание ситуации, квалификация и нормы " +
+            "с короткими выдержками уйдут на ваш прокси-сервер, а он — в GigaChat. " +
+            "Ключ GigaChat хранится на сервере, в браузере его нет. По умолчанию выключено.</div>" +
           '<label class="as-ai-row"><input type="checkbox" id="asAiOn"' + (aiCfg().on ? " checked" : "") + "> Включить объяснение" +
             (aiCfg().on ? "" : ' <span class="small muted">— выключено</span>') + "</label>" +
           '<div class="field" style="margin-top:8px"><label>Адрес прокси</label>' +
             '<input class="input" id="asAiUrl" type="url" inputmode="url" placeholder="https://ваш-прокси.example" value="' +
             esc(aiCfg().url) + '"></div>' +
+          '<div class="actions-row" style="margin-top:8px">' +
+            '<button class="btn btn-sm" type="button" id="asAiCheck">' + ic("check") + " Проверить связь</button>" +
+            '<span class="small muted" id="asAiCheckState"></span></div>' +
           '<div class="small" id="asAiState"></div>' +
           '<div class="small muted" style="margin-top:6px">Кнопка «Объяснить» появится под разбором — сначала нажмите «Разобрать».</div>' +
         "</details>" +
@@ -6142,7 +6145,18 @@
 
   function aiCfg() {
     var c = LS.get("ai", null) || {};
-    return { on: !!c.on, url: String(c.url || "") };
+    return { on: !!c.on, url: aiNormUrl(c.url) };
+  }
+  /* Пользователь часто копирует из документации полный адрес эндпоинта.
+     Клиент сам дописывает /ask, поэтому хвост /ask (и /api/ask) убираем —
+     иначе запрос уходил бы на /ask/ask. Хвост /api оставляем: бывают
+     serverless-адреса вида https://host/api. */
+  function aiNormUrl(u) {
+    return String(u || "").trim().replace(/\/+$/, "").replace(/\/ask$/i, "").replace(/\/+$/, "");
+  }
+  function aiUrlOk(u) {
+    if (!/^https?:\/\//i.test(u)) return false;
+    try { return !!new URL(u).hostname; } catch (e) { return false; }
   }
   function aiSet(patch) {
     var c = aiCfg();
@@ -6152,7 +6166,7 @@
   }
   function aiReady() {
     var c = aiCfg();
-    return !!(c.on && /^https?:\/\//i.test(c.url) && location.protocol !== "file:");
+    return !!(c.on && aiUrlOk(c.url) && location.protocol !== "file:");
   }
 
   /* Что отправляем: описание, выбранную квалификацию и нормы из готового
@@ -6182,9 +6196,9 @@
   }
 
   function askAi(p) {
-    var url = aiCfg().url.replace(/\/+$/, "") + "/ask";
+    var url = aiNormUrl(aiCfg().url) + "/ask";
     var ctrl = typeof AbortController === "function" ? new AbortController() : null;
-    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 30000);
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 45000);
     return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -6202,6 +6216,11 @@
   }
 
   function renderAi(dst, r, p) {
+    if (!String(r.plain || "").trim()) {
+      dst.innerHTML = '<div class="warn-box">GigaChat вернул пустой ответ. Разбор выше от этого не зависит.' +
+        '<div style="margin-top:8px"><button class="btn btn-sm" type="button" data-ai-retry>Повторить</button></div></div>';
+      return;
+    }
     var allow = {};
     p.norms.forEach(function (n) { allow[n.id] = 1; });
     /* Повторная проверка на клиенте: прокси уже фильтрует cite, но доверять
@@ -6219,6 +6238,8 @@
       html += '<div class="small muted" style="margin-top:8px">Модель не сослалась ни на одну норму — ' +
         "это пересказ, а не вывод. Опирайтесь на разбор выше.</div>";
     }
+    html += '<div class="actions-row" style="margin-top:10px">' +
+      '<button class="btn btn-sm" type="button" data-ai-copy>' + ic("clip") + " Скопировать объяснение</button></div>";
     html += '<div class="aib-note">Сгенерировано GigaChat по перечню норм сайта. Не юридическая консультация: ' +
       "проверьте каждую ссылку — разбор выше и текст статьи важнее.</div>";
     dst.innerHTML = html;
@@ -6237,9 +6258,10 @@
       '<span class="small muted">черновик GigaChat по нормам, которые подобрал сайт</span></div>' +
       '<div class="actions-row" style="margin-top:0">' +
         '<button class="btn btn-sm" type="button" data-ai-run>Объяснить</button>' +
-        '<span class="small muted">описание уйдёт на сервер только после нажатия</span>' +
+        '<span class="small muted">описание и ' + p.norms.length + " " +
+          plural(p.norms.length, ["норма", "нормы", "норм"]) + " уйдут только после нажатия</span>" +
       "</div>" +
-      '<div class="aib-out"></div>';
+      '<div class="aib-out" aria-live="polite"></div>';
     out.appendChild(box);
     var btn = box.querySelector("[data-ai-run]"), dst = box.querySelector(".aib-out");
     function runAi() {
@@ -6251,7 +6273,10 @@
         renderAi(dst, r, p);
       }).catch(function (e) {
         var msg = String(e && e.message ? e.message : e);
-        if (/abort/i.test(msg)) msg = "сервер не ответил за 30 секунд";
+        if (/abort/i.test(msg)) msg = "сервер не ответил за 45 секунд";
+        else if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+          msg = "прокси не отвечает — проверьте адрес и что он открыт по https";
+        }
         dst.innerHTML = '<div class="warn-box">Не получилось: ' + esc(msg) +
           '. Разбор выше от этого не зависит — он сделан локально.' +
           '<div style="margin-top:8px"><button class="btn btn-sm" type="button" data-ai-retry>Повторить</button></div></div>';
@@ -6262,28 +6287,76 @@
     }
     btn.addEventListener("click", runAi);
     dst.addEventListener("click", function (e) {
-      if (e.target && e.target.closest("[data-ai-retry]")) runAi();
+      if (!e.target || !e.target.closest) return;
+      if (e.target.closest("[data-ai-retry]")) { runAi(); return; }
+      if (e.target.closest("[data-ai-copy]")) {
+        var txt = dst.querySelector(".aib-text");
+        copyText(txt ? txt.textContent : "", "Объяснение скопировано");
+      }
     });
   }
 
   function bindAiSettings() {
     var on = $("#asAiOn"), url = $("#asAiUrl"), st = $("#asAiState");
+    var check = $("#asAiCheck"), checkSt = $("#asAiCheckState");
     if (!on || !url) return;
+
+    function setCheck(text, okay) {
+      if (!checkSt) return;
+      checkSt.textContent = text;
+      checkSt.style.color = okay === true ? "var(--ok)" : (okay === false ? "var(--danger)" : "");
+    }
+
     function sync(save) {
-      var c = aiSet({ on: !!on.checked, url: String(url.value || "").trim() });
+      /* Хвост /ask убираем сразу в поле: иначе запрос уйдёт на /ask/ask. */
+      var clean = aiNormUrl(url.value);
+      if (clean !== url.value) url.value = clean;
+      var c = aiSet({ on: !!on.checked, url: clean });
       if (save) {
-        if (c.on && !/^https?:\/\//i.test(c.url)) toast("Укажите адрес прокси — например https://ваш-прокси.example");
+        setCheck("");
+        if (c.on && !aiUrlOk(c.url)) toast("Укажите адрес прокси — например https://ваш-прокси.example");
         else toast(c.on ? "Объяснение включено" : "Объяснение выключено");
       }
       if (st) {
         st.textContent = !c.on ? "Объяснение выключено — данные никуда не уходят."
           : (location.protocol === "file:"
             ? "На локальном файле прокси недоступен: откройте сайт по https."
-            : (!/^https?:\/\//i.test(c.url) ? "Укажите адрес прокси." : "Включено: " + c.url));
+            : (!aiUrlOk(c.url) ? "Укажите адрес прокси." : "Включено: " + c.url));
       }
     }
+
+    function checkProxy() {
+      var base = aiNormUrl(url.value);
+      if (!aiUrlOk(base)) { setCheck("Сначала укажите адрес прокси.", false); return; }
+      if (location.protocol === "file:") { setCheck("На локальном файле проверка недоступна.", false); return; }
+      check.disabled = true;
+      setCheck("Проверяю…", null);
+      var ctrl = typeof AbortController === "function" ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 10000);
+      /* Проверяем именно /ask: так работает и автономный сервер, и
+         serverless-адаптер (/api/ask). OPTIONS не тратит квоту GigaChat. */
+      fetch(base + "/ask", {
+        method: "OPTIONS",
+        cache: "no-store",
+        signal: ctrl ? ctrl.signal : undefined
+      }).then(function (r) {
+        if (r.status === 404) throw new Error("по этому адресу нет /ask");
+        if (r.status !== 204) throw new Error("HTTP " + r.status);
+        setCheck("Прокси отвечает и разрешает запросы с этого сайта.", true);
+      }).catch(function (e) {
+        var m = String(e && e.message ? e.message : e);
+        if (/abort/i.test(m)) m = "нет ответа за 10 секунд";
+        else if (/failed to fetch|networkerror|load failed/i.test(m)) m = "адрес недоступен или не разрешён CORS";
+        setCheck("Не удалось проверить: " + m, false);
+      }).finally(function () {
+        clearTimeout(timer);
+        check.disabled = false;
+      });
+    }
+
     on.addEventListener("change", function () { sync(true); if (asRefresh) asRefresh(); });
     url.addEventListener("change", function () { sync(true); if (asRefresh) asRefresh(); });
+    if (check) check.addEventListener("click", checkProxy);
     sync(false);
   }
 
@@ -13940,7 +14013,7 @@
         "<p><b>Отвечать только по выбранным источникам.</b> По умолчанию помощник ищет по всей базе. Если вопрос касается одного акта — «что говорит Уголовный кодекс», — откройте список <b>«Источники для ответа»</b> и отметьте нужные: подбор норм и цитаты ограничатся ими, нормы соседних отраслей и общая практика в ответ не попадут. Список с поиском по названию и счётчиком выбранного; выбранные акты видны чипами, снять можно крестиком. Кнопка «Спросить Помощника» на странице кодекса включает этот режим сразу. Выбор действует <b>до конца сеанса</b> — при следующем открытии помощник снова ищет по всей базе.</p>" +
         "<p>Упоминания норм в разборах, памятках и примечаниях — <b>кликабельные ссылки</b>: «ст. 105 УК РФ» или «п. 6 постановления Пленума ВС РФ № 29» ведут прямо на нужный пункт действующей редакции.</p>" +
         "<p>Разборы охватывают хищения и их формы, вред здоровью, наркотики, оружие, взятки, ДТП, безопасность движения и эксплуатации транспорта, задержание, обыск и выемку, личный досмотр, оперативно-розыскные мероприятия, угон, угрозы, приём заявлений (КУСП), миграцию, трудовые и имущественные споры. Отдельные разборы — призыв и мобилизация, государственная тайна и допуск к ней, митинги и пикеты, тонировка и техническое состояние машины, просрочка по кредиту и коллекторы, подделка документов и подписи, отказ в перевозке и возврат билета, изображение гражданина и персональные данные, незаконная рубка леса, перепланировка квартиры, уничтожение и повреждение чужого имущества.</p>" +
-        "<p><b>Объяснение простыми словами (необязательно).</b> Под разбором может появиться кнопка «Объяснить»: короткий пересказ ситуации от GigaChat. По умолчанию эта возможность <b>выключена</b> — пока вы не поставили галочку в блоке «Объяснение простыми словами» и не указали адрес своего прокси, из браузера не уходит ни один байт, и разбор целиком считается на устройстве. Модель получает <b>закрытый перечень</b> норм, которые уже подобрал сайт, и не имеет права ссылаться на что-то другое: каждый вернувшийся id сверяется с базой, выдуманные отбрасываются. Такой пересказ помечен как сгенерированный и не заменяет разбор — он нужен, чтобы понять смысл нормы, а не чтобы получить вывод.</p>" +
+        "<p><b>Объяснение простыми словами (необязательно).</b> Под разбором может появиться кнопка «Объяснить»: GigaChat разбирает по нормам, которые уже подобрал сайт, — что каждая из них устанавливает и как применяется к описанной ситуации. По умолчанию эта возможность <b>выключена</b> — пока вы не поставили галочку в блоке «Объяснение простыми словами» и не указали адрес своего прокси, из браузера не уходит ни один байт, и разбор целиком считается на устройстве. В прокси уходят описание ситуации, квалификация и нормы с короткими выдержками. Модель получает <b>закрытый перечень</b> норм и не имеет права ссылаться на что-то другое: каждый вернувшийся id сверяется с базой, выдуманные отбрасываются. Такой разбор помечен как сгенерированный и не заменяет вывод — он нужен, чтобы понять смысл норм, а не чтобы получить готовое решение.</p>" +
         "<p>По смыслу запроса помощник также подбирает судебную практику — блок «Судебная практика» под разбором: постановления Пленума ВС РФ и обзоры судебной практики, утверждённые Президиумом ВС РФ. У разбора есть «свои» постановления — они идут первыми. Практика не создаёт норму, а разъясняет, как её применять.</p>" +
         "<p>Если в тексте есть вопросы («есть ли состав», «что повлияет на наказание», «было ли соучастие»), помощник отвечает на каждый отдельной строкой вывода — в дополнение к разбору.</p>") +
 

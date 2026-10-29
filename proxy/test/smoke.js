@@ -63,6 +63,32 @@ check("CITE, приписанный к последнему предложени
   assert.deepStrictEqual(r.cite, ["uk-111"]);
 });
 
+check("CITE со скобками тоже разбирается", function () {
+  const r = parseAnswer("Объяснение.\nCITE: [uk-111, uk-222]", { norms: [{ id: "uk-111" }, { id: "uk-222" }] });
+  assert.deepStrictEqual(r.cite, ["uk-111", "uk-222"]);
+});
+
+/* --- проверка источника запроса ------------------------------------------ */
+const { originOk } = require(path.join(ROOT, "lib/guard"));
+process.env.ALLOWED_ORIGINS = ORIGIN;
+const reqWith = function (headers) { return { headers: headers }; };
+
+check("точный Origin разрешён", function () {
+  assert.strictEqual(originOk(reqWith({ origin: ORIGIN })), true);
+});
+check("домен-двойник по Origin отклонён", function () {
+  assert.strictEqual(originOk(reqWith({ origin: "https://ztrpgz.github.io.evil.com" })), false);
+});
+check("Referer с тем же origin разрешён", function () {
+  assert.strictEqual(originOk(reqWith({ referer: ORIGIN + "/pravovoy-konsultant/" })), true);
+});
+check("Referer с доменом-двойником отклонён", function () {
+  assert.strictEqual(originOk(reqWith({ referer: "https://ztrpgz.github.io.evil.com/x" })), false);
+});
+check("без Origin и Referer запрос отклонён", function () {
+  assert.strictEqual(originOk(reqWith({})), false);
+});
+
 /* --- живой сервер в mock-режиме ----------------------------------------- */
 const child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
   env: Object.assign({}, process.env, {

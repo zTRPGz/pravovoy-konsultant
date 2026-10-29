@@ -44,7 +44,7 @@ function rateOk(ip) {
 function origins() {
   const raw = String(process.env.ALLOWED_ORIGINS || "").trim();
   if (!raw || raw === "*") return ["*"];
-  return raw.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+  return raw.split(",").map(function (s) { return s.trim().replace(/\/+$/, ""); }).filter(Boolean);
 }
 
 function originOk(req) {
@@ -54,10 +54,15 @@ function originOk(req) {
   if (o && list.indexOf(o) !== -1) return true;
   /* Запрос не из браузера (curl, серверный вызов) — Origin пустой. Его пускаем
      только если разрешён referer сайта: так прокси нельзя превратить в открытый
-     релей для чужих скриптов, но собственные проверки работают. */
+     релей для чужих скриптов, но собственные проверки работают. Сравниваем
+     именно origin, а не префикс строки: иначе «https://site.ru.evil.com»
+     прошёл бы проверку на «https://site.ru». */
   if (!o) {
-    const ref = String(req.headers.referer || "");
-    return list.some(function (x) { return ref.indexOf(x) === 0; });
+    const ref = String(req.headers.referer || "").trim();
+    if (!ref) return false;
+    let refOrigin;
+    try { refOrigin = new URL(ref).origin; } catch (e) { return false; }
+    return list.indexOf(refOrigin) !== -1;
   }
   return false;
 }

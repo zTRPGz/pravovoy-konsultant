@@ -80,7 +80,7 @@
 `tools/build-data.js` вместе с данными пишет крошечный `data/version.json`:
 
 ```json
-{"at":"2026-10-30T21:26:58.653Z","digest":"38ae55738c411039","articles":30943,"sources":441,"files":488,"code":"f9c3d0f224e64927"}
+{"at":"2026-10-30T22:00:12.954Z","digest":"38ae55738c411039","articles":30943,"sources":441,"files":488,"code":"61b0341d5655bf3d"}
 ```
 
 `digest` — это sha1 по содержимому всех `data/*.js` и `data/*.json`, у которых

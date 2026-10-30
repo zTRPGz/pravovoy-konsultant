@@ -6009,6 +6009,10 @@
           '<div class="field" style="margin-top:8px"><label>Адрес прокси</label>' +
             '<input class="input" id="asAiUrl" type="url" inputmode="url" placeholder="https://ваш-прокси.example" value="' +
             esc(aiCfg().url) + '"></div>' +
+          (aiCfg().url === aiNormUrl(AI_DEFAULT_URL)
+            ? '<div class="small muted" style="margin-top:4px">Стоит бесплатный прокси проекта — ' +
+              esc(aiNormUrl(AI_DEFAULT_URL).replace(/^https?:\/\//, "")) + ". Свой адрес можно указать вместо него.</div>"
+            : "") +
           '<div class="small muted" style="margin-top:4px">Своего сервера нет? Бесплатный вариант, который ' +
             'открывается из России, — Netlify. Пошаговая инструкция: ' +
             '<a href="https://github.com/zTRPGz/pravovoy-konsultant/blob/main/proxy/README.md" target="_blank" ' +
@@ -6182,10 +6186,10 @@
      них. Каждый вернувшийся id сверяется с RF_IDX: выдуманные выбрасываются.
      Объяснение помечено как сгенерированное и не заменяет разбор. */
 
-  /* Адрес прокси по умолчанию. Пустая строка — каждый указывает свой.
-     После деплоя на российский хостинг впишите сюда адрес: поле в настройках
-     подставит его само, а адрес, сохранённый человеком, остаётся важнее. */
-  var AI_DEFAULT_URL = "";
+  /* Адрес прокси по умолчанию: бесплатная функция Netlify, открывается из РФ.
+     Поле в настройках подставит его само, а адрес, сохранённый человеком,
+     остаётся важнее — свой прокси можно указать в любой момент. */
+  var AI_DEFAULT_URL = "https://pravovoy-konsultant.netlify.app";
 
   function aiCfg() {
     var c = LS.get("ai", null) || {};

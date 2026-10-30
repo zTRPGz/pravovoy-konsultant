@@ -59,13 +59,11 @@ const head = (t) => console.log("\n" + t);
    это не наша ошибка, и ночная приёмка не должна из-за них падать. Держим
    список явным: он и есть «baseline». Если запись перестала срабатывать,
    audit сообщает об этом замечанием — список не зарастает. */
-const KNOWN_SRC = {
-  fz229: ["fields", "chapters"],
-  fz2300: ["fields"],
-  fz353: ["fields"],
-  fz38: ["fields"],
-  fz395: ["fields"]
-};
+/* Известных расхождений сейчас нет: сверка идёт по app_id, и позиции
+   источника совпадают с индексом. Список оставлен на случай, если
+   расхождение появится в самом источнике и его нельзя будет исправить
+   немедленно — тогда запись сюда переносит ошибку в замечания. */
+const KNOWN_SRC = {};
 
 /* Ошибка по конкретному источнику: известные виды расхождений уходят в
    замечания, всё остальное — в ошибки. */
@@ -95,7 +93,14 @@ function collectSources() {
   const byName = {};
   const byKey = {};
   const add = (raw, file) => {
-    if (raw && raw.name && Array.isArray(raw.articles) && !AMEND_RE.test(String(raw.name))) byName[raw.name] = { raw, file };
+    if (raw && raw.name && Array.isArray(raw.articles) && !AMEND_RE.test(String(raw.name))) {
+      /* Названия повторяются: 1032-I и 565-ФЗ называются одинаково
+         «О занятости населения…», 62-ФЗ и 138-ФЗ — «О гражданстве…».
+         Поэтому ключ по app_id точнее имени; имя остаётся запасным. */
+      const entry = { raw, file };
+      if (raw.app_id) byKey[raw.app_id] = entry;
+      if (!byName[raw.name]) byName[raw.name] = entry;
+    }
   };
   const walk = (dir) => {
     if (!fs.existsSync(dir)) return;
@@ -162,7 +167,7 @@ function auditSourceToIndex() {
   const IDX = global.RF_IDX;
   const collected = collectSources();
   const byName = collected.byName, byKey = collected.byKey;
-  const srcOf = (c) => byName[c.dataset] || byKey[c.id];
+  const srcOf = (c) => byKey[c.id] || byName[c.dataset];
 
   const idxByCode = {};
   IDX.forEach((r) => { (idxByCode[r[0]] = idxByCode[r[0]] || []).push(r); });
@@ -514,7 +519,8 @@ function auditChapters() {
     return;
   }
   const CODES = global.RF_CODES, IDX = global.RF_IDX;
-  const byName = collectSources().byName;
+  const collected = collectSources();
+  const byName = collected.byName, byKey = collected.byKey;
   const idxByCode = {};
   IDX.forEach((r) => { (idxByCode[r[0]] = idxByCode[r[0]] || []).push(r); });
 
@@ -535,7 +541,7 @@ function auditChapters() {
   let checked = 0, badCnt = 0;
   const allIdxCh = new Set();
   CODES.forEach((c) => {
-    const src = byName[c.dataset];
+    const src = byKey[c.id] || byName[c.dataset];
     if (!src) return;
     checked++;
     const rows = idxByCode[c.id] || [];

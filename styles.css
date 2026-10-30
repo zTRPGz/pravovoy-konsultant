@@ -1759,6 +1759,8 @@ body.has-crash .toast { bottom: 104px; }
 }
 .aib-head svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--text-2); }
 .aib-text { font-size: var(--fs-4); line-height: 1.6; white-space: pre-line; }
+.aib-text b { display: block; margin: 10px 0 2px; font-size: var(--fs-3); }
+.aib-text b:first-child { margin-top: 0; }
 .aib-note {
   margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border);
   font-size: var(--fs-5); color: var(--text-2);

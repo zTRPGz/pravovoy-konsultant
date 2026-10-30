@@ -17,6 +17,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c9693d70b5bc11c97f515e288930b34815497eab8f08a7ad32eaab319b6d262a&ttl=1",
   "dataset": "Конституция Российской Федерации",
+  "replace_note": "",
   "count": 144
  },
  {
@@ -35,6 +36,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 13.06.1996 № 63-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f29a592d348b400651a6760273edea9dfcbb75f4d56777c1c5b99233244b404c&ttl=1",
   "dataset": "Уголовный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 538
  },
  {
@@ -53,6 +55,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 18.12.2001 № 174-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fe66afca01e13d9cd5c9372505774708c90daa44c9410084df9c1b64e0635a03&ttl=1",
   "dataset": "Уголовно-процессуальный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 561
  },
  {
@@ -71,6 +74,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 30.12.2001 № 195-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=6639c6c6580e8aa0bdf84170d25823669dfb6a4144b03da245ef4889f24765c0&ttl=1",
   "dataset": "Кодекс Российской Федерации об административных правонарушениях",
+  "replace_note": "",
   "count": 1158
  },
  {
@@ -89,6 +93,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 30.11.1994 № 51-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ba747b7c430fdfb9405741d818463a26af1577a680f7a9ab6318cc6f4faa1121&ttl=1",
   "dataset": "Гражданский кодекс Российской Федерации. Часть первая",
+  "replace_note": "",
   "count": 595
  },
  {
@@ -107,6 +112,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 26.01.1996 № 14-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c5515b06c932bdfbd67b34f5b856bb8317deaabded3eacae2ebadfd4c6703785&ttl=1",
   "dataset": "Гражданский кодекс Российской Федерации. Часть вторая",
+  "replace_note": "",
   "count": 686
  },
  {
@@ -125,6 +131,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 26.11.2001 № 146-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=4420d99c9eb3a210be9c946b1668b59acfb944f1129f0beaf1bd82d03449122c&ttl=1",
   "dataset": "Гражданский кодекс Российской Федерации. Часть третья",
+  "replace_note": "",
   "count": 124
  },
  {
@@ -143,6 +150,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 18.12.2006 № 230-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=3edc1b4f0e70ca1c9191422c7c01743f4316210d72f59b4a45581dd70060fb13&ttl=1",
   "dataset": "Гражданский кодекс Российской Федерации. Часть четвертая",
+  "replace_note": "",
   "count": 335
  },
  {
@@ -161,6 +169,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 30.12.2001 № 197-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=03bdee8f44a71247d7ba3342484326dbc3fa292d3caae9f88ada4b1ee38c20d9&ttl=1",
   "dataset": "Трудовой кодекс Российской Федерации",
+  "replace_note": "",
   "count": 541
  },
  {
@@ -179,6 +188,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 31.07.1998 № 146-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b113c2e08341853ef53a8dad4585b513d96f85e0f3d0d246a25ecf52e40608db&ttl=1",
   "dataset": "Налоговый кодекс Российской Федерации. Часть первая",
+  "replace_note": "",
   "count": 276
  },
  {
@@ -197,6 +207,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 05.08.2000 № 117-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=6d30a92f830312a1b62d0a002c635c3e667c52e1059a82525dd65cb8e2bbe0a6&ttl=1",
   "dataset": "Налоговый кодекс Российской Федерации. Часть вторая",
+  "replace_note": "",
   "count": 527
  },
  {
@@ -215,6 +226,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 14.11.2002 № 138-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=34099dcc0eb7647de8e2af5a8ff35414410745ba6b4f742a81842946c1a6670e&ttl=1",
   "dataset": "Гражданский процессуальный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 515
  },
  {
@@ -233,6 +245,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 08.03.2015 № 21-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=301b8e7807e422d78de841e939939cb07d46851f945e2039d13fa8b38623557f&ttl=1",
   "dataset": "Кодекс административного судопроизводства Российской Федерации",
+  "replace_note": "",
   "count": 428
  },
  {
@@ -251,6 +264,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 24.07.2002 № 95-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2464a0020ca4de3955dedd4369ba3d1bbbc846a28422a1b7c06ff6098086e8c3&ttl=1",
   "dataset": "Арбитражный процессуальный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 420
  },
  {
@@ -269,6 +283,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 29.12.1995 № 223-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=67c8f9935a6c27bd4075a7e8c1965e7acabbdf019e8dcf764d9203a17ddfcf67&ttl=1",
   "dataset": "Семейный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 178
  },
  {
@@ -287,6 +302,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 29.12.2004 № 188-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=8b4a1920bd1b392ecc9684dc74ddebb02da5af465df06bc4a7ff8c2baf3915ce&ttl=1",
   "dataset": "Жилищный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 244
  },
  {
@@ -305,6 +321,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 25.10.2001 № 136-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f7e8a05ab96295ade2be3c550c15fdb66646f0b16f0f65c5aad57b59577acb74&ttl=1",
   "dataset": "Земельный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 199
  },
  {
@@ -323,6 +340,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 29.12.2004 № 190-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fc01bd4ee09272d641c80b86f8be9f750ca1137e1402dd267b5b991e64ad45b1&ttl=1",
   "dataset": "Градостроительный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 143
  },
  {
@@ -341,6 +359,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 31.07.1998 № 145-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=1e6024ba3941a2db83058b219a73643f87ad32f9f6bb5c9fd9b4bcb5aaa3f979&ttl=1",
   "dataset": "Бюджетный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 424
  },
  {
@@ -359,6 +378,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 08.01.1997 № 1-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=7f2d72fdcce53161ff2e24ed5f79b59257bb81285e5e7a77c33b32bc88d32848&ttl=1",
   "dataset": "Уголовно-исполнительный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 227
  },
  {
@@ -377,6 +397,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 04.12.2006 № 200-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d7e701370b68103b6266adeef0600c62b8fdd7c8517eb57fcfdf22995ab90958&ttl=1",
   "dataset": "Лесной кодекс Российской Федерации",
+  "replace_note": "",
   "count": 220
  },
  {
@@ -395,6 +416,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 03.06.2006 № 74-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=22ab398631ebf15f4c8e7cfbc229e36cd2c98f61dd095934c64eb2106d370190&ttl=1",
   "dataset": "Водный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 80
  },
  {
@@ -413,6 +435,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 19.03.1997 № 60-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=24690944a51bce854e2e6669730e80e6290a77c2c2b574149c999989143e3a0c&ttl=1",
   "dataset": "Воздушный кодекс Российской Федерации",
+  "replace_note": "",
   "count": 174
  },
  {
@@ -431,6 +454,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 30.04.1999 № 81-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=779dc3826f8590b9834ef488b94ccf833f26cde0f112edc741f9becd629adf96&ttl=1",
   "dataset": "Кодекс торгового мореплавания Российской Федерации",
+  "replace_note": "",
   "count": 469
  },
  {
@@ -449,6 +473,7 @@ window.RF_CODES=[
   "docpassing": "Кодекс Российской Федерации от 07.03.2001 № 24-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=1e0511819057ac27ce824e6862488cd24ce5a98760c6aa2116112515fd7fd3d0&ttl=1",
   "dataset": "Кодекс внутреннего водного транспорта Российской Федерации",
+  "replace_note": "",
   "count": 188
  },
  {
@@ -467,6 +492,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=328df8d8528645d884b2fd07f023b3db5baf3cfa9c538bef98cebcef8ec2c3c7&ttl=1",
   "dataset": "О Конституционном Суде Российской Федерации",
+  "replace_note": "",
   "count": 141
  },
  {
@@ -485,6 +511,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c363d5851d4ce815635f7168ba073eb4b0f513c8fbfa541b41964992781fd38b&ttl=1",
   "dataset": "Об арбитражных судах в Российской Федерации",
+  "replace_note": "",
   "count": 61
  },
  {
@@ -503,6 +530,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=25cf98a92a78a6e7c7bfd874eeac9da39be4c5cd88969185afe4dc29699e0cab&ttl=1",
   "dataset": "О судебной системе Российской Федерации",
+  "replace_note": "",
   "count": 43
  },
  {
@@ -521,6 +549,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=10f011a0ff7b106b61f440f35d4614a9859c73654372a2870ccff9bc0d0aecce&ttl=1",
   "dataset": "Об Уполномоченном по правам человека в Российской Федерации",
+  "replace_note": "",
   "count": 48
  },
  {
@@ -539,6 +568,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=57cd2e73725b8282ac9c0df2a082262fc3ca835884cfba7a1a3aebf3d8d028ae&ttl=1",
   "dataset": "О военных судах Российской Федерации",
+  "replace_note": "",
   "count": 64
  },
  {
@@ -557,6 +587,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=9248d56550a5d29371dc961859366c959adf39de56fcdf0fa637666d298c21a8&ttl=1",
   "dataset": "О Государственном флаге Российской Федерации",
+  "replace_note": "",
   "count": 13
  },
  {
@@ -575,6 +606,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=8d31e270da3682e6a859f7a2c8057d2c22b8a5cd64806ab66b2c4679acbd6750&ttl=1",
   "dataset": "О Государственном гербе Российской Федерации",
+  "replace_note": "",
   "count": 13
  },
  {
@@ -593,6 +625,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=21840927d62e667edcb80dabbac5417c2d6402558eb45e7f190781ab17dba2dd&ttl=1",
   "dataset": "О Государственном гимне Российской Федерации",
+  "replace_note": "",
   "count": 12
  },
  {
@@ -611,6 +644,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=1a3251764926212668aa8c67decea0f6e472ccfab1f8988ae4f42237786fcfb8&ttl=1",
   "dataset": "О чрезвычайном положении",
+  "replace_note": "",
   "count": 44
  },
  {
@@ -629,6 +663,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=9401b91f2ec1c6c2863529d115e92d01f22463a336008ee5f142b444303b0532&ttl=1",
   "dataset": "О порядке принятия в Российскую Федерацию и образования в ее составе нового субъекта Российской Федерации",
+  "replace_note": "",
   "count": 15
  },
  {
@@ -647,6 +682,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ab457d1a648add609c19aaead3e579a568ce790381a19d2e05b177f3a4d4c7c0&ttl=1",
   "dataset": "О военном положении",
+  "replace_note": "",
   "count": 25
  },
  {
@@ -665,6 +701,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ea108a45cac88d728c51a6de3b3e8e2fa8b2de3e6d5f02ee6f299eea6cfa3db4&ttl=1",
   "dataset": "О референдуме Российской Федерации",
+  "replace_note": "",
   "count": 94
  },
  {
@@ -683,6 +720,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a8b8c0bd4619cac7fd2ff0c73c3c4b3a6c0cb637929a5d03e39f528cf079337c&ttl=1",
   "dataset": "О Верховном Суде Российской Федерации",
+  "replace_note": "",
   "count": 26
  },
  {
@@ -701,6 +739,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=78fa0565e32bbbec4331b062eb8c863238c83422abdc170bc967e12e8c3804c5&ttl=1",
   "dataset": "О Правительстве Российской Федерации",
+  "replace_note": "",
   "count": 38
  },
  {
@@ -719,6 +758,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f60f9bbb6b60a8145136a31b9f68beddd471f95a9ed9f3322f6edb709d4b3815&ttl=1",
   "dataset": "О судах общей юрисдикции в Российской Федерации",
+  "replace_note": "",
   "count": 46
  },
  {
@@ -737,6 +777,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 16.07.1998 № 102-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=75ff3ad541b8805c9eb4280a36cd67c3de7a01ffabc5baa89eb3db6d5bfd17d1&ttl=1",
   "dataset": "Об ипотеке (залоге недвижимости)",
+  "replace_note": "",
   "count": 101
  },
  {
@@ -755,6 +796,7 @@ window.RF_CODES=[
   "docpassing": "Закон Российской Федерации от 19.04.1991 № 1032-I",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c4b78b48a9e323224968c8cce01c4151720f07275d25ea8293524218d8848c9a&ttl=1",
   "dataset": "О занятости населения в Российской Федерации",
+  "replace_note": "С 1 января 2024 г. занятость регулируется Федеральным законом от 12.12.2023 № 565-ФЗ «О занятости населения в Российской Федерации».",
   "count": 56
  },
  {
@@ -773,6 +815,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 07.08.2001 № 115-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e038b5267fd12efcd878089d78e423bd305363871a2f87faeb223ce8340646ef&ttl=1",
   "dataset": "О противодействии легализации (отмыванию) доходов, полученных преступным путем, и финансированию терроризма",
+  "replace_note": "",
   "count": 39
  },
  {
@@ -791,6 +834,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 24.07.1998 № 125-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2f7ad3e315606b264659c271c74baf03b8affe0eb971c42fe953c5e0e9676758&ttl=1",
   "dataset": "Об обязательном социальном страховании от несчастных случаев на производстве и профессиональных заболеваний",
+  "replace_note": "",
   "count": 75
  },
  {
@@ -809,6 +853,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 07.07.2003 № 126-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f3986fd0a4a16bfc1b4845a6f769ff87a1b87d9ef6e7e7e79f3bab7b750f0216&ttl=1",
   "dataset": "О связи",
+  "replace_note": "",
   "count": 88
  },
  {
@@ -827,6 +872,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 26.10.2002 № 127-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=824607a0acef28b1f68bd0d247f589181c091488edf5fe0978f3d3509557c6a2&ttl=1",
   "dataset": "О несостоятельности (банкротстве)",
+  "replace_note": "",
   "count": 541
  },
  {
@@ -845,6 +891,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 27.07.2006 № 149-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a93cb46410f9a12778a4cbd6ce7e6ffd0e07ebd11eedeaaf7e3699a475f27c69&ttl=1",
   "dataset": "Об информации, информационных технологиях и о защите информации",
+  "replace_note": "",
   "count": 49
  },
  {
@@ -863,6 +910,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 27.07.2006 № 152-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=98490812b3409e2a8d78a11ca9010f434ea3d9250a11dbbdb78690cd5551bdd6&ttl=1",
   "dataset": "О персональных данных",
+  "replace_note": "",
   "count": 31
  },
  {
@@ -881,6 +929,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 21.12.1996 № 159-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c840b6e32d0f8f5dd2f946c606aa4424a7eee6e7fc6ad7a9ed7c0ff93127c5e6&ttl=1",
   "dataset": "О дополнительных гарантиях по социальной поддержке детей-сирот и детей, оставшихся без попечения родителей",
+  "replace_note": "",
   "count": 15
  },
  {
@@ -899,6 +948,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 27.06.2011 № 161-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=58b741cf07ea897bf8aadc46dfeaca319f816516e68975f1871692e702ac19b5&ttl=1",
   "dataset": "О национальной платежной системе",
+  "replace_note": "",
   "count": 60
  },
  {
@@ -917,6 +967,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 15.12.2001 № 166-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=bd33eaf16e62353b6561d30c7195aa584772e8c3e172b3049334b8d2d025d6a4&ttl=1",
   "dataset": "О государственном пенсионном обеспечении в Российской Федерации",
+  "replace_note": "",
   "count": 37
  },
  {
@@ -935,6 +986,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 15.12.2001 № 167-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e4d64ff49aba3b162b9b07102e407dcb695f4dc10a460f23d155971b05bb9f1f&ttl=1",
   "dataset": "Об обязательном пенсионном страховании в Российской Федерации",
+  "replace_note": "",
   "count": 44
  },
  {
@@ -953,6 +1005,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 01.07.2011 № 170-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=43a774c6b830a623f572635f0e27ada061eaf4062a51c35bbe9c748e17db0749&ttl=1",
   "dataset": "О техническом осмотре транспортных средств и о внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 38
  },
  {
@@ -971,6 +1024,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 10.12.2003 № 173-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=aaa8e3e284462c5d6fb1b78817de9658e0986bdce5c8c2f59ccf82b3e22a956b&ttl=1",
   "dataset": "О валютном регулировании и валютном контроле",
+  "replace_note": "",
   "count": 31
  },
  {
@@ -989,6 +1043,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 23.12.2003 № 177-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f31b8c3ea8b228f87377cfa29dd204ea1133f8b239948cfa86863a1b12d7de0c&ttl=1",
   "dataset": "О страховании вкладов в банках Российской Федерации",
+  "replace_note": "",
   "count": 68
  },
  {
@@ -1007,6 +1062,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 17.07.1999 № 178-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c94eb493a91932b0e155410a15af8ecff15130f6586fefa67bbbc39535230e7f&ttl=1",
   "dataset": "О государственной социальной помощи",
+  "replace_note": "",
   "count": 32
  },
  {
@@ -1025,6 +1081,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 24.11.1995 № 181-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fa93b33a402606982b0bb2fbf48764aef1f1da657856811d1f600e813e87cfc2&ttl=1",
   "dataset": "О социальной защите инвалидов в Российской Федерации",
+  "replace_note": "",
   "count": 49
  },
  {
@@ -1043,6 +1100,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 23.07.2013 № 196-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f541fae60f2468397fc18f632b6a3277f9bb1050cbea9398e78959a4558555e8&ttl=1",
   "dataset": "О безопасности дорожного движения",
+  "replace_note": "",
   "count": 35
  },
  {
@@ -1061,6 +1119,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 30.12.2004 № 214-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=8f0d05414db0f646d7865f881ef02a2698c253172f71086143761a167ffc5f82&ttl=1",
   "dataset": "Об участии в долевом строительстве многоквартирных домов и иных объектов недвижимости и о внесении изменений в некоторые законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 50
  },
  {
@@ -1079,6 +1138,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 13.07.2015 № 218-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=208055d95c13288f1ba5f3c6cd991bf5cf9bfd86a032d0a45ac20ef96560298b&ttl=1",
   "dataset": "О государственной регистрации недвижимости",
+  "replace_note": "",
   "count": 89
  },
  {
@@ -1097,6 +1157,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 30.12.2004 № 218-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b67b89a7c3cd0264be3c27b45a8d659a291d3d6bcaa5445a3af0b16e47b64f22&ttl=1",
   "dataset": "О кредитных историях",
+  "replace_note": "",
   "count": 31
  },
  {
@@ -1115,6 +1176,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 02.10.2007 № 229-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=3a08c2f2ba7c20deb346fe13d2d6881dfc6179eacc9394a8407e1d2b97395692&ttl=1",
   "dataset": "Об исполнительном производстве",
+  "replace_note": "",
   "count": 165
  },
  {
@@ -1133,6 +1195,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 03.07.2016 № 230-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=19bb6db44764004faf3dc76eeaa20f78fb20fa12cc00ba00b1430b09e8619abd&ttl=1",
   "dataset": "О защите прав и законных интересов физических лиц при осуществлении деятельности по возврату просроченной задолженности и о внесении изменений в Федеральный закон \"О микрофинансовой деятельности и микрофинансовых организациях\"",
+  "replace_note": "",
   "count": 28
  },
  {
@@ -1151,6 +1214,7 @@ window.RF_CODES=[
   "docpassing": "Закон Российской Федерации от 07.02.1992 № 2300-I",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=7d78b95f668a1074c09bdc5c311235a47402841a163365e0ec88de43841e84ab&ttl=1",
   "dataset": "О защите прав потребителей",
+  "replace_note": "",
   "count": 56
  },
  {
@@ -1169,6 +1233,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 29.12.2006 № 255-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d4d2dd7c63630d11e351afa6f86d98c26721a7c096a7e91f3729939c1b475030&ttl=1",
   "dataset": "Об обязательном социальном страховании на случай временной нетрудоспособности и в связи с материнством",
+  "replace_note": "",
   "count": 40
  },
  {
@@ -1187,6 +1252,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 29.12.2006 № 256-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=9dc9f5579c8a2455b9da261e69b6632a85bed6f1832f2adef22535b0fa495694&ttl=1",
   "dataset": "О дополнительных мерах государственной поддержки семей, имеющих детей",
+  "replace_note": "",
   "count": 18
  },
  {
@@ -1205,6 +1271,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 31.07.2020 № 259-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e2625ecf9bfe72794eb263ed406bdb5c60c34b9cdf30265ba9c8eceb34e39203&ttl=1",
   "dataset": "О цифровых финансовых активах, цифровой валюте и о внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 34
  },
  {
@@ -1223,6 +1290,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 01.04.1996 № 27-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d4fab6e1ee1250abf19499f228a5ea82e31c01b9adb5f579ec19e6f78f7011fa&ttl=1",
   "dataset": "Об индивидуальном (персонифицированном) учете в системах обязательного пенсионного страхования и обязательного социального страхования",
+  "replace_note": "",
   "count": 25
  },
  {
@@ -1241,6 +1309,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 26.12.2008 № 294-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2f65ef6d5822e0ae1dabaa6095c3b0096fb16a957a09c99ba36cdef12f7e7417&ttl=1",
   "dataset": "О защите прав юридических лиц и индивидуальных предпринимателей при осуществлении государственного контроля (надзора) и муниципального контроля",
+  "replace_note": "",
   "count": 39
  },
  {
@@ -1259,6 +1328,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 21.12.2013 № 353-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c06fdeecf772df8a137b61fb5d19d39973ab89709a2e2744b73ebee9c42d042e&ttl=1",
   "dataset": "О потребительском кредите (займе)",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -1277,6 +1347,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 13.03.2006 № 38-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=7ac7db6fae27117d19635a1f1dbb406bf5979b6ee00afee78225b75cc1d25bcc&ttl=1",
   "dataset": "О рекламе",
+  "replace_note": "",
   "count": 51
  },
  {
@@ -1295,6 +1366,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 28.12.2009 № 381-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=3598662850fa0eb16f4db374ed98f0c84f835c83f52d7e8102e2c59e9804d2bb&ttl=1",
   "dataset": "Об основах государственного регулирования торговой деятельности в Российской Федерации",
+  "replace_note": "",
   "count": 26
  },
  {
@@ -1313,6 +1385,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 22.04.1996 № 39-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=64d95af3bd2beb382524ab619e73a21c3eac78957b17028dbb20348d6307cda9&ttl=1",
   "dataset": "О рынке ценных бумаг",
+  "replace_note": "",
   "count": 145
  },
  {
@@ -1331,6 +1404,7 @@ window.RF_CODES=[
   "docpassing": "Закон РСФСР от 02.12.1990 № 395-I",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2ce0bba7efb9c3f12415886e6e6327cc4d33b196d9053bd7df882509ea96770a&ttl=1",
   "dataset": "Федеральный закон \"О банках и банковской деятельности\"",
+  "replace_note": "",
   "count": 86
  },
  {
@@ -1349,6 +1423,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 25.04.2002 № 40-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=3dceb67d49e151295adac0de40598196830fa1de16720499fe14d858b6095e3a&ttl=1",
   "dataset": "Об обязательном страховании гражданской ответственности владельцев транспортных средств",
+  "replace_note": "",
   "count": 41
  },
  {
@@ -1367,6 +1442,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 28.12.2013 № 400-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c57f366098f1cb2338e5bce7eb2372255f7736ed40d3eba766bdfd3d12f7c86c&ttl=1",
   "dataset": "О страховых пенсиях",
+  "replace_note": "",
   "count": 45
  },
  {
@@ -1385,6 +1461,7 @@ window.RF_CODES=[
   "docpassing": "Закон Российской Федерации от 27.11.1992 № 4015-I",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=eeb15aa1b2f026927861c75e73896ea6d4bf800bf085e330c0093d5fba7f5fec&ttl=1",
   "dataset": "Об организации страхового дела в Российской Федерации",
+  "replace_note": "",
   "count": 71
  },
  {
@@ -1403,6 +1480,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 27.11.2018 № 422-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=73a359998971dfe8438459c68eddbcbce9efa31943da2eca28dab5040a4cbadf&ttl=1",
   "dataset": "О проведении эксперимента по установлению специального налогового режима \"Налог на профессиональный доход\"",
+  "replace_note": "",
   "count": 17
  },
  {
@@ -1421,6 +1499,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 28.12.2013 № 424-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=abe5411ece7af76eea7e2161a81a7cbd18ec3dd257190a689d22383b7a50ee6b&ttl=1",
   "dataset": "О накопительной пенсии",
+  "replace_note": "",
   "count": 21
  },
  {
@@ -1439,6 +1518,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 28.12.2013 № 426-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=3fb6915bcd3974aa5fbe3a06a1606eb26ee03484f9249213ac39263a4f3fd77f&ttl=1",
   "dataset": "О специальной оценке условий труда",
+  "replace_note": "",
   "count": 29
  },
  {
@@ -1457,6 +1537,7 @@ window.RF_CODES=[
   "docpassing": "Закон Российской Федерации от 12.02.1993 № 4468-I",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b92729106108e837cbf16bc5cc4135c3287395f55e2f9b83b045b2ed0c980b27&ttl=1",
   "dataset": "О пенсионном обеспечении лиц, проходивших военную службу, службу в органах внутренних дел, Государственной противопожарной службе, органах по контролю за оборотом наркотических средств и психотропных веществ, учреждениях и органах уголовно-исполнительной системы, войсках национальной гвардии Российской Федерации, органах принудительного исполнения Российской Федерации, и их семей",
+  "replace_note": "",
   "count": 68
  },
  {
@@ -1475,6 +1556,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 24.04.2008 № 48-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e7ddf83b12aeadacf3faa14686beb82fe660154a12145f859dbdebc1fd8e57b6&ttl=1",
   "dataset": "Об опеке и попечительстве",
+  "replace_note": "",
   "count": 33
  },
  {
@@ -1493,6 +1575,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 06.04.2011 № 63-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=03adc9bd286c9362e7a5a68dd64bd5d2c79ee44660028678e85e90e2f1f34b84&ttl=1",
   "dataset": "Об электронной подписи",
+  "replace_note": "",
   "count": 28
  },
  {
@@ -1511,6 +1594,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 19.06.2000 № 82-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d9c7273d0ace67cc1c55bda64304406d9cecefbf09956c82b7e34c3272fd22d7&ttl=1",
   "dataset": "О минимальном размере оплаты труда",
+  "replace_note": "",
   "count": 9
  },
  {
@@ -1529,6 +1613,7 @@ window.RF_CODES=[
   "docpassing": "Федеральный закон от 10.07.2002 № 86-ФЗ",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=4b45226f8b7247cba53e09645d7acc83e6dd8ada0a47475037ee4409b175e9df&ttl=1",
   "dataset": "О Центральном банке Российской Федерации (Банке России)",
+  "replace_note": "",
   "count": 196
  },
  {
@@ -1547,6 +1632,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=24287e441c244fff7d41b0f152b3c92dce9232c82e111f20eca4fbf94128c508&ttl=1",
   "dataset": "О полиции",
+  "replace_note": "",
   "count": 59
  },
  {
@@ -1565,6 +1651,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b124c0a26a935a897c8b7d64b7b26ea950d8044a921fd0e45e9c6d6da45c45ef&ttl=1",
   "dataset": "Об оперативно-розыскной деятельности",
+  "replace_note": "",
   "count": 26
  },
  {
@@ -1583,6 +1670,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=cfc0febb405d6ed5d51204392d19ec1b87b9c1112ffd7a09d89ba7201c382fce&ttl=1",
   "dataset": "Федеральный закон \"О прокуратуре Российской Федерации\"",
+  "replace_note": "",
   "count": 88
  },
  {
@@ -1601,6 +1689,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=4c8dcb690700cdc95a209ca40db2bb177cfc85916d6cfef83439b8696fbf546f&ttl=1",
   "dataset": "О порядке рассмотрения обращений граждан Российской Федерации",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -1619,6 +1708,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=54acc76ee2e24af8ab3adfdd05c5681239a24ba7414440d0591f446674410bb9&ttl=1",
   "dataset": "Об адвокатской деятельности и адвокатуре в Российской Федерации",
+  "replace_note": "",
   "count": 55
  },
  {
@@ -1637,6 +1727,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=505750f98a85a80caec6a744aacc2bd13bff8900515b57c26bdbb8ba24160932&ttl=1",
   "dataset": "О содержании под стражей подозреваемых и обвиняемых в совершении преступлений",
+  "replace_note": "",
   "count": 60
  },
  {
@@ -1655,6 +1746,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=58aa40ebb7ad839268a2e0965b173a3927c4926a7f9eb8352df8732f7ec139f2&ttl=1",
   "dataset": "О государственной дактилоскопической регистрации в Российской Федерации",
+  "replace_note": "",
   "count": 22
  },
  {
@@ -1673,6 +1765,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=9bc001d7694fa45591fb12270830c26a97faf976b8f661f8f8b8062bab2bbc9f&ttl=1",
   "dataset": "Об основах охраны здоровья граждан в Российской Федерации",
+  "replace_note": "",
   "count": 114
  },
  {
@@ -1691,6 +1784,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=10f224e8aeb1151b77ee3153d3a0f78e8a8f3e4faa73de03b3c37064de9a140b&ttl=1",
   "dataset": "О защите конкуренции",
+  "replace_note": "",
   "count": 96
  },
  {
@@ -1709,6 +1803,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=5b56a1fdc1be5f09cdb4b63074c793e3f533aa60138236f2273b9cc17ff639e6&ttl=1",
   "dataset": "Об автомобильных дорогах и о дорожной деятельности в Российской Федерации и о внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 75
  },
  {
@@ -1727,6 +1822,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c0a4e326da607486d77f0e27b91b3395a87a3ae4332a5b36fe33a64148e49931&ttl=1",
   "dataset": "О Следственном комитете Российской Федерации",
+  "replace_note": "",
   "count": 53
  },
  {
@@ -1745,6 +1841,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2c05d55996a86ad66a77d16d4b3382d9795cd8bc51f98573f0683cb6c661526c&ttl=1",
   "dataset": "О противодействии терроризму",
+  "replace_note": "",
   "count": 30
  },
  {
@@ -1763,6 +1860,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=0c0b1cf4ce8decd3018a08bfa4ce7b4f56857a37856e0a3646824e362270d563&ttl=1",
   "dataset": "О противодействии экстремистской деятельности",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -1781,6 +1879,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=57098a6d0aba6c41b9dc3203a517a5aa623d8817619c3bfb477f5eab5f880b28&ttl=1",
   "dataset": "Об оружии",
+  "replace_note": "",
   "count": 42
  },
  {
@@ -1799,6 +1898,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=96483a6e04440bee473950e4cb10bff916e58197240fe75849d1955deea0538b&ttl=1",
   "dataset": "О наркотических средствах и психотропных веществах",
+  "replace_note": "",
   "count": 70
  },
  {
@@ -1817,6 +1917,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=70bade6cad1678a47259b36e1c2a19882773cb8177eaa1438fdad72719e023a1&ttl=1",
   "dataset": "О федеральной службе безопасности",
+  "replace_note": "",
   "count": 43
  },
  {
@@ -1835,6 +1936,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=781ae87c0ec857f9f22f25ac0e2b84ef27e1971e95530038a37076accdbb6e8d&ttl=1",
   "dataset": "О безопасности",
+  "replace_note": "",
   "count": 21
  },
  {
@@ -1853,6 +1955,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=9adadb0c1b3dbccba57a35a8ed18fc57c166f2d542bc59c7a44245fec5245874&ttl=1",
   "dataset": "О государственной охране",
+  "replace_note": "",
   "count": 40
  },
  {
@@ -1871,6 +1974,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a7ba7684af236b67c4d3b99239433e8c0ecebf33a5686e2c2919f8185021231d&ttl=1",
   "dataset": "О внешней разведке",
+  "replace_note": "",
   "count": 28
  },
  {
@@ -1889,6 +1993,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=56fc7dc24cc49c11e7b7eb0027ddfc6d2d197e043bd3f39f78d3f055a30101a4&ttl=1",
   "dataset": "О войсках национальной гвардии Российской Федерации",
+  "replace_note": "",
   "count": 42
  },
  {
@@ -1907,6 +2012,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c15c03a9626a5d8089ad675eb2c08fbb27972ef61dd3fca21aab5a91bbd5f159&ttl=1",
   "dataset": "Об органах принудительного исполнения Российской Федерации",
+  "replace_note": "",
   "count": 29
  },
  {
@@ -1925,6 +2031,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ee1d1d91b5eeaa0cc7ea1d5126b13e618c9639f0d8df75d511acc5619763c52b&ttl=1",
   "dataset": "О частной детективной деятельности",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -1943,6 +2050,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b4505a0e6e36a8e4c0e5e7636db83ab0e9b23b2b8f8501a3143588ef4d7fb801&ttl=1",
   "dataset": "О противодействии коррупции",
+  "replace_note": "",
   "count": 31
  },
  {
@@ -1961,6 +2069,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fce0758f0832af8fc23ed2c6e94561a5e5fc65f77ba0e9334c6edf45019c91e0&ttl=1",
   "dataset": "О государственной защите судей, должностных лиц правоохранительных и контролирующих органов",
+  "replace_note": "",
   "count": 25
  },
  {
@@ -1979,6 +2088,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b3e0faae87ba6f5026c62ea7b9ffa436aa6b4452aa005c1b5dd6c116173b5d0a&ttl=1",
   "dataset": "О государственной защите потерпевших, свидетелей и иных участников уголовного судопроизводства",
+  "replace_note": "",
   "count": 30
  },
  {
@@ -1997,6 +2107,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=986ccb199571b63f27902752fe581d103045bde5d5affa3505e1193e23ec1d50&ttl=1",
   "dataset": "О государственной тайне",
+  "replace_note": "",
   "count": 36
  },
  {
@@ -2015,6 +2126,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f2f673894018ada5bbf6345bed34dc133d84d6537b24dd67086f380b90fb7d9a&ttl=1",
   "dataset": "Об административном надзоре за лицами, освобожденными из мест лишения свободы",
+  "replace_note": "",
   "count": 15
  },
  {
@@ -2033,6 +2145,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fc431430a60fa9ed7cfaeeb3862ab7b53ec62a6df6bbe9a1f8dcc1cd5986d8cd&ttl=1",
   "dataset": "О государственной геномной регистрации в Российской Федерации",
+  "replace_note": "",
   "count": 22
  },
  {
@@ -2051,6 +2164,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=5133554bfeaf2ae05c314e6a612d43f71ebaba68cb0ccbfd378457d37b84e690&ttl=1",
   "dataset": "О транспортной безопасности",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -2069,6 +2183,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=3f65f96628feced2ea4e7b07ff2a307d5b8c2dc2a490f5791b1929a973aa4fd8&ttl=1",
   "dataset": "О безопасности критической информационной инфраструктуры Российской Федерации",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -2087,6 +2202,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e9dbd2057823b6e7a878b937837a8471d7da6d8f7aec13f8f983bb779ed1a8b6&ttl=1",
   "dataset": "О порядке выезда из Российской Федерации и въезда в Российскую Федерацию",
+  "replace_note": "",
   "count": 67
  },
  {
@@ -2105,6 +2221,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=69b331d807a0382efe95b4f457a5a27086efae8950e96aaa44a75057c0478d43&ttl=1",
   "dataset": "О гражданстве Российской Федерации",
+  "replace_note": "С 26 октября 2023 г. гражданство регулируется Федеральным законом от 28.04.2023 № 138-ФЗ «О гражданстве Российской Федерации».",
   "count": 57
  },
  {
@@ -2123,6 +2240,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2410125d125d1576f492cad0a9594d334e64ad254d2901b63fb8c7815f5c2ab9&ttl=1",
   "dataset": "О собраниях, митингах, демонстрациях, шествиях и пикетированиях",
+  "replace_note": "",
   "count": 20
  },
  {
@@ -2141,6 +2259,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d322f110535cbc2b3bf0070ac1508e82d7029bb1d4e1255596c3fa856bfca0c6&ttl=1",
   "dataset": "О свободе совести и о религиозных объединениях",
+  "replace_note": "",
   "count": 34
  },
  {
@@ -2159,6 +2278,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ce906886363016f73aa40e7d79570c046ec058904dae1c7ad2d74684c2c6b575&ttl=1",
   "dataset": "Об обеспечении доступа к информации о деятельности судов в Российской Федерации",
+  "replace_note": "",
   "count": 28
  },
  {
@@ -2177,6 +2297,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a892a6a9d0d34df224e7af5444d9dcc9954bcb2132961af2646f8988a48d518c&ttl=1",
   "dataset": "О статусе военнослужащих",
+  "replace_note": "",
   "count": 47
  },
  {
@@ -2195,6 +2316,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ee35466f8fe2c49b2b6be47dd0e01c02657d6f1dfe1e43375f19549f3ade84c3&ttl=1",
   "dataset": "О воинской обязанности и военной службе",
+  "replace_note": "",
   "count": 95
  },
  {
@@ -2213,6 +2335,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fecde2044fabf5b5858976860dbd103fa4f52de8ade6637d91b4fdc09b6c8d20&ttl=1",
   "dataset": "Об обществах с ограниченной ответственностью",
+  "replace_note": "",
   "count": 66
  },
  {
@@ -2231,6 +2354,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=499af8c5985ef4c963b89151152983c0699711790f34a234f6cfa39c0948a3c2&ttl=1",
   "dataset": "Об акционерных обществах",
+  "replace_note": "",
   "count": 121
  },
  {
@@ -2249,6 +2373,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fc227df9104b1d174e07ccbef23a98bfaccf9eeeb7aef7d4172a69b22383ec4e&ttl=1",
   "dataset": "О государственной регистрации юридических лиц и индивидуальных предпринимателей",
+  "replace_note": "",
   "count": 44
  },
  {
@@ -2267,6 +2392,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=34fb2dd9469485e526248192597d65ebbdcf212404604b86238557881cce4b16&ttl=1",
   "dataset": "О контрактной системе в сфере закупок товаров, работ, услуг для обеспечения государственных и муниципальных нужд",
+  "replace_note": "",
   "count": 124
  },
  {
@@ -2285,6 +2411,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=35e492536434c0db56b2b63b46c5cc0fd13a05dc1f6604ba1001b2f97ac8ec34&ttl=1",
   "dataset": "О закупках товаров, работ, услуг отдельными видами юридических лиц",
+  "replace_note": "",
   "count": 22
  },
  {
@@ -2303,6 +2430,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a32dd34b1e51c3d5dabc4787b8dc0bb5dcff49de74f0c15b71f5eeef2d22b7c3&ttl=1",
   "dataset": "Об оценочной деятельности в Российской Федерации",
+  "replace_note": "",
   "count": 61
  },
  {
@@ -2321,6 +2449,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fcb8eb99a41f30d017fd7c02ef8ef5699f275d70964b686f7eb114a688e0860d&ttl=1",
   "dataset": "О лицензировании отдельных видов деятельности",
+  "replace_note": "",
   "count": 30
  },
  {
@@ -2339,6 +2468,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=baeaafeb732b826e6b1bf42af417db31e145f68302fd5d2adf573ff2f5f8ff05&ttl=1",
   "dataset": "Об обязательном медицинском страховании в Российской Федерации",
+  "replace_note": "",
   "count": 60
  },
  {
@@ -2357,6 +2487,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=820f90f2a67e98d5e322a3f49b5104115a2c498adab4eb14b3f3f8fcaa6a7ce3&ttl=1",
   "dataset": "О санитарно-эпидемиологическом благополучии населения",
+  "replace_note": "",
   "count": 65
  },
  {
@@ -2375,6 +2506,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=de5fcc8467567045412247544902aae7c91c2a79296c9d606f406cd4b4448413&ttl=1",
   "dataset": "О государственных пособиях гражданам, имеющим детей",
+  "replace_note": "",
   "count": 39
  },
  {
@@ -2393,6 +2525,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=bc28685c43c7d38998807546d018cacfa4be616ddd045a87cb0c2d542339e7b8&ttl=1",
   "dataset": "Об основных гарантиях прав ребенка в Российской Федерации",
+  "replace_note": "",
   "count": 36
  },
  {
@@ -2411,6 +2544,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=4fade847d997ffb4a9f2952c91bf2b40a7d36d8bf22efa2f054e18d8cd21982d&ttl=1",
   "dataset": "Об актах гражданского состояния",
+  "replace_note": "",
   "count": 85
  },
  {
@@ -2429,6 +2563,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b35c203918005f21dd7161665503d7c4718fdeafd5fe1b37df706c9c4ad83f05&ttl=1",
   "dataset": "О государственной судебно-экспертной деятельности в Российской Федерации",
+  "replace_note": "",
   "count": 44
  },
  {
@@ -2447,6 +2582,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a60a5b10bd78bfdac6b1856f9a5474244746f3e02bf84ba05f7d967e56221310&ttl=1",
   "dataset": "О системе государственной службы Российской Федерации",
+  "replace_note": "",
   "count": 22
  },
  {
@@ -2465,6 +2601,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=dcfb0ec0a4f3c03bfc071dbed25f352ecc4a74a901878d22c891d3b7c2bf7f63&ttl=1",
   "dataset": "О службе в органах внутренних дел Российской Федерации и внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 104
  },
  {
@@ -2483,6 +2620,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f16dfbf9d963880075aad73ccbdfc8311f57a21dc646c33efcb27e9c2201e481&ttl=1",
   "dataset": "О социальных гарантиях сотрудникам органов внутренних дел Российской Федерации и внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 23
  },
  {
@@ -2501,6 +2639,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=cfc30b14ea180100c2b20934787cf8840dcef9138b73f3f4aef19a10249956c7&ttl=1",
   "dataset": "Об основных гарантиях избирательных прав и права на участие в референдуме граждан Российской Федерации",
+  "replace_note": "",
   "count": 93
  },
  {
@@ -2519,6 +2658,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2dfaf5368f2d181af77269d1009c4532bc62e8c01d443478747808afc3b4fa35&ttl=1",
   "dataset": "Об охране окружающей среды",
+  "replace_note": "",
   "count": 130
  },
  {
@@ -2537,6 +2677,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=43795f84a86e59644ae31466b64b65bf4f75cca6ccf48aae38b946672735101f&ttl=1",
   "dataset": "Об отходах производства и потребления",
+  "replace_note": "",
   "count": 68
  },
  {
@@ -2555,6 +2696,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d04074c162d987a7f4a2e461b068692d8a5d76fa239244ecbca618ef4353c69a&ttl=1",
   "dataset": "О пожарной безопасности",
+  "replace_note": "",
   "count": 52
  },
  {
@@ -2573,6 +2715,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=6c48a72670ed15d122c2a75a6c829b237efdaddb8ad163cb4e295bba4fb3b461&ttl=1",
   "dataset": "О ведении гражданами садоводства и огородничества для собственных нужд и о внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 59
  },
  {
@@ -2591,6 +2734,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2cd1c64de5d2c2f028fbd68e725846eeae60fdd78e4a90d57b1f9e110477ba36&ttl=1",
   "dataset": "О бухгалтерском учете",
+  "replace_note": "",
   "count": 34
  },
  {
@@ -2609,6 +2753,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=835461523699d309180e585e960a77e93f61bc629fcee1e5b1fc6fb73f784fca&ttl=1",
   "dataset": "О страховых взносах в Пенсионный фонд Российской Федерации, Фонд социального страхования Российской Федерации, Федеральный фонд обязательного медицинского страхования и территориальные фонды обязательного медицинского страхования",
+  "replace_note": "С 1 января 2017 г. страховые взносы регулируются главой 34 Налогового кодекса Российской Федерации.",
   "count": 78
  },
  {
@@ -2627,6 +2772,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=bfaf8caa9ffd401018a8ccf070d759d454ea4b294f96bc3489c778843b88c7b3&ttl=1",
   "dataset": "О стандартизации в Российской Федерации",
+  "replace_note": "",
   "count": 38
  },
  {
@@ -2645,6 +2791,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d0e5df96c3614a174c935f9e3d59669fe43c4d1055e203da4ffacf87f70010c3&ttl=1",
   "dataset": "О водоснабжении и водоотведении",
+  "replace_note": "",
   "count": 53
  },
  {
@@ -2663,6 +2810,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=1cba23c4eb681a4bcc709b48cd1b216cbf6ef0b594a75fba6996faf49465f4cc&ttl=1",
   "dataset": "О техническом регулировании",
+  "replace_note": "",
   "count": 62
  },
  {
@@ -2681,6 +2829,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=5e54cc3a9d48a3cfbb586a27add01795200c6a2c52c003d5fbf730a81ef9d15d&ttl=1",
   "dataset": "Об организации предоставления государственных и муниципальных услуг",
+  "replace_note": "",
   "count": 37
  },
  {
@@ -2699,6 +2848,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b310ff7b6eb2007456f4738ee8bb310671dbbc3918b2ba09c628fbe4de0ca169&ttl=1",
   "dataset": "Об общих принципах организации местного самоуправления в Российской Федерации",
+  "replace_note": "",
   "count": 13
  },
  {
@@ -2717,6 +2867,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=9ec18d2dd623354176d45829ebf8cfa3a53b84ca82b502d82096a3d343fd44da&ttl=1",
   "dataset": "Об обороне",
+  "replace_note": "",
   "count": 40
  },
  {
@@ -2735,6 +2886,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=816f876b09b26aa1c2dc0371d219ae80e596aa54020aa19ed1eff74af7539c9f&ttl=1",
   "dataset": "Об обязательном страховании гражданской ответственности владельца опасного объекта за причинение вреда в результате аварии на опасном объекте",
+  "replace_note": "",
   "count": 30
  },
  {
@@ -2753,6 +2905,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b614867ff1b08b38c4fd8b36139f6020053341afe76ba927f31cacf82646a9a9&ttl=1",
   "dataset": "Об основах туристской деятельности в Российской Федерации",
+  "replace_note": "",
   "count": 61
  },
  {
@@ -2771,6 +2924,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=7ca05f86322555fdb2e6c4dbe352910bf327ecb57e5ba17cf528d6b5ab9ced83&ttl=1",
   "dataset": "О коммерческой тайне",
+  "replace_note": "",
   "count": 18
  },
  {
@@ -2789,6 +2943,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=9765556762ab46358249662e91ab95dc182a5ab533b6f8a0dcc3d23ef057a25e&ttl=1",
   "dataset": "Об обороте земель сельскохозяйственного назначения",
+  "replace_note": "",
   "count": 30
  },
  {
@@ -2807,6 +2962,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2cdc2d579ffc5c992aa3ced021f837a7213c6e96f9dc86d1b588dbdfec62786e&ttl=1",
   "dataset": "О промышленной безопасности опасных производственных объектов",
+  "replace_note": "",
   "count": 23
  },
  {
@@ -2825,6 +2981,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ab18610270d06d7ce99091306a09fdc415c7f033374ccad5c2e31e39f5af110f&ttl=1",
   "dataset": "О развитии малого и среднего предпринимательства в Российской Федерации",
+  "replace_note": "",
   "count": 41
  },
  {
@@ -2843,6 +3000,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=282049740e8d3a39012c463773f149a1301099cef3ada6c77830c6092722e7f2&ttl=1",
   "dataset": "Об энергосбережении и о повышении энергетической эффективности и о внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 52
  },
  {
@@ -2861,6 +3019,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=47fea62110b001b4525eaa57b8ba5f2bec38b278af547668b912690ccfca7f8a&ttl=1",
   "dataset": "Об аудиторской деятельности",
+  "replace_note": "",
   "count": 41
  },
  {
@@ -2879,6 +3038,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=9bf122e7c407a6282075c055eb1a9f1796e3e55fc799b2b3f5a40ef220ae69bd&ttl=1",
   "dataset": "О защите детей от информации, причиняющей вред их здоровью и развитию",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -2897,6 +3057,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=363113dd9481b317a7c7b8b9d2a9925767b44636297e970aeaf098a7a1f9fa3c&ttl=1",
   "dataset": "О защите населения и территорий от чрезвычайных ситуаций природного и техногенного характера",
+  "replace_note": "",
   "count": 36
  },
  {
@@ -2915,6 +3076,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ac3d4eb452eeb8553e21062c15ea668769480b55f7b2cb481ab991007d8e2660&ttl=1",
   "dataset": "Об обеспечении доступа к информации о деятельности государственных органов и органов местного самоуправления",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -2933,6 +3095,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e37123b6b100cb541974de124924c2e4cea0b999a40a16ff6615b3e6f811dc11&ttl=1",
   "dataset": "Об общих принципах организации местного самоуправления в единой системе публичной власти",
+  "replace_note": "",
   "count": 95
  },
  {
@@ -2951,6 +3114,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=de02b6d71cad938603680acd034666ef17152c9ce4f1738224e7e81e94643c00&ttl=1",
   "dataset": "О стратегическом планировании в Российской Федерации",
+  "replace_note": "",
   "count": 50
  },
  {
@@ -2969,6 +3133,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c1e42b0f7aed5f2e9b02e34b860f2a789363967a9add247ba33017fa80933860&ttl=1",
   "dataset": "О финансовой аренде (лизинге)",
+  "replace_note": "",
   "count": 42
  },
  {
@@ -2987,6 +3152,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=8889244068b478579c2db6dec51cdf6004e13c08875b146cbe2c02b7b1ec257b&ttl=1",
   "dataset": "О таможенном регулировании в Российской Федерации и о внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 403
  },
  {
@@ -3005,6 +3171,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=af1701936f60932ccffe6bb974c111b3bd42d620a76b487056f7c151e260ef14&ttl=1",
   "dataset": "О государственном регулировании производства и оборота этилового спирта, алкогольной и спиртосодержащей продукции и об ограничении потребления (распития) алкогольной продукции",
+  "replace_note": "",
   "count": 42
  },
  {
@@ -3023,6 +3190,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a63b46324d23bb569736dd9cce04e6833fa209f48ceb9fd136d05920e44ad1e7&ttl=1",
   "dataset": "Об экологической экспертизе",
+  "replace_note": "",
   "count": 41
  },
  {
@@ -3041,6 +3209,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d6fca2ab736092239c1eced3cfa4749aab19c5784727ce37e747c530df6316ad&ttl=1",
   "dataset": "Об общих принципах организации законодательных (представительных) и исполнительных органов государственной власти субъектов Российской Федерации",
+  "replace_note": "С 1 июня 2022 г. организация публичной власти в субъектах регулируется Федеральным законом от 21.12.2021 № 414-ФЗ.",
   "count": 27
  },
  {
@@ -3059,6 +3228,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=1bd17b7b57bdb845b5c04353985a636258321b877afbbd1c2a9a66996e1dbb30&ttl=1",
   "dataset": "О статусе судей в Российской Федерации",
+  "replace_note": "",
   "count": 33
  },
  {
@@ -3077,6 +3247,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=48c91a7c1a9416aee3ea23eef7c9aca7226cd3eedeebf94b8232532b5115b2dc&ttl=1",
   "dataset": "Об образовании в Российской Федерации",
+  "replace_note": "",
   "count": 122
  },
  {
@@ -3095,6 +3266,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f2cc3760a563d3fafbf99aa8a75d00de07fd7d83126af62a487c2bb65320fdb4&ttl=1",
   "dataset": "Об основах социального обслуживания граждан в Российской Федерации",
+  "replace_note": "",
   "count": 39
  },
  {
@@ -3113,6 +3285,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=53f150248b991fc91c1e51d2fdd1aa4c21d7179bce24e815676d5b8376631b32&ttl=1",
   "dataset": "Об основах системы профилактики безнадзорности и правонарушений несовершеннолетних",
+  "replace_note": "",
   "count": 41
  },
  {
@@ -3131,6 +3304,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d1cc243d9b5f831722d0fc8ea72e622eed6d46eca6af50528b360aadbe454773&ttl=1",
   "dataset": "Об обращении лекарственных средств",
+  "replace_note": "",
   "count": 89
  },
  {
@@ -3149,6 +3323,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=4fec00a89565060d1545a79aa79321bfd5e702da8e02a9bcf0252ed66a9a7772&ttl=1",
   "dataset": "О государственном контроле (надзоре) и муниципальном контроле в Российской Федерации",
+  "replace_note": "",
   "count": 106
  },
  {
@@ -3167,6 +3342,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=0e4722d8418135648b033c58399f9df28889a558f6404b786d4810cbbec516bb&ttl=1",
   "dataset": "О государственной регистрации транспортных средств в Российской Федерации и о внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 35
  },
  {
@@ -3185,6 +3361,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a47c86a71f3ba5a029b390de10ef026f2e80a009fd49a6b0731672eb2cd473c4&ttl=1",
   "dataset": "Об охране атмосферного воздуха",
+  "replace_note": "",
   "count": 39
  },
  {
@@ -3203,6 +3380,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=5be471f55c482666260b58a592c4c6ad5fa9206a2a0b6eb060ebeeae6e7f666a&ttl=1",
   "dataset": "Об особо охраняемых природных территориях",
+  "replace_note": "",
   "count": 50
  },
  {
@@ -3221,6 +3399,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=abb0060f7f33337524115544bb538ad76d6a25c5273b570b27a66e75f59afd08&ttl=1",
   "dataset": "О социальной защите граждан, подвергшихся воздействию радиации вследствие катастрофы на Чернобыльской АЭС",
+  "replace_note": "",
   "count": 57
  },
  {
@@ -3239,6 +3418,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=15249ad0a91d98ffd11f9831d8aa599a97d24efb3d0e8d3b3e47edeac80d9bd6&ttl=1",
   "dataset": "О государственных гарантиях и компенсациях для лиц, работающих и проживающих в районах Крайнего Севера и приравненных к ним местностях",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -3257,6 +3437,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=9367fc861c4105d38fccd8afa4823123ef6ff934bef7b963f7f2815f451c918d&ttl=1",
   "dataset": "О теплоснабжении",
+  "replace_note": "",
   "count": 62
  },
  {
@@ -3275,6 +3456,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c4ebc001f025b54b636c14d8cfde6af66cc350ae6257d59fadfb29767270f03f&ttl=1",
   "dataset": "О некоммерческих организациях",
+  "replace_note": "",
   "count": 53
  },
  {
@@ -3293,6 +3475,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=6611697c5d3316deb0818a060ceb5589957f72803365b9d93c6af93a57470b1e&ttl=1",
   "dataset": "О гражданской обороне",
+  "replace_note": "",
   "count": 23
  },
  {
@@ -3311,6 +3494,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=89aa268889f900ee35b416e9a095246fd5230393b00a85de7641cf3cd1fa3aee&ttl=1",
   "dataset": "Об аварийно-спасательных службах и статусе спасателей",
+  "replace_note": "",
   "count": 40
  },
  {
@@ -3329,6 +3513,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d0a89dad3cc365f918526e4e37b505b46c3a5026fafe7a060f6ac72a6ab6928a&ttl=1",
   "dataset": "О мобилизационной подготовке и мобилизации в Российской Федерации",
+  "replace_note": "",
   "count": 36
  },
  {
@@ -3347,6 +3532,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=1ba8e7afa85fe7d0d198cb03339996d531f37b856162b6939560ab7e75322675&ttl=1",
   "dataset": "Об альтернативной гражданской службе",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -3365,6 +3551,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e1c1a8a7cfc5372b3c02642c5d4141254a3c586c4d7b061b6bed57c6519aa4ba&ttl=1",
   "dataset": "О ветеранах",
+  "replace_note": "",
   "count": 35
  },
  {
@@ -3383,6 +3570,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c1c7b53e3d175127c78932beb33e8b1ae19f2fe60f17be1218cb07c7b6dea135&ttl=1",
   "dataset": "О денежном довольствии военнослужащих и предоставлении им отдельных выплат",
+  "replace_note": "",
   "count": 9
  },
  {
@@ -3401,6 +3589,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=5bb5b52d25b34927f94c6e7bfefd43ca396573e5020205638b6d65dba0070617&ttl=1",
   "dataset": "О накопительно-ипотечной системе жилищного обеспечения военнослужащих",
+  "replace_note": "",
   "count": 37
  },
  {
@@ -3419,6 +3608,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=1ceff980286a6d4b453425cc7e430e733c1ccf1f49eb9995dac570d6aa48ba2a&ttl=1",
   "dataset": "О материальной ответственности военнослужащих",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -3437,6 +3627,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=dfcdd04099ef0c87346c783a66dd95a6914bd64847a00731577ef7922b87b8b5&ttl=1",
   "dataset": "О военно-техническом сотрудничестве Российской Федерации с иностранными государствами",
+  "replace_note": "",
   "count": 17
  },
  {
@@ -3455,6 +3646,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ccf28551eaea4b628ddfbd004de809cffd418a718e8dee30d56efe6bb129d9b7&ttl=1",
   "dataset": "О службе в уголовно-исполнительной системе Российской Федерации и о внесении изменений в Закон Российской Федерации \"Об учреждениях и органах, исполняющих уголовные наказания в виде лишения свободы\"",
+  "replace_note": "",
   "count": 100
  },
  {
@@ -3473,6 +3665,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ab3ac098a54a659dca201581121f40f7dd74e5308e8afc380ca9815d5322a015&ttl=1",
   "dataset": "О муниципальной службе в Российской Федерации",
+  "replace_note": "",
   "count": 46
  },
  {
@@ -3491,6 +3684,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=7a872f47f03ae52303fc93d4b937590ac85f66b023ef1bde4705080daffa29c8&ttl=1",
   "dataset": "О правовом положении иностранных граждан в Российской Федерации",
+  "replace_note": "",
   "count": 67
  },
  {
@@ -3509,6 +3703,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f6f7ced714a038e1d31522652f4ed66b6e5bedcc53d9130fd3a5f3d998a9a299&ttl=1",
   "dataset": "О государственной гражданской службе Российской Федерации",
+  "replace_note": "",
   "count": 85
  },
  {
@@ -3527,6 +3722,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b8413138fe06a0395cf7799b1521c3e122b48c39a023abc0cebfc1cbeb842926&ttl=1",
   "dataset": "О бесплатной юридической помощи в Российской Федерации",
+  "replace_note": "",
   "count": 35
  },
  {
@@ -3545,6 +3741,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f5ef2713ee92a356428b16882779943a2cc6a6251161b71608ef1a39ca4b64e7&ttl=1",
   "dataset": "Основы законодательства Российской Федерации о нотариате",
+  "replace_note": "",
   "count": 172
  },
  {
@@ -3563,6 +3760,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f69a1559746627cfd22ee710a22bbbf2a423e225ad051c0a66304c4b3f236831&ttl=1",
   "dataset": "О средствах массовой информации",
+  "replace_note": "",
   "count": 84
  },
  {
@@ -3581,6 +3779,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e9a136bbff4840e3b4e9be798ee2aefcb93afa757c795b35bbe9a791072c0366&ttl=1",
   "dataset": "Об учреждениях и органах уголовно-исполнительной системы Российской Федерации",
+  "replace_note": "",
   "count": 53
  },
  {
@@ -3599,6 +3798,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=491d918d1a67c108c654a8c193a96df061efb4069ff41268cb0fb4b7c4813e13&ttl=1",
   "dataset": "О пробации в Российской Федерации",
+  "replace_note": "",
   "count": 39
  },
  {
@@ -3617,6 +3817,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=64b9867836629591f1ae2b55589fd668ed0ffb13fc50df60093a1c0153dc61cf&ttl=1",
   "dataset": "Об альтернативной процедуре урегулирования споров с участием посредника (процедуре медиации)",
+  "replace_note": "",
   "count": 21
  },
  {
@@ -3635,6 +3836,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=456ec81e00842b00f1f3a82bbe7f1d991c20054913b40721ae2d6d5c86d7f57e&ttl=1",
   "dataset": "Об арбитраже (третейском разбирательстве) в Российской Федерации",
+  "replace_note": "",
   "count": 55
  },
  {
@@ -3653,6 +3855,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=339882e739fd410fb6378ed4d4c5d4e9909845bdb37eb6f657425e48ee9a7b56&ttl=1",
   "dataset": "О психиатрической помощи и гарантиях прав граждан при ее оказании",
+  "replace_note": "",
   "count": 54
  },
  {
@@ -3671,6 +3874,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e647c2e44da997449a8033b1f381e26e53342edfb34280b136f3fad3a1cd6e28&ttl=1",
   "dataset": "Об иммунопрофилактике инфекционных болезней",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -3689,6 +3893,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d532254eba5415db75975d354498f56e429d0fbcfc4276a7267b191c5aa2ea63&ttl=1",
   "dataset": "О качестве и безопасности пищевых продуктов",
+  "replace_note": "",
   "count": 40
  },
  {
@@ -3707,6 +3912,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d41dacd05e7ab53cccb1c4123210a531098048ccfbebfdca3f7362b70f918e35&ttl=1",
   "dataset": "О землеустройстве",
+  "replace_note": "",
   "count": 29
  },
  {
@@ -3725,6 +3931,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d7266967e5ce305a05f272d8ee0938d0b765c56740a855938220cca594c3ad5d&ttl=1",
   "dataset": "О кадастровой деятельности",
+  "replace_note": "",
   "count": 75
  },
  {
@@ -3743,6 +3950,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=4b49d12421a4d8339e2660d5108c23aa5e0cc59beb37b0507e5944cdae6f62db&ttl=1",
   "dataset": "О Фонде содействия реформированию жилищно-коммунального хозяйства",
+  "replace_note": "",
   "count": 28
  },
  {
@@ -3761,6 +3969,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d9e9b64c28cb98e738316711b0051e17ce0b6c7aabeee2bfbc701a60ea54c179&ttl=1",
   "dataset": "О естественных монополиях",
+  "replace_note": "",
   "count": 31
  },
  {
@@ -3779,6 +3988,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=0ca822a48083199e36346c8667e995659e082becf135647862cc11024e813fc1&ttl=1",
   "dataset": "О почтовой связи",
+  "replace_note": "",
   "count": 47
  },
  {
@@ -3797,6 +4007,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a05e61b9ea8d75b75877626b3ceeef887727d92d7f6f37b2da28482225f081c5&ttl=1",
   "dataset": "О транспортно-экспедиционной деятельности",
+  "replace_note": "",
   "count": 23
  },
  {
@@ -3815,6 +4026,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fb289dba0baa3c52b10cc11de56c93e5affc132af2a00df0c0f6a500c606a57a&ttl=1",
   "dataset": "О специальных защитных, антидемпинговых и компенсационных мерах при импорте товаров",
+  "replace_note": "",
   "count": 41
  },
  {
@@ -3833,6 +4045,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d2ecd7a7f76d33b628e99cd22b5792547749cbebbacd6619d7ca51748216de86&ttl=1",
   "dataset": "О выборах Президента Российской Федерации",
+  "replace_note": "",
   "count": 90
  },
  {
@@ -3851,6 +4064,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=8453e73f27fc26eb25b115fe9894ec023653cdd28e3f87f23e278c36d29bb54a&ttl=1",
   "dataset": "О выборах депутатов Государственной Думы Федерального Собрания Российской Федерации",
+  "replace_note": "",
   "count": 106
  },
  {
@@ -3869,6 +4083,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=406a1ecf29f73692040812e82f2598e5959b14a4a26875cf764f8e3a2570d392&ttl=1",
   "dataset": "О молодежной политике в Российской Федерации",
+  "replace_note": "",
   "count": 22
  },
  {
@@ -3887,6 +4102,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=a53ef30c3ac076e2683556c8fc7525bce2c6986fa99b3f54c4f6250dbe57bdf4&ttl=1",
   "dataset": "О ежемесячных выплатах семьям, имеющим детей",
+  "replace_note": "",
   "count": 9
  },
  {
@@ -3905,6 +4121,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=525400896fdb7fa5c64ba646755ed3399bf9619b525a0a981a2ef856a777a20c&ttl=1",
   "dataset": "О негосударственных пенсионных фондах",
+  "replace_note": "",
   "count": 124
  },
  {
@@ -3923,6 +4140,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d17622c5221551e61ba331e8a95b0672df5d15c48541035c3f9d03b4c94bca37&ttl=1",
   "dataset": "Об инвестиционных фондах",
+  "replace_note": "",
   "count": 86
  },
  {
@@ -3941,6 +4159,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=bf42396de47352c8f95ad63dd0f0eff4319714932e00f961945e17e2e3f37abf&ttl=1",
   "dataset": "Об организации дорожного движения в Российской Федерации и о внесении изменений в отдельные законодательные акты Российской Федерации",
+  "replace_note": "",
   "count": 30
  },
  {
@@ -3959,6 +4178,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=3f4b77de48cad941634b3aff0bf05aaa17e307d9ed53cbf1ba8e2332b5fceaae&ttl=1",
   "dataset": "О вывозе и ввозе культурных ценностей",
+  "replace_note": "",
   "count": 64
  },
  {
@@ -3977,6 +4197,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f66f0b5e62169d8823cb3b3ee9fda29edcbc12827835b66f137e1a164a56ccdb&ttl=1",
   "dataset": "О профессиональных союзах, их правах и гарантиях деятельности",
+  "replace_note": "",
   "count": 34
  },
  {
@@ -3995,6 +4216,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=56d6c9aa50896b878e95ca452f2471bddfc40f4836d6d8f048820d3247b778ad&ttl=1",
   "dataset": "О благотворительной деятельности и добровольчестве (волонтерстве)",
+  "replace_note": "",
   "count": 33
  },
  {
@@ -4013,6 +4235,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2a4c593204677b7b85efcf1e9386c6061d9cf4671e76d3bf409568b23185f949&ttl=1",
   "dataset": "Об объектах культурного наследия (памятниках истории и культуры) народов Российской Федерации",
+  "replace_note": "",
   "count": 94
  },
  {
@@ -4031,6 +4254,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=16699a0141fbbce3bb7d1462f74a2d7e8ef31ab50b3bd995b96e705ab4cf21e3&ttl=1",
   "dataset": "О Музейном фонде Российской Федерации и музеях в Российской Федерации",
+  "replace_note": "",
   "count": 44
  },
  {
@@ -4049,6 +4273,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e895a985425182b65ce2f13fc15d935e39564d242d3de9e2f61abb03015db635&ttl=1",
   "dataset": "О библиотечном деле",
+  "replace_note": "",
   "count": 32
  },
  {
@@ -4067,6 +4292,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=01b86eda20fd448622b2bceff3ad3cf23d6cc850cd93a1d3ae1445eecde4d209&ttl=1",
   "dataset": "О науке и государственной научно-технической политике",
+  "replace_note": "",
   "count": 32
  },
  {
@@ -4085,6 +4311,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=7677c7d79a05616f7573becf554a387470c645fe0c66f23ec69cab482e553e77&ttl=1",
   "dataset": "О мировых судьях в Российской Федерации",
+  "replace_note": "",
   "count": 13
  },
  {
@@ -4103,6 +4330,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=89a72095562e8f1e4c33a82036dd67df96250f492c4aed60d5629076e8a4d314&ttl=1",
   "dataset": "О присяжных заседателях федеральных судов общей юрисдикции в Российской Федерации",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -4121,6 +4349,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=5e318377beb1e82ae09844f88ede6fb882d2f716a0f69304434cc996f4c973e8&ttl=1",
   "dataset": "Об органах судейского сообщества в Российской Федерации",
+  "replace_note": "",
   "count": 36
  },
  {
@@ -4139,7 +4368,65 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=cfa8f2082e3be72a1b57c542b1d25daa9afd0b443d6aaa645958b4cddc071479&ttl=1",
   "dataset": "О Судебном департаменте при Верховном Суде Российской Федерации",
+  "replace_note": "",
   "count": 23
+ },
+ {
+  "id": "fz565zan",
+  "kind": "law",
+  "short": "ФЗ «О занятости» № 565",
+  "abbr": "ФЗ о занятости",
+  "full": "Федеральный закон «О занятости населения в Российской Федерации»",
+  "req": "от 12.12.2023 № 565-ФЗ",
+  "branch": "Трудовое право",
+  "color": "#3aa66f",
+  "docstate": "Действует с изменениями",
+  "redaction": "2026-03-01",
+  "adopted": "12.12.2023",
+  "number": "565-ФЗ",
+  "docpassing": "",
+  "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=7bb0fed0c0bef53b2e7195af8940935397d9b15124b536944e24727ae8d69986&ttl=1",
+  "dataset": "О занятости населения в Российской Федерации",
+  "replace_note": "",
+  "count": 74
+ },
+ {
+  "id": "fz138graj",
+  "kind": "law",
+  "short": "ФЗ «О гражданстве» № 138",
+  "abbr": "ФЗ о гражданстве",
+  "full": "Федеральный закон «О гражданстве Российской Федерации»",
+  "req": "от 28.04.2023 № 138-ФЗ",
+  "branch": "Конституционное право",
+  "color": "#b0413e",
+  "docstate": "Действует с изменениями",
+  "redaction": "2026-07-26",
+  "adopted": "28.04.2023",
+  "number": "138-ФЗ",
+  "docpassing": "",
+  "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=3a07b666baf7a0ffa466530ae6afeb01f3d4ed454d264da46fe8aa83ebedfbac&ttl=1",
+  "dataset": "О гражданстве Российской Федерации",
+  "replace_note": "",
+  "count": 48
+ },
+ {
+  "id": "fz414reg",
+  "kind": "law",
+  "short": "ФЗ «Об организации публичной власти в субъектах» № 414",
+  "abbr": "ФЗ об организации публичной власти в субъектах",
+  "full": "Федеральный закон «Об общих принципах организации публичной власти в субъектах Российской Федерации»",
+  "req": "от 21.12.2021 № 414-ФЗ",
+  "branch": "Конституционное право",
+  "color": "#b0413e",
+  "docstate": "Действует с изменениями",
+  "redaction": "2026-10-01",
+  "adopted": "21.12.2021",
+  "number": "414-ФЗ",
+  "docpassing": "",
+  "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=675f98e1259f3861786272fb554eba6ddfeec712f0111dbfab85d9650d3d9201&ttl=1",
+  "dataset": "Об общих принципах организации публичной власти в субъектах Российской Федерации",
+  "replace_note": "",
+  "count": 66
  },
  {
   "id": "pg1090pdd",
@@ -4157,6 +4444,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=18a73228ecde3ccb2f85a61239496410777127e4d18a4fc5f206771f16c1e9c3&ttl=1",
   "dataset": "О правилах дорожного движения",
+  "replace_note": "",
   "count": 610
  },
  {
@@ -4175,6 +4463,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=1ce2b9ea19aa018b70a0c2146336b065a5b9bcfc7000b83f1f60aa68407fb848&ttl=1",
   "dataset": "Об утверждении Правил регистрации и снятия граждан Российской Федерации с регистрационного учета по месту пребывания и по месту жительства в пределах Российской Федерации и перечня лиц, ответственных за прием и передачу в органы регистрационного учета документов для регистрации и снятия с регистрационного учета граждан Российской Федерации по месту пребывания и по месту жительства в пределах Российской Федерации",
+  "replace_note": "",
   "count": 71
  },
  {
@@ -4193,6 +4482,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=287dbc046a44609d98213d3bb5f72ab5eb8091215e29506976a78509947e10ee&ttl=1",
   "dataset": "О мерах по регулированию оборота гражданского и служебного оружия и патронов к нему на территории Российской Федерации",
+  "replace_note": "",
   "count": 151
  },
  {
@@ -4211,6 +4501,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=45d66c5ee594fd8562808b91a0756e7cfc8e0923fdce88ca5ad266525f21a150&ttl=1",
   "dataset": "О порядке осуществления миграционного учета иностранных граждан и лиц без гражданства в Российской Федерации",
+  "replace_note": "",
   "count": 82
  },
  {
@@ -4229,6 +4520,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c714763ae33c117710e390f0d3eafd819fed9856c9aa911097dbb8bbf94080fb&ttl=1",
   "dataset": "Об утверждении Положения о воинском учете",
+  "replace_note": "",
   "count": 104
  },
  {
@@ -4247,6 +4539,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ebbf42ee174144400a73e8c93aab736be88c5b226e46b04e282c87579878a796&ttl=1",
   "dataset": "Об утверждении Положения о военно-врачебной экспертизе",
+  "replace_note": "",
   "count": 251
  },
  {
@@ -4265,6 +4558,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c0f54c3af0cc8f1b02f48f62483afb358baeb55269d4be8e00e69458ebd3a663&ttl=1",
   "dataset": "О предоставлении коммунальных услуг собственникам и пользователям помещений в многоквартирных домах и жилых домов",
+  "replace_note": "",
   "count": 409
  },
  {
@@ -4283,6 +4577,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=c383dd4111412c9cadddd21f360ef6380d327b47e8cff4b493f0b74db9e6db5e&ttl=1",
   "dataset": "О минимальном перечне услуг и работ, необходимых для обеспечения надлежащего содержания общего имущества в многоквартирном доме, и порядке их оказания и выполнения",
+  "replace_note": "",
   "count": 48
  },
  {
@@ -4301,25 +4596,8 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=b02ea69a877252b90db837adbc4335cb6c49b1ff017f9a0561b530e76aea6043&ttl=1",
   "dataset": "Об утверждении перечня технически сложных товаров",
+  "replace_note": "",
   "count": 17
- },
- {
-  "id": "pg55pochta",
-  "kind": "decree",
-  "short": "Правила услуг почтовой связи (Постановление Правительства РФ № 55)",
-  "abbr": "Правила услуг почтовой связи",
-  "full": "Постановление Правительства РФ «Правил передачи пенсионных накоплений для финансирования накопительной части трудовой пенсии из одного негосударственного пенсионного фонда в другой негосударственный пенсионный фонд или из негосударственного пенсионного фонда в Пенсионный фонд Российской Федерации и определения их стоимости»",
-  "req": "от 06.02.2004 № 55",
-  "branch": "Гражданское право",
-  "color": "#4a90d9",
-  "docstate": "Утратил силу",
-  "redaction": "2023-03-28",
-  "adopted": "06.02.2004",
-  "number": "55",
-  "docpassing": "",
-  "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=d3e8d89e4d095b5f7ed6ebc8e9c6f3cf39cd3a127fc43e6d33a0d1d0b0a44a10&ttl=1",
-  "dataset": "Об утверждении Правил передачи пенсионных накоплений для финансирования накопительной части трудовой пенсии из одного негосударственного пенсионного фонда в другой негосударственный пенсионный фонд или из негосударственного пенсионного фонда в Пенсионный фонд Российской Федерации и определения их стоимости",
-  "count": 9
  },
  {
   "id": "pg47zhil",
@@ -4337,6 +4615,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=2ed78e4f6fb1aa77d551efd90de5ce3ab0c9f6eeac83c14867eea3adb4fa1ae9&ttl=1",
   "dataset": "Об утверждении Положения о признании помещения жилым помещением, жилого помещения непригодным для проживания, многоквартирного дома аварийным и подлежащим сносу или реконструкции, садового дома жилым домом и жилого дома садовым домом",
+  "replace_note": "",
   "count": 73
  },
  {
@@ -4355,6 +4634,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=79a4eeb726366b2c4d5b7c72cd6185c5ca569a8ea77fd7a2e96c0582d95ae4dd&ttl=1",
   "dataset": "Об утверждении Правил содержания общего имущества в многоквартирном доме и Правил изменения размера платы за содержание жилого помещения в случае оказания услуг и выполнения работ по управлению, содержанию и ремонту общего имущества в многоквартирном доме ненадлежащего качества и (или) с перерывами, превышающими установленную продолжительность",
+  "replace_note": "",
   "count": 84
  },
  {
@@ -4373,6 +4653,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=feef28e972b10b6503b9f495d246b108a682a91d2c3466487ab0977acd87e3fa&ttl=1",
   "dataset": "Об утверждении Правил горячего водоснабжения и внесении изменения в постановление Правительства Российской Федерации от 13 февраля 2006 г. № 83",
+  "replace_note": "",
   "count": 117
  },
  {
@@ -4391,6 +4672,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=292397c1fc84f78b9e478196b0cebc80073ae0fc74e0572a42c787e06db4a0bd&ttl=1",
   "dataset": "Об утверждении Правил пользования жилыми помещениями",
+  "replace_note": "",
   "count": 29
  },
  {
@@ -4409,6 +4691,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=5946b955298282bf4beff7295b68ba10ebb10cf0fe94b55d3dc2ca6d1456db01&ttl=1",
   "dataset": "Об особенностях порядка исчисления средней заработной платы",
+  "replace_note": "С 1 сентября 2025 г. действует Положение, утверждённое постановлением Правительства РФ от 24.04.2025 № 540 (публикация: publication.pravo.gov.ru/document/0001202504250031).",
   "count": 24
  },
  {
@@ -4427,6 +4710,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=ef2d385f66c95da463a2f0c070e7693e410397b2942315a69779dcc11f308635&ttl=1",
   "dataset": "Об особенностях направления работников в служебные командировки",
+  "replace_note": "С 1 сентября 2025 г. действует Положение, утверждённое постановлением Правительства РФ от 16.04.2025 № 501 (публикация: publication.pravo.gov.ru/document/0001202504170053).",
   "count": 29
  },
  {
@@ -4445,6 +4729,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=24b3a454fc4bdc78df66c0a1174d3d8bace5aaac5bfff07c9eb093779ea38a48&ttl=1",
   "dataset": "Об утверждении Положения о призыве на военную службу граждан Российской Федерации",
+  "replace_note": "",
   "count": 56
  },
  {
@@ -4463,6 +4748,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=05aafa68068ab2280c2cc24896b2226a845c945a2b2299d0f56f2eb20b1e91d5&ttl=1",
   "dataset": "Об утверждении Инструкции о порядке допуска должностных лиц и граждан Российской Федерации к государственной тайне",
+  "replace_note": "Действуют Правила допуска к государственной тайне, утверждённые постановлением Правительства РФ от 07.02.2024 № 132.",
   "count": 121
  },
  {
@@ -4481,6 +4767,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=e9a70ba06b3658bde312433ab1a8406e55afe30ddce4a356ef4e22453e5a8195&ttl=1",
   "dataset": "Об утверждении Правил противопожарного режима в Российской Федерации",
+  "replace_note": "",
   "count": 523
  },
  {
@@ -4499,6 +4786,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=dd9bd77c7d0ec79eb039e2fac93d22dfa7fce6f93a86c894e86cb63d05f37899&ttl=1",
   "dataset": "Об утверждении Правил продажи товаров по договору розничной купли-продажи, перечня товаров длительного пользования, на которые не распространяется требование потребителя о безвозмездном предоставлении ему товара, обладающего этими же основными потребительскими свойствами, на период ремонта или замены такого товара, и перечня непродовольственных товаров надлежащего качества, не подлежащих обмену, а также о внесении изменений в некоторые акты Правительства Российской Федерации",
+  "replace_note": "",
   "count": 14
  },
  {
@@ -4517,6 +4805,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=8913ad559a64885fa8d30299d18562d3058124e725050286aebb385ee183b96e&ttl=1",
   "dataset": "О вопросах предоставления коммунальных услуг и содержания общего имущества в многоквартирном доме",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -4535,6 +4824,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=787cfb1f57b67998ced9c42e304249424b62dcc6e6dc3d3998118c721be33f37&ttl=1",
   "dataset": "О составе разделов проектной документации и требованиях к их содержанию",
+  "replace_note": "",
   "count": 117
  },
  {
@@ -4553,6 +4843,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=fc4e5317ef062d8b2c0cde80eec0ba6a0e5aeb8b39b7de5a8ca6866244d92e79&ttl=1",
   "dataset": "О порядке организации и проведения государственной экспертизы проектной документации и результатов инженерных изысканий",
+  "replace_note": "",
   "count": 131
  },
  {
@@ -4571,7 +4862,27 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=3de45c47b5da887711d9b8d826f11751a018c6833bb4f81c5499238d653af814&ttl=1",
   "dataset": "Об инженерных изысканиях для подготовки проектной документации, строительства, реконструкции объектов капитального строительства",
+  "replace_note": "",
   "count": 20
+ },
+ {
+  "id": "pg132dopusk",
+  "kind": "decree",
+  "short": "Правила допуска к государственной тайне (Постановление Правительства РФ № 132)",
+  "abbr": "Правила допуска к государственной тайне",
+  "full": "Постановление Правительства РФ «Правил допуска должностных лиц и граждан Российской Федерации к государственной тайне»",
+  "req": "от 07.02.2024 № 132",
+  "branch": "Административное право",
+  "color": "#c9a227",
+  "docstate": "Действует с изменениями",
+  "redaction": "2025-07-08",
+  "adopted": "07.02.2024",
+  "number": "132",
+  "docpassing": "",
+  "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=f7660a3207b0e00f2b2741e5c75fe1b317fbe9ebe48d1ea12b7f36209012620f&ttl=1",
+  "dataset": "Об утверждении Правил допуска должностных лиц и граждан Российской Федерации к государственной тайне",
+  "replace_note": "",
+  "count": 136
  },
  {
   "id": "up1237voin",
@@ -4589,6 +4900,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=6ce8b1753ade24df744bda5a759b0566c92291b32fe2f4f158b57f3443ed7644&ttl=1",
   "dataset": "Вопросы прохождения военной службы",
+  "replace_note": "",
   "count": 376
  },
  {
@@ -4607,6 +4919,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=652611d6da2004d3959f0a24e8da12d99fe250b8f84c0007582fc2aee5b8478e&ttl=1",
   "dataset": "Об утверждении общевоинских уставов Вооруженных Сил Российской Федерации",
+  "replace_note": "",
   "count": 1298
  },
  {
@@ -4625,6 +4938,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=4a03f7959c371f9612fa57cfb5fdbfd76221d4ea9e646610a0b4be1adf33c902&ttl=1",
   "dataset": "О системе и структуре федеральных органов исполнительной власти",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -4643,6 +4957,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-16062026/",
   "dataset": "О внесении изменений в постановление Пленума Верховного Суда Российской Федерации от 27 декабря 2002 года N 29 О судебной практике по делам о краже, грабеже и разбое",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -4661,6 +4976,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-21052026/",
   "dataset": "О подготовке гражданских дел к судебному разбирательству",
+  "replace_note": "",
   "count": 69
  },
  {
@@ -4679,6 +4995,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-21052026_1/",
   "dataset": "О внесении изменений в отдельные постановления Пленума Верховного Суда Российской Федерации по уголовным делам",
+  "replace_note": "",
   "count": 8
  },
  {
@@ -4697,6 +5014,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-12032026/",
   "dataset": "О внесении изменений в Регламент Верховного Суда Российской Федерации",
+  "replace_note": "",
   "count": 3
  },
  {
@@ -4715,6 +5033,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-23122025_3/",
   "dataset": "О внесении изменений в некоторые постановления Пленума Верховного Суда Российской Федерации по уголовным делам",
+  "replace_note": "",
   "count": 5
  },
  {
@@ -4733,6 +5052,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-23122025/",
   "dataset": "О некоторых вопросах уплаты государственной пошлины при рассмотрении дел в судах",
+  "replace_note": "",
   "count": 26
  },
  {
@@ -4751,6 +5071,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-23122025_1/",
   "dataset": "О внесении изменений в постановление Пленума Верховного Суда Российской Федерации от 22 декабря 2015 года N 58 О практике назначения судами Российской Федерации уголовного наказания",
+  "replace_note": "",
   "count": 39
  },
  {
@@ -4769,6 +5090,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-23122025_2/",
   "dataset": "О внесении изменений в постановление Пленума Верховного Суда Российской Федерации от 21 декабря 2017 года N 53 О некоторых вопросах, связанных с привлечением контролирующих должника лиц к ответственности при банкротстве",
+  "replace_note": "",
   "count": 34
  },
  {
@@ -4787,6 +5109,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-23122025_5/",
   "dataset": "Об отдельных вопросах, возникающих у судов при рассмотрении дел об административных правонарушениях, выражающихся в уклонении от исполнения наказания в виде административного штрафа",
+  "replace_note": "",
   "count": 33
  },
  {
@@ -4805,6 +5128,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-23122025_4/",
   "dataset": "Об установлении в процедурах банкротства требований контролирующих должника лиц и аффилированных лиц должника",
+  "replace_note": "",
   "count": 41
  },
  {
@@ -4823,6 +5147,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-09122025/",
   "dataset": "О внесении изменений в отдельные постановления Пленума Верховного суда Российской Федерации и признании утратившим силу постановления Пленума Верховного суда Российской Федерации от 27 июня 2013 года N 21 О применении судами общей юрисдикции Конвенции о защите прав человека и основных свобод от 4 ноября 1950 года и Протоколов к ней",
+  "replace_note": "",
   "count": 32
  },
  {
@@ -4841,6 +5166,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-25112025/",
   "dataset": "О внесении изменения в Регламент Верховного Суда Российской Федерации",
+  "replace_note": "",
   "count": 1
  },
  {
@@ -4859,6 +5185,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-28102025/",
   "dataset": "О внесении изменений в постановление Пленума Верховного Суда Российской Федерации от 29 мая 2014 года N 8 О практике применения судами законодательства о воинской обязанности, военной службе и статусе военнослужащих",
+  "replace_note": "",
   "count": 34
  },
  {
@@ -4877,6 +5204,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-24062025/",
   "dataset": "О практике применения судами положений статьи 10 Уголовного кодекса Российской Федерации об обратной силе уголовного закона",
+  "replace_note": "",
   "count": 21
  },
  {
@@ -4895,6 +5223,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27052025_1/",
   "dataset": "О внесении изменений в постановление Пленума Верховного Суда Российской Федерации от 19 декабря 2013 года N 41 О практике применения судами законодательства о мерах пресечения в виде заключения под стражу, домашнего ареста, залога и запрета определенных действий",
+  "replace_note": "",
   "count": 34
  },
  {
@@ -4913,6 +5242,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27052025/",
   "dataset": "О внесении изменений в отдельные постановления Пленума Верховного Суда Российской Федерации по уголовным делам",
+  "replace_note": "",
   "count": 4
  },
  {
@@ -4931,6 +5261,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-17122024/",
   "dataset": "О некоторых вопросах, связанных с введением в действие Федерального закона от 29 мая 2024 года N 107-ФЗ О внесении изменений в Федеральный закон О несостоятельности (банкротстве) и статью 223 Арбитражного процессуального кодекса Российской Федерации",
+  "replace_note": "",
   "count": 66
  },
  {
@@ -4949,6 +5280,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-17122024_2/",
   "dataset": "О практике применения судами норм Уголовно-процессуального кодекса Российской Федерации, регламентирующих основания и порядок возвращения уголовного дела прокурору",
+  "replace_note": "",
   "count": 23
  },
  {
@@ -4967,6 +5299,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-17122024_1/",
   "dataset": "О подготовке административного дела к судебному разбирательству в суде первой инстанции",
+  "replace_note": "",
   "count": 44
  },
  {
@@ -4985,6 +5318,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-26112024/",
   "dataset": "О внесении изменений в некоторые постановления Пленума Верховного Суда Российской Федерации по уголовным делам",
+  "replace_note": "",
   "count": 4
  },
  {
@@ -5003,6 +5337,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-19112024/",
   "dataset": "О признании утратившими силу и не подлежащими применению отдельных разъяснений по вопросам применения законодательства о государственной пошлине при рассмотрении дел в судах",
+  "replace_note": "",
   "count": 3
  },
  {
@@ -5021,6 +5356,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-25062024_3/",
   "dataset": "О некоторых вопросах, возникающих в практике судов общей юрисдикции при рассмотрении административных дел, связанных с пребыванием несовершеннолетнего в центре временного содержания для несовершеннолетних правонарушителей органа внутренних дел, в специальном учебно-воспитательном учреждении закрытого типа (главы 31.2 и 31.3 Кодекса административного судопроизводства Российской Федерации)",
+  "replace_note": "",
   "count": 37
  },
  {
@@ -5039,6 +5375,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-25062024_2/",
   "dataset": "Об отдельных вопросах, возникающих у судов при рассмотрении дел об административных правонарушениях, посягающих на установленный порядок информационного обеспечения выборов и референдумов",
+  "replace_note": "",
   "count": 42
  },
  {
@@ -5057,6 +5394,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-25062024_1/",
   "dataset": "О применении судами законодательства о добровольном страховании имущества",
+  "replace_note": "",
   "count": 130
  },
  {
@@ -5075,6 +5413,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-25062024_4/",
   "dataset": "О судебной практике отмены условного осуждения или продления испытательного срока",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -5093,6 +5432,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-25062024/",
   "dataset": "О внесении изменений в отдельные постановления Пленума Верховного Суда Российской Федерации по уголовным делам",
+  "replace_note": "",
   "count": 8
  },
  {
@@ -5111,6 +5451,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-04062024/",
   "dataset": "О подготовке дела к судебному разбирательству в арбитражном суде",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -5129,6 +5470,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-19122023/",
   "dataset": "О практике применения судами законодательства об отсрочке отбывания наказания",
+  "replace_note": "",
   "count": 21
  },
  {
@@ -5147,6 +5489,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-12122023/",
   "dataset": "О внесении изменений в постановление Пленума Верховного Суда Российской Федерации от 14 июня 2018 года N 17 О некоторых вопросах, связанных с применением конфискации имущества в уголовном судопроизводстве",
+  "replace_note": "",
   "count": 14
  },
  {
@@ -5165,6 +5508,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-12122023_2/",
   "dataset": "О некоторых вопросах, возникающих в судебной практике при применении норм о самовольной постройке",
+  "replace_note": "",
   "count": 49
  },
  {
@@ -5183,6 +5527,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-12122023_1/",
   "dataset": "О некоторых вопросах судебной практики по уголовным делам о длящихся и продолжаемых преступлениях",
+  "replace_note": "",
   "count": 13
  },
  {
@@ -5201,6 +5546,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-19092023_3/",
   "dataset": "О дне начала деятельности федеральных судов на территории Херсонской области",
+  "replace_note": "",
   "count": 3
  },
  {
@@ -5219,6 +5565,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-19092023_2/",
   "dataset": "О дне начала деятельности федеральных судов на территории Запорожской области",
+  "replace_note": "",
   "count": 3
  },
  {
@@ -5237,6 +5584,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-19092023/",
   "dataset": "О дне начала деятельности федеральных судов на территории Луганской Народной Республики",
+  "replace_note": "",
   "count": 3
  },
  {
@@ -5255,6 +5603,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-19092023_1/",
   "dataset": "О дне начала деятельности федеральных судов на территории Донецкой Народной Республики",
+  "replace_note": "",
   "count": 3
  },
  {
@@ -5273,6 +5622,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-29062023/",
   "dataset": "Об особенностях применения судами в делах о несостоятельности (банкротстве) норм о поручительстве",
+  "replace_note": "",
   "count": 22
  },
  {
@@ -5291,6 +5641,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27062023_1/",
   "dataset": "О применении судами норм Уголовно-процессуального кодекса Российской Федерации, регламентирующих подсудность уголовного дела",
+  "replace_note": "",
   "count": 20
  },
  {
@@ -5309,6 +5660,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27062023_3/",
   "dataset": "О внесении изменений в постановление Пленума Верховного Суда Российской Федерации от 27 ноября 2012 года N 26 О применении норм Уголовно-процессуального кодекса Российской Федерации, регулирующих производство в суде апелляционной инстанции",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -5327,6 +5679,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27062023_2/",
   "dataset": "О некоторых вопросах, возникающих при рассмотрении судами административных дел о защите избирательных прав и права на участие в референдуме граждан Российской Федерации",
+  "replace_note": "",
   "count": 146
  },
  {
@@ -5345,6 +5698,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27062023/",
   "dataset": "О применении судами правил о залоге вещей",
+  "replace_note": "",
   "count": 94
  },
  {
@@ -5363,6 +5717,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-01062023_1/",
   "dataset": "О некоторых вопросах принятия судами мер по обеспечению иска, обеспечительных мер и мер предварительной защиты",
+  "replace_note": "",
   "count": 62
  },
  {
@@ -5381,6 +5736,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-01062023/",
   "dataset": "О некоторых вопросах судебной практики по уголовным делам о преступлениях, предусмотренных статьями 317, 318, 319 Уголовного кодекса Российской Федерации",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -5399,6 +5755,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-18052023/",
   "dataset": "О внесении изменений в постановление Пленума Верховного Суда Российской Федерации от 3 апреля 2008 года N 3 О практике рассмотрения судами уголовных дел об уклонении от призыва на военную службу и от прохождения военной или альтернативной гражданской службы",
+  "replace_note": "",
   "count": 20
  },
  {
@@ -5417,6 +5774,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-18052023_1/",
   "dataset": "О практике рассмотрения судами уголовных дел о преступлениях против военной службы",
+  "replace_note": "",
   "count": 122
  },
  {
@@ -5435,6 +5793,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-22122022_1/",
   "dataset": "О внесении изменений в постановление Пленума Верховного Суда Российской Федерации от 16 мая 2017 года N 15 О некоторых вопросах, возникающих при рассмотрении судами дел об административном надзоре за лицами, освобожденными из мест лишения свободы",
+  "replace_note": "",
   "count": 48
  },
  {
@@ -5453,6 +5812,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-22122022_2/",
   "dataset": "О некоторых вопросах, возникающих в судебной практике при рассмотрении дел об административных правонарушениях, связанных с несоблюдением административных ограничений, устанавливаемых при административном надзоре",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -5471,6 +5831,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-22062021_1/",
   "dataset": "О применении судами норм гражданского процессуального законодательства, регулирующих производство в суде кассационной инстанции",
+  "replace_note": "",
   "count": 47
  },
  {
@@ -5489,6 +5850,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-09072020_1/",
   "dataset": "О судебной практике по делам о незаконном пересечении Государственной границы Российской Федерации и преступлениях, связанных с незаконной миграцией",
+  "replace_note": "",
   "count": 20
  },
  {
@@ -5507,6 +5869,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-09072020/",
   "dataset": "О применении судами норм Кодекса административного судопроизводства Российской Федерации, регулирующих производство в суде кассационной инстанции",
+  "replace_note": "",
   "count": 34
  },
  {
@@ -5525,6 +5888,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-24122019/",
   "dataset": "О судебной практике по делам о похищении человека, незаконном лишении свободы и торговле людьми",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -5543,6 +5907,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-25122018_1/",
   "dataset": "О некоторых вопросах, возникающих у судов при рассмотрении административных дел, связанных с нарушением условий содержания лиц, находящихся в местах принудительного содержания",
+  "replace_note": "",
   "count": 28
  },
  {
@@ -5561,6 +5926,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-14062018/",
   "dataset": "О некоторых вопросах, связанных с применением конфискации имущества в уголовном судопроизводстве",
+  "replace_note": "",
   "count": 21
  },
  {
@@ -5579,6 +5945,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-21122017_1/",
   "dataset": "О некоторых вопросах, связанных с привлечением контролирующих должника лиц к ответственности при банкротстве",
+  "replace_note": "",
   "count": 97
  },
  {
@@ -5597,6 +5964,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-19122017/",
   "dataset": "О практике применения законодательства при рассмотрении уголовных дел в суде первой инстанции (общий порядок судопроизводства)",
+  "replace_note": "",
   "count": 25
  },
  {
@@ -5615,6 +5983,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-16052017_2/",
   "dataset": "",
+  "replace_note": "",
   "count": 52
  },
  {
@@ -5633,6 +6002,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27122016/",
   "dataset": "О некоторых вопросах, возникающих при рассмотрении судами дел, связанных с приостановлением деятельности или ликвидацией некоммерческих организаций, а также запретом деятельности общественных или религиозных объединений, не являющихся юридическими лицами",
+  "replace_note": "",
   "count": 40
  },
  {
@@ -5651,6 +6021,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-29112016_1/",
   "dataset": "О судебном приговоре",
+  "replace_note": "",
   "count": 45
  },
  {
@@ -5669,6 +6040,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-15112016/",
   "dataset": "О практике применения судами законодательства, регламентирующего особенности уголовной ответственности за преступления в сфере предпринимательской и иной экономической деятельности",
+  "replace_note": "",
   "count": 29
  },
  {
@@ -5687,6 +6059,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27092016/",
   "dataset": "О некоторых вопросах применения судами Кодекса административного судопроизводства Российской Федерации",
+  "replace_note": "",
   "count": 79
  },
  {
@@ -5705,6 +6078,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-29032016/",
   "dataset": "О некоторых вопросах, возникающих при рассмотрении дел о присуждении компенсации за нарушение права на судопроизводство в разумный срок или права на исполнение судебного акта в разумный срок",
+  "replace_note": "",
   "count": 71
  },
  {
@@ -5723,6 +6097,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-22122015/",
   "dataset": "О практике назначения судами Российской Федерации уголовного наказания",
+  "replace_note": "",
   "count": 79
  },
  {
@@ -5741,6 +6116,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-17112015_1/",
   "dataset": "О применении судами законодательства при рассмотрении некоторых вопросов, возникающих в ходе исполнительного производства",
+  "replace_note": "",
   "count": 89
  },
  {
@@ -5759,6 +6135,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-13102015/",
   "dataset": "О некоторых вопросах, связанных с введением в действие процедур, применяемых в делах о несостоятельности (банкротстве) граждан",
+  "replace_note": "",
   "count": 50
  },
  {
@@ -5777,6 +6154,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-07072015/",
   "dataset": "О судебной практике по делам о легализации (отмывании) денежных средств или иного имущества, приобретенных преступным путем, и о приобретении или сбыте имущества, заведомо добытого преступным путем",
+  "replace_note": "",
   "count": 23
  },
  {
@@ -5795,6 +6173,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-30062015_2/",
   "dataset": "О практике применения судами законодательства, обеспечивающего право на защиту в уголовном судопроизводстве",
+  "replace_note": "",
   "count": 22
  },
  {
@@ -5813,6 +6192,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-04122014/",
   "dataset": "О судебной практике по делам о преступлениях против половой неприкосновенности и половой свободы личности",
+  "replace_note": "",
   "count": 29
  },
  {
@@ -5831,6 +6211,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-07082014_1/",
   "dataset": "Об утверждении Регламента Верховного Суда Российской Федерации",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -5849,6 +6230,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-29052014_1/",
   "dataset": "О практике применения судами законодательства о воинской обязанности, военной службе и статусе военнослужащих",
+  "replace_note": "",
   "count": 54
  },
  {
@@ -5867,6 +6249,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-29052014/",
   "dataset": "О практике назначения и изменения судами видов исправительных учреждений",
+  "replace_note": "",
   "count": 35
  },
  {
@@ -5885,6 +6268,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-19122013/",
   "dataset": "О практике применения судами законодательства о мерах пресечения в виде заключения под стражу, домашнего ареста, залога и запрета определенных действий",
+  "replace_note": "",
   "count": 74
  },
  {
@@ -5903,6 +6287,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-09072013/",
   "dataset": "О судебной практике по делам о взяточничестве и об иных коррупционных преступлениях",
+  "replace_note": "",
   "count": 46
  },
  {
@@ -5921,6 +6306,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-13122012/",
   "dataset": "Об открытости и гласности судопроизводства и о доступе к информации о деятельности судов",
+  "replace_note": "",
   "count": 37
  },
  {
@@ -5939,6 +6325,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-11122012_1/",
   "dataset": "О применении норм Гражданского процессуального кодекса Российской Федерации при рассмотрении судами заявлений, представлений о пересмотре по вновь открывшимся или новым обстоятельствам вступивших в законную силу судебных постановлений",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -5957,6 +6344,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27112012_1/",
   "dataset": "О применении норм Уголовно-процессуального кодекса Российской Федерации, регулирующих производство в суде апелляционной инстанции",
+  "replace_note": "",
   "count": 36
  },
  {
@@ -5975,6 +6363,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27092012/",
   "dataset": "О применении судами законодательства о необходимой обороне и причинении вреда при задержании лица, совершившего преступление",
+  "replace_note": "",
   "count": 32
  },
  {
@@ -5993,6 +6382,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-14062012/",
   "dataset": "О практике рассмотрения судами вопросов, связанных с выдачей лиц для уголовного преследования или исполнения приговора, а также передачей лиц для отбывания наказания",
+  "replace_note": "",
   "count": 43
  },
  {
@@ -6011,6 +6401,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-20122011/",
   "dataset": "О практике применения судами законодательства об исполнении приговора",
+  "replace_note": "",
   "count": 52
  },
  {
@@ -6029,6 +6420,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-29112011/",
   "dataset": "О практике применения судами норм главы 18 Уголовно-процессуального кодекса Российской Федерации, регламентирующих реабилитацию в уголовном судопроизводстве",
+  "replace_note": "",
   "count": 29
  },
  {
@@ -6047,6 +6439,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-28062011_1/",
   "dataset": "О судебной практике по уголовным делам о преступлениях экстремистской направленности",
+  "replace_note": "",
   "count": 37
  },
  {
@@ -6065,6 +6458,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-07042011/",
   "dataset": "О практике применения судами принудительных мер медицинского характера",
+  "replace_note": "",
   "count": 36
  },
  {
@@ -6083,6 +6477,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-01022011/",
   "dataset": "О судебной практике применения законодательства, регламентирующего особенности уголовной ответственности и наказания несовершеннолетних",
+  "replace_note": "",
   "count": 50
  },
  {
@@ -6101,6 +6496,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-23112010_1/",
   "dataset": "О практике рассмотрения дел об административных правонарушениях, связанных с нарушением правил и требований, регламентирующих рыболовство",
+  "replace_note": "",
   "count": 18
  },
  {
@@ -6119,6 +6515,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-15062010/",
   "dataset": "О практике применения судами Закона Российской Федерации О средствах массовой информации",
+  "replace_note": "",
   "count": 39
  },
  {
@@ -6137,6 +6534,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-10062010_1/",
   "dataset": "О судебной практике рассмотрения уголовных дел об организации преступного сообщества (преступной организации) или участии в нем (ней) и о занятии высшего положения в преступной иерархии",
+  "replace_note": "",
   "count": 32
  },
  {
@@ -6155,6 +6553,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-02072009/",
   "dataset": "О некоторых вопросах, возникших в судебной практике при применении Жилищного кодекса Российской Федерации",
+  "replace_note": "",
   "count": 45
  },
  {
@@ -6173,6 +6572,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-21042009/",
   "dataset": "О судебной практике условно-досрочного освобождения от отбывания наказания, замены неотбытой части наказания более мягким видом наказания",
+  "replace_note": "",
   "count": 28
  },
  {
@@ -6191,6 +6591,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-10022009/",
   "dataset": "О практике рассмотрения судами жалоб в порядке статьи 125 Уголовно-процессуального кодекса Российской Федерации",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -6209,6 +6610,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-09122008/",
   "dataset": "О судебной практике по делам о преступлениях, связанных с нарушением правил дорожного движения и эксплуатации транспортных средств, а также с их неправомерным завладением без цели хищения",
+  "replace_note": "",
   "count": 44
  },
  {
@@ -6227,6 +6629,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-03042008_1/",
   "dataset": "О практике рассмотрения судами уголовных дел об уклонении от призыва на военную службу и от прохождения альтернативной гражданской службы",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -6245,6 +6648,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27122007/",
   "dataset": "О сроках рассмотрения судами Российской Федерации уголовных, гражданских дел и дел об административных правонарушениях",
+  "replace_note": "",
   "count": 25
  },
  {
@@ -6263,6 +6667,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-15112007/",
   "dataset": "О судебной практике по уголовным делам о хулиганстве и иных преступлениях, совершенных из хулиганских побуждений",
+  "replace_note": "",
   "count": 20
  },
  {
@@ -6281,6 +6686,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-24032005/",
   "dataset": "О некоторых вопросах, возникающих у судов при применении Кодекса Российской Федерации об административных правонарушениях",
+  "replace_note": "",
   "count": 46
  },
  {
@@ -6299,6 +6705,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-24022005/",
   "dataset": "О судебной практике по делам о защите чести и достоинства граждан, а также деловой репутации граждан и юридических лиц",
+  "replace_note": "",
   "count": 20
  },
  {
@@ -6317,6 +6724,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-17032004/",
   "dataset": "О применении судами Российской Федерации Трудового кодекса Российской Федерации",
+  "replace_note": "",
   "count": 65
  },
  {
@@ -6335,6 +6743,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-05032004/",
   "dataset": "О применении судами норм Уголовно-процессуального кодекса Российской Федерации",
+  "replace_note": "",
   "count": 13
  },
  {
@@ -6353,6 +6762,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-19122003/",
   "dataset": "О судебном решении",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -6371,6 +6781,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-10102003/",
   "dataset": "О применении судами общепризнанных принципов и норм международного права и международных договоров Российской Федерации",
+  "replace_note": "",
   "count": 20
  },
  {
@@ -6389,6 +6800,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27122002/",
   "dataset": "О судебной практике по делам о краже, грабеже и разбое",
+  "replace_note": "",
   "count": 37
  },
  {
@@ -6407,6 +6819,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-14122000/",
   "dataset": "О некоторых вопросах, возникающих при рассмотрении дел, связанных с реализацией инвалидами прав, гарантированных Законом Российской Федерации О социальной защите граждан, подвергшихся воздействию радиации вследствие катастрофы на Чернобыльской АЭС",
+  "replace_note": "",
   "count": 25
  },
  {
@@ -6425,6 +6838,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-18111999/",
   "dataset": "О ходе выполнения Постановления Пленума Верховного Суда Российской Федерации от 24 августа 1993 г. N 7 О сроках рассмотрения уголовных и гражданских дел судами Российской Федерации",
+  "replace_note": "",
   "count": 4
  },
  {
@@ -6443,6 +6857,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_11/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 16/2026. О практике применения судами положений главы 15.1 Уголовного кодекса Российской Федерации о конфискации имущества (утв. Постановлением Президиума Верховного Суда РФ от 14.10.2026 N 20А/2026)",
+  "replace_note": "",
   "count": 11
  },
  {
@@ -6461,6 +6876,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_12/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 15/2026. О рассмотрении судами споров, связанных с присуждением компенсации за нарушение права на судопроизводство в разумный срок или права на исполнение судебного акта в разумный срок (утв. Постановлением Президиума Верховного Суда РФ от 14.10.2026 N 19А/2026)",
+  "replace_note": "",
   "count": 15
  },
  {
@@ -6479,6 +6895,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-verkhovnogo-suda-rossiiskoi-federatsii_57/",
   "dataset": "Обзор судебной практики Верховного Суда Российской Федерации N 3 (2026) (утв. Постановлением Президиума Верховного Суда РФ от 14.10.2026 N 21А/2026)",
+  "replace_note": "",
   "count": 52
  },
  {
@@ -6497,6 +6914,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_10/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 14/2026. О рассмотрении судами дел, связанных с применением законодательства о противодействии коррупции и обращением в доход Российской Федерации имущества, приобретенного в результате нарушения требований и запретов, направленных на предотвращение коррупции (утв. Постановлением Президиума Верховного Суда РФ от 01.07.2026 N 17А/2026)",
+  "replace_note": "",
   "count": 28
  },
  {
@@ -6515,6 +6933,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_8/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 13/2026. О судебной практике по делам, связанным с самовольным строительством (утв. Постановлением Президиума Верховного Суда РФ от 01.07.2026 N 16А/2026)",
+  "replace_note": "",
   "count": 13
  },
  {
@@ -6533,6 +6952,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_9/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 12/2026. По делам, связанным с оспариванием сделок, повлекших переход права собственности на жилые помещения (утв. Постановлением Президиума Верховного Суда РФ от 01.07.2026 N 15А/2026)",
+  "replace_note": "",
   "count": 12
  },
  {
@@ -6551,6 +6971,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_6/",
   "dataset": "Тематический обзор Верховного суда Российской Федерации N 8/2026. О применении арбитражными судами законодательства о специальных экономических мерах, предусмотренных в целях защиты национальных интересов Российской Федерации (утв. Постановлением Президиума Верховного Суда РФ от 17.06.2026 N 11А/2026)",
+  "replace_note": "",
   "count": 23
  },
  {
@@ -6569,6 +6990,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_7/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 9/2026. О рассмотрении судами споров, связанных с применением таможенного законодательства (утв. Постановлением Президиума Верховного Суда РФ от 17.06.2026 N 12А/2026)",
+  "replace_note": "",
   "count": 20
  },
  {
@@ -6587,6 +7009,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_4/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 4/2026. О рассмотрении арбитражными судами споров, связанных с налогообложением имущества организаций (утв. Постановлением Президиума Верховного Суда РФ от 29.04.2026 N 6А/2026)",
+  "replace_note": "",
   "count": 10
  },
  {
@@ -6605,6 +7028,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_3/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 5/2026. О судебной практике разрешения споров о несостоятельности (банкротстве) за 2025 год (утв. Постановлением Президиума Верховного Суда РФ от 29.04.2026 N 7А/2026)",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -6623,6 +7047,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_2/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 2/2026. О рассмотрении судами административных дел о защите избирательных прав (утв. Постановлением Президиума Верховного Суда РФ от 25.03.2026 N 3А/2026)",
+  "replace_note": "",
   "count": 26
  },
  {
@@ -6641,6 +7066,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-verkhovnogo-suda-rossiiskoi-federatsii_55/",
   "dataset": "Обзор судебной практики Верховного Суда Российской Федерации N 1 (2026) (утв. Постановлением Президиума Верховного Суда РФ от 25.03.2026 N 5А/2026)",
+  "replace_note": "",
   "count": 47
  },
  {
@@ -6659,6 +7085,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n_1/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 3/2026. О рассмотрении судами общей юрисдикции споров, связанных с применением отдельных положений законодательства о налогах и сборах (утв. Постановлением Президиума Верховного Суда РФ от 25.03.2026 N 4А/2026)",
+  "replace_note": "",
   "count": 49
  },
  {
@@ -6677,6 +7104,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/tematicheskii-obzor-verkhovnogo-suda-rossiiskoi-federatsii-n/",
   "dataset": "Тематический обзор Верховного Суда Российской Федерации N 1/2026. Обзор практики рассмотрения судами административных дел об оспаривании нормативных правовых актов субъектов Российской Федерации, которыми установлены дополнительные меры социальной поддержки участникам специальной военной операции и членам их семей (утв. Постановлением Президиума Верховного Суда РФ от 11.02.2026 N 2А/2026)",
+  "replace_note": "",
   "count": 6
  },
  {
@@ -6695,6 +7123,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-rassmotreniiu-del-sviazannykh/",
   "dataset": "Обзор судебной практики по рассмотрению дел, связанных с пенсионным обеспечением лиц, проходивших военную службу, службу в органах внутренних дел, Государственной противопожарной службе, органах по контролю за оборотом наркотических средств и психотропных веществ, учреждениях и органах уголовно-исполнительной системы, войсках национальной гвардии Российской Федерации, органах принудительного исполнения Российской Федерации, и их семей (утв. Президиумом Верховного Суда РФ 22.12.2025)",
+  "replace_note": "",
   "count": 21
  },
  {
@@ -6713,6 +7142,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/vopros-otvet-o-primenenii-nalogovogo-aresta-v-bankrotstve/",
   "dataset": "О применении положений пункта 2.1 статьи 73 Налогового кодекса Российской Федерации при установлении в деле о банкротстве требований налоговых органов в реестре кредиторов как обеспеченных залогом имущества должника (утв. Президиумом Верховного Суда РФ 19.11.2025)",
+  "replace_note": "",
   "count": 2
  },
  {
@@ -6731,6 +7161,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-arbitrazhnymi-sudami-del-po_1/",
   "dataset": "Обзор практики рассмотрения арбитражными судами дел по корпоративным спорам о субсидиарной ответственности контролирующих лиц по обязательствам недействующего юридического лица (утв. Президиумом Верховного Суда РФ 19.11.2025)",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -6749,6 +7180,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-sviazannym-s_16/",
   "dataset": "Обзор судебной практики по делам, связанным с предоставлением и использованием публичных земельных участков для целей строительства (утв. Президиумом Верховного Суда РФ 19.11.2025)",
+  "replace_note": "",
   "count": 40
  },
  {
@@ -6767,6 +7199,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-prezidiuma-verkhovnogo-suda-rf-ot-19112025_1/",
   "dataset": "Постановление Президиума Верховного Суда РФ от 19.11.2025 \"Об утверждении разъяснений по отдельным вопросам судебной практики",
+  "replace_note": "",
   "count": 1
  },
  {
@@ -6785,6 +7218,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/postanovlenie-prezidiuma-verkhovnogo-suda-rf-ot-19112025/",
   "dataset": "Постановление Президиума Верховного Суда РФ от 19.11.2025 <Об исключении отдельных примеров из обзоров судебной практики Верховного Суда Российской Федерации>",
+  "replace_note": "",
   "count": 1
  },
  {
@@ -6803,6 +7237,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/voprosy-sviazannye-s-primeneniem-otdelnykh-polozhenii-federalnogo/",
   "dataset": "Вопросы, связанные с применением отдельных положений Федерального закона от 31 июля 2025 г. N 287-ФЗ О внесении изменений в часть первую Налогового кодекса Российской Федерации и Федеральный закон Об исполнительном производстве (утв. Президиумом Верховного Суда РФ 19.11.2025)",
+  "replace_note": "",
   "count": 13
  },
  {
@@ -6821,6 +7256,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-arbitrazhnymi-sudami-del-po/",
   "dataset": "Обзор практики рассмотрения арбитражными судами дел по корпоративным спорам, связанным с применением статьи 53.1 Гражданского кодекса Российской Федерации (утв. Президиумом Верховного Суда РФ 30.07.2025)",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -6839,6 +7275,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-o-bankrotstve/",
   "dataset": "Обзор судебной практики по делам о банкротстве граждан (утв. Президиумом Верховного Суда РФ 18.06.2025)",
+  "replace_note": "",
   "count": 78
  },
  {
@@ -6857,6 +7294,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-verkhovnogo-suda-rossiiskoi-federatsii_53/",
   "dataset": "Обзор судебной практики Верховного Суда Российской Федерации N 2 (2025) (утв. Президиумом Верховного Суда РФ 18.06.2025)",
+  "replace_note": "",
   "count": 51
  },
  {
@@ -6875,6 +7313,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-sviazannoi-s-privlecheniem-k/",
   "dataset": "Обзор судебной практики, связанной с привлечением к административной ответственности за нарушения антимонопольного законодательства (утв. Президиумом Верховного Суда РФ 25.04.2025)",
+  "replace_note": "",
   "count": 39
  },
  {
@@ -6893,6 +7332,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-verkhovnogo-suda-rossiiskoi-federatsii_52/",
   "dataset": "Обзор судебной практики Верховного Суда Российской Федерации N 1 (2025) (утв. Президиумом Верховного Суда РФ 25.04.2025)",
+  "replace_note": "",
   "count": 68
  },
  {
@@ -6911,6 +7351,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-razresheniia-sporov-o-nesostoiatelnosti_2/",
   "dataset": "Обзор судебной практики разрешения споров о несостоятельности (банкротстве) за 2024 год (утв. Президиумом Верховного Суда РФ 25.04.2025)",
+  "replace_note": "",
   "count": 26
  },
  {
@@ -6929,6 +7370,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-verkhovnogo-suda-rossiiskoi-federatsii-po/",
   "dataset": "Обзор практики Верховного суда Российской Федерации по применению норм уголовного закона о назначении наказания и иных мер уголовно-правового характера (по материалам уголовных дел, рассмотренных в кассационном порядке) (утв. Президиумом Верховного Суда РФ 18.12.2024)",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -6947,6 +7389,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-voprosam-sviazannym-s_3/",
   "dataset": "Обзор судебной практики по вопросам, связанным с индексацией присужденных судом денежных сумм на день исполнения решения суда (утв. Президиумом Верховного Суда РФ 18.12.2024)",
+  "replace_note": "",
   "count": 31
  },
  {
@@ -6965,6 +7408,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-sviazannym-s_15/",
   "dataset": "Обзор судебной практики по делам, связанным с применением законодательства об обязательном медицинском страховании (утв. Президиумом Верховного Суда РФ 27.11.2024)",
+  "replace_note": "",
   "count": 25
  },
  {
@@ -6983,6 +7427,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-o-zashchite_4/",
   "dataset": "Обзор судебной практики по делам о защите прав потребителей (утв. Президиумом Верховного Суда РФ 23.10.2024)",
+  "replace_note": "",
   "count": 25
  },
  {
@@ -7001,6 +7446,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-o-prestupleniiakh/",
   "dataset": "Обзор судебной практики по делам о преступлениях, связанных с незаконным оборотом наркотических средств, психотропных веществ и их аналогов (утв. Президиумом Верховного Суда РФ 26.06.2024)",
+  "replace_note": "",
   "count": 21
  },
  {
@@ -7019,6 +7465,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-otdelnym-voprosam-primeneniia/",
   "dataset": "Обзор судебной практики по отдельным вопросам применения статьи 15.25 Кодекса Российской Федерации об административных правонарушениях (утв. Президиумом Верховного Суда РФ 26.06.2024)",
+  "replace_note": "",
   "count": 22
  },
  {
@@ -7037,6 +7484,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-sudami-del-po-pensionnym/",
   "dataset": "Обзор практики рассмотрения судами дел по пенсионным спорам (утв. Президиумом Верховного Суда РФ 26.06.2024)",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -7055,6 +7503,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-rassmotreniia-grazhdanskikh-del-sviazannykh/",
   "dataset": "Обзор судебной практики рассмотрения гражданских дел, связанных с нарушением авторских и смежных прав в информационно-телекоммуникационной сети Интернет (утв. Президиумом Верховного Суда РФ 29.05.2024)",
+  "replace_note": "",
   "count": 42
  },
  {
@@ -7073,6 +7522,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-v-2023-godu-oblastnymi/",
   "dataset": "Обзор практики рассмотрения в 2023 году областными и равными им судами дел об усыновлении детей иностранными гражданами или лицами без гражданства, а также гражданами Российской Федерации, постоянно проживающими за пределами территории Российской Федерации (утв. Президиумом Верховного Суда РФ 29.05.2024)",
+  "replace_note": "",
   "count": 1
  },
  {
@@ -7091,6 +7541,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-razresheniia-sporov-o-nesostoiatelnosti_1/",
   "dataset": "Обзор судебной практики разрешения споров о несостоятельности (банкротстве) за 2023 г. (утв. Президиумом Верховного Суда РФ 15.05.2024)",
+  "replace_note": "",
   "count": 18
  },
  {
@@ -7109,6 +7560,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-sviazannym-s_14/",
   "dataset": "Обзор судебной практики по делам, связанным с обращением с твердыми коммунальными отходами (утв. Президиумом Верховного Суда РФ 13.12.2023)",
+  "replace_note": "",
   "count": 58
  },
  {
@@ -7127,6 +7579,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-primeneniia-arbitrazhnymi-sudami-polozhenii-zakonodatelstva/",
   "dataset": "Обзор практики применения арбитражными судами положений законодательства о налогах и сборах, связанных с оценкой обоснованности налоговой выгоды (утв. Президиумом Верховного Суда РФ 13.12.2023)",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -7145,6 +7598,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-sporam-sviazannym-s_4/",
   "dataset": "Обзор судебной практики по спорам, связанным с реконструкцией, переустройством и перепланировкой помещений в многоквартирном доме (утв. Президиумом Верховного Суда РФ 13.12.2023)",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -7163,6 +7617,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obobshchenie-sudebnoi-praktiki-po-korporativnym-sporam-o/",
   "dataset": "Обобщение судебной практики по корпоративным спорам о предоставлении информации хозяйственными обществами (утв. Президиумом Верховного Суда РФ 15.11.2023)",
+  "replace_note": "",
   "count": 20
  },
  {
@@ -7181,6 +7636,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-sviazannym-s_13/",
   "dataset": "Обзор судебной практики по делам, связанным с оценкой действий правообладателей товарных знаков (утв. Президиумом Верховного Суда РФ 15.11.2023)",
+  "replace_note": "",
   "count": 18
  },
  {
@@ -7199,6 +7655,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-o-zashchite_3/",
   "dataset": "Обзор судебной практики по делам о защите прав потребителей (утв. Президиумом Верховного Суда РФ 18.10.2023)",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -7217,6 +7674,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-voprosam-uchastiia-arbitrazhnogo/",
   "dataset": "Обзор судебной практики по вопросам участия арбитражного управляющего в деле о банкротстве (утв. Президиумом Верховного Суда РФ 11.10.2023)",
+  "replace_note": "",
   "count": 54
  },
  {
@@ -7235,6 +7693,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-v-2022-godu-oblastnymi/",
   "dataset": "Обзор практики рассмотрения в 2022 году областными и равными им судами дел об усыновлении детей иностранными гражданами или лицами без гражданства, а также гражданами Российской Федерации, постоянно проживающими за пределами территории Российской Федерации (утв. Президиумом Верховного Суда РФ 31.05.2023)",
+  "replace_note": "",
   "count": 1
  },
  {
@@ -7253,6 +7712,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-verkhovnogo-suda-rossiiskoi-federatsii_47/",
   "dataset": "Обзор судебной практики Верховного Суда Российской Федерации N 1 (2023) (утв. Президиумом Верховного Суда РФ 26.04.2023)",
+  "replace_note": "",
   "count": 47
  },
  {
@@ -7271,6 +7731,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-razresheniia-sporov-o-nesostoiatelnosti/",
   "dataset": "Обзор судебной практики разрешения споров о несостоятельности (банкротстве) за 2022 г. (утв. Президиумом Верховного Суда РФ 26.04.2023)",
+  "replace_note": "",
   "count": 38
  },
  {
@@ -7289,6 +7750,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-sporam-ob-ustanovlenii/",
   "dataset": "Обзор судебной практики по спорам об установлении требований залогодержателей при банкротстве залогодателей (утв. Президиумом Верховного Суда РФ 21.12.2022)",
+  "replace_note": "",
   "count": 14
  },
  {
@@ -7307,6 +7769,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-o-priznanii/",
   "dataset": "Обзор судебной практики по делам о признании брака недействительным (утв. Президиумом Верховного Суда РФ 14.12.2022)",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -7325,6 +7788,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-sviazannym-s_12/",
   "dataset": "Обзор судебной практики по делам, связанным с самовольным строительством (утв. Президиумом Верховного Суда РФ 16.11.2022)",
+  "replace_note": "",
   "count": 32
  },
  {
@@ -7343,6 +7807,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-sporam-o-peredache/",
   "dataset": "Обзор судебной практики по спорам о передаче религиозным организациям имущества религиозного назначения (утв. Президиумом Верховного Суда РФ 16.11.2022)",
+  "replace_note": "",
   "count": 9
  },
  {
@@ -7361,6 +7826,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-o-zashchite_2/",
   "dataset": "Обзор судебной практики по делам о защите прав потребителей (утв. Президиумом Верховного Суда РФ 19.10.2022)",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -7379,6 +7845,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-verkhovnogo-suda-rossiiskoi-federatsii_45/",
   "dataset": "Обзор судебной практики Верховного суда Российской Федерации N 2 (2022) (утв. Президиумом Верховного Суда РФ 12.10.2022)",
+  "replace_note": "",
   "count": 47
  },
  {
@@ -7397,6 +7864,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-primeneniia-sudami-polozhenii-glavy-26/",
   "dataset": "Обзор практики применения судами положений главы 26 Уголовного кодекса Российской Федерации об экологических преступлениях (утв. Президиумом Верховного Суда РФ 24.06.2022)",
+  "replace_note": "",
   "count": 11
  },
  {
@@ -7415,6 +7883,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-voprosam-primeneniia-zakonodatelstva/",
   "dataset": "Обзор судебной практики по вопросам применения законодательства об охране окружающей среды (утв. Президиумом Верховного Суда РФ 24.06.2022)",
+  "replace_note": "",
   "count": 34
  },
  {
@@ -7433,6 +7902,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-v-2021-godu-oblastnymi/",
   "dataset": "Обзор практики рассмотрения в 2021 году областными и равными им судами дел об усыновлении детей иностранными гражданами или лицами без гражданства, а также гражданами Российской Федерации, постоянно проживающими за пределами территории Российской Федерации (утв. Президиумом Верховного Суда РФ 01.06.2022)",
+  "replace_note": "",
   "count": 1
  },
  {
@@ -7451,6 +7921,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-verkhovnogo-suda-rossiiskoi-federatsii_44/",
   "dataset": "Обзор судебной практики Верховного Суда Российской Федерации N 1 (2022) (утв. Президиумом Верховного Суда РФ 01.06.2022)",
+  "replace_note": "",
   "count": 47
  },
  {
@@ -7469,6 +7940,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-sudami-del-po-sporam_6/",
   "dataset": "Обзор практики рассмотрения судами дел по спорам, связанным с заключением трудового договора (утв. Президиумом Верховного Суда РФ 27.04.2022)",
+  "replace_note": "",
   "count": 23
  },
  {
@@ -7487,6 +7959,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-verkhovnogo-suda-rossiiskoi-federatsii_43/",
   "dataset": "Обзор судебной практики Верховного суда Российской Федерации N 4 (2021) (утв. Президиумом Верховного Суда РФ 16.02.2022)",
+  "replace_note": "",
   "count": 47
  },
  {
@@ -7505,6 +7978,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-sporam-ob-oplate/",
   "dataset": "Обзор судебной практики по спорам об оплате неучтенного потребления воды, тепловой и электрической энергии, поставленной по присоединенной сети (утв. Президиумом Верховного Суда РФ 22.12.2021)",
+  "replace_note": "",
   "count": 14
  },
  {
@@ -7523,6 +7997,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-primeneniia-sudami-obshchepriznannykh-printsipov-i/",
   "dataset": "Обзор практики применения судами общепризнанных принципов и норм международного права и международных договоров Российской Федерации при рассмотрении уголовных дел (утв. Президиумом Верховного суда 08.12.2021)",
+  "replace_note": "",
   "count": 1
  },
  {
@@ -7541,6 +8016,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-sporam-sviazannym-s_3/",
   "dataset": "Обзор судебной практики по спорам, связанным с договором финансовой аренды (лизинга) (утв. Президиумом Верховного Суда РФ 27.10.2021)",
+  "replace_note": "",
   "count": 40
  },
  {
@@ -7559,6 +8035,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/otvet-na-vopros-o-primenenii-sudami-zakonodatelstva/",
   "dataset": "<Ответ на вопрос о применении судами законодательства в связи с установлением в Российской Федерации нерабочих дней в октябре - ноябре 2021 года> (утв. Президиумом Верховного Суда РФ 26.10.2021)",
+  "replace_note": "",
   "count": 2
  },
  {
@@ -7577,6 +8054,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-o-zashchite_1/",
   "dataset": "Обзор судебной практики по делам о защите прав потребителей (утв. Президиумом Верховного Суда РФ 20.10.2021)",
+  "replace_note": "",
   "count": 21
  },
  {
@@ -7595,6 +8073,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-sporam-sviazannym-s_2/",
   "dataset": "Обзор судебной практики по спорам, связанным с возведением зданий и сооружений в охранных зонах трубопроводов и в границах минимальных расстояний до магистральных или промышленных трубопроводов (утв. Президиумом Верховного Суда РФ 23.06.2021)",
+  "replace_note": "",
   "count": 14
  },
  {
@@ -7613,6 +8092,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-razresheniia-sudami-sporov-sviazannykh/",
   "dataset": "Обзор судебной практики разрешения судами споров, связанных с принудительным исполнением требований исполнительных документов банками и иными кредитными организациями (утв. Президиумом Верховного Суда РФ 16.06.2021)",
+  "replace_note": "",
   "count": 22
  },
  {
@@ -7631,6 +8111,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/otvet-na-vopros-o-poriadke-rassmotreniia-ugolovnykh/",
   "dataset": "Ответ на вопрос о порядке рассмотрения уголовных дел о тяжких преступлениях после вступления в силу Федерального закона от 20 июля 2020 года N 224-ФЗ О внесении изменений в статьи 314 и 316 Уголовно-процессуального кодекса Российской Федерации (утв. Президиумом Верховного Суда РФ 16.06.2021)",
+  "replace_note": "",
   "count": 2
  },
  {
@@ -7649,6 +8130,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-v-2020-godu-oblastnymi/",
   "dataset": "Обзор практики рассмотрения в 2020 году областными и равными им судами дел об усыновлении детей иностранными гражданами или лицами без гражданства, а также гражданами Российской Федерации, постоянно проживающими за пределами территории Российской Федерации (утв. Президиумом Верховного Суда РФ 02.06.2021)",
+  "replace_note": "",
   "count": 1
  },
  {
@@ -7667,6 +8149,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/vopros-otvet-prezidiuma-verkhovnogo-suda-rf-ot-28042021/",
   "dataset": "Ответ на вопрос о применении судами законодательства в связи с установлением в Российской Федерации нерабочих дней с 4 по 7 мая 2021 г. включительно (утв. Президиумом Верховного Суда РФ 28.04.2021)",
+  "replace_note": "",
   "count": 2
  },
  {
@@ -7685,6 +8168,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-po-otdelnym-voprosam-sudebnoi-praktiki-sviazannym_5/",
   "dataset": "Обзор по отдельным вопросам судебной практики, связанным с применением законодательства и мер по противодействию распространению на территории Российской Федерации новой коронавирусной инфекции (COVID-19) N 3 (утв. Президиумом Верховного Суда РФ 17.02.2021)",
+  "replace_note": "",
   "count": 27
  },
  {
@@ -7703,6 +8187,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-verkhovnogo-suda-rossiiskoi-federatsii_39/",
   "dataset": "Обзор судебной практики Верховного Суда Российской Федерации N 4 (2020) (утв. Президиумом Верховного Суда РФ 23.12.2020)",
+  "replace_note": "",
   "count": 49
  },
  {
@@ -7721,6 +8206,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-sviazannym-s_11/",
   "dataset": "Обзор судебной практики по делам, связанным с предоставлением земельных участков сельскохозяйственным организациям и крестьянским (фермерским) хозяйствам для ведения сельскохозяйственного производства (утв. Президиумом Верховного Суда РФ 23.12.2020)",
+  "replace_note": "",
   "count": 13
  },
  {
@@ -7739,6 +8225,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-sudami-del-sviazannykh-s_7/",
   "dataset": "Обзор практики рассмотрения судами дел, связанных с обеспечением детей-сирот и детей, оставшихся без попечения родителей, лиц из числа детей-сирот и детей, оставшихся без попечения родителей, жилыми помещениями (утв. Президиумом Верховного Суда РФ 23.12.2020)",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -7757,6 +8244,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-sudami-del-po-sporam_5/",
   "dataset": "Обзор практики рассмотрения судами дел по спорам, связанным с прекращением трудового договора по инициативе работодателя (утв. Президиумом Верховного Суда РФ 09.12.2020)",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -7775,6 +8263,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-delam-o-zashchite/",
   "dataset": "Обзор судебной практики по делам о защите прав потребителей (утв. Президиумом Верховного Суда РФ 14.10.2020)",
+  "replace_note": "",
   "count": 16
  },
  {
@@ -7793,6 +8282,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-primeneniia-arbitrazhnymi-sudami-polozhenii-protsessualnogo/",
   "dataset": "Обзор практики применения арбитражными судами положений процессуального законодательства об обязательном досудебном порядке урегулирования спора (утв. Президиумом Верховного Суда РФ 22.07.2020)",
+  "replace_note": "",
   "count": 19
  },
  {
@@ -7811,6 +8301,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-v-2019-godu-oblastnymi/",
   "dataset": "Обзор практики рассмотрения в 2019 году областными и равными им судами дел об усыновлении детей иностранными гражданами или лицами без гражданства, а также гражданами Российской Федерации, постоянно проживающими за пределами территории Российской Федерации (утв. Президиумом Верховного Суда РФ 08.07.2020)",
+  "replace_note": "",
   "count": 1
  },
  {
@@ -7829,6 +8320,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-po-otdelnym-voprosam-sudebnoi-praktiki-sviazannym_4/",
   "dataset": "Обзор по отдельным вопросам судебной практики, связанным с принятием судами мер противодействия незаконным финансовым операциям (утв. Президиумом Верховного Суда РФ 08.07.2020)",
+  "replace_note": "",
   "count": 28
  },
  {
@@ -7847,6 +8339,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-rassmotreniia-del-o-privlechenii/",
   "dataset": "Обзор судебной практики рассмотрения дел о привлечении к административной ответственности, предусмотренной статьей 19.28 Кодекса Российской Федерации об административных правонарушениях (утв. Президиумом Верховного Суда РФ 08.07.2020)",
+  "replace_note": "",
   "count": 12
  },
  {
@@ -7865,6 +8358,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-praktiki-rassmotreniia-sudami-del-po-sporam_4/",
   "dataset": "Обзор практики рассмотрения судами дел по спорам, связанным с реализацией мер социальной поддержки отдельных категорий граждан (утв. Президиумом Верховного Суда РФ 17.06.2020)",
+  "replace_note": "",
   "count": 24
  },
  {
@@ -7883,6 +8377,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "https://sudact.ru/law/obzor-sudebnoi-praktiki-po-nekotorym-voprosam-primeneniia/",
   "dataset": "Обзор судебной практики по некоторым вопросам применения законодательства о хозяйственных обществах (утв. Президиумом Верховного Суда РФ 25.12.2019)",
+  "replace_note": "",
   "count": 22
  }
 ];

@@ -21,7 +21,7 @@ function check(name, fn) {
 }
 
 /* --- чистая логика: разбор ответа модели -------------------------------- */
-const { parseAnswer } = require(path.join(ROOT, "lib/gigachat"));
+const { parseAnswer, buildMessages } = require(path.join(ROOT, "lib/gigachat"));
 
 check("JSON в обёртке ```json … ``` разбирается", function () {
   const r = parseAnswer('```json\n{"plain":"Текст","cite":["uk-111"]}\n```', { norms: [{ id: "uk-111" }] });
@@ -66,6 +66,61 @@ check("CITE, приписанный к последнему предложени
 check("CITE со скобками тоже разбирается", function () {
   const r = parseAnswer("Объяснение.\nCITE: [uk-111, uk-222]", { norms: [{ id: "uk-111" }, { id: "uk-222" }] });
   assert.deepStrictEqual(r.cite, ["uk-111", "uk-222"]);
+});
+
+check("id перед пояснением заменяется пояснением", function () {
+  const norms = [{ id: "fz3pol-13", code: "ФЗ о полиции", num: "13", title: "Права полиции" }];
+  const r = parseAnswer("fz3pol-13 (статья 13 ФЗ «О полиции») разрешает проверку документов.", { norms: norms });
+  assert.ok(r.plain.indexOf("fz3pol-13") === -1, "id остался в тексте");
+  assert.ok(r.plain.indexOf("статья 13") !== -1, "потерялось пояснение");
+  assert.deepStrictEqual(r.cite, ["fz3pol-13"], "ссылка не восстановлена из текста");
+});
+
+check("двоеточие после id не остаётся в начале абзаца", function () {
+  const r = parseAnswer("fz3pol-13: Статья 13 разрешает проверку.", { norms: [{ id: "fz3pol-13", num: "13", code: "ФЗ о полиции" }] });
+  assert.strictEqual(r.plain, "Статья 13 разрешает проверку.");
+});
+
+check("скобки из удалённых id не оставляют «(, )»", function () {
+  const r = parseAnswer("Уточните процедуру (fz3pol-13, fz3pol-14).", { norms: [{ id: "fz3pol-13" }, { id: "fz3pol-14" }] });
+  assert.strictEqual(r.plain, "Уточните процедуру.");
+});
+
+check("заголовки блоков приводятся к каноническому виду", function () {
+  const r = parseAnswer("ГОТОВЫЕ НОРМЫ\n-статья 1064 ГК РФ (gk2-1064) — вред возмещается.\n\nЧТО ДЕЛАТЬ:\n1. Вызвать УК.", { norms: [{ id: "gk2-1064" }] });
+  assert.ok(r.plain.indexOf("Что говорят нормы") !== -1, "нет канонического заголовка");
+  assert.ok(r.plain.indexOf("Что делать") !== -1, "не разобран заголовок «ЧТО ДЕЛАТЬ:»");
+  assert.ok(r.plain.indexOf("gk2-1064") === -1, "id остался в тексте");
+});
+
+check("промпт требует четыре смысловых блока", function () {
+  const m = buildMessages({ text: "сосед затопил квартиру", norms: [{ id: "gk2-1064", code: "ГК РФ", num: "1064", title: "Общие основания ответственности за причинение вреда" }] });
+  const sys = m[0].content;
+  ["Коротко", "Что говорят нормы", "Что делать", "Чего не хватает"].forEach(function (h) {
+    assert.ok(sys.indexOf(h) !== -1, "в системном сообщении нет блока «" + h + "»");
+  });
+  assert.ok(sys.indexOf("CITE") !== -1, "нет требования строки CITE");
+});
+
+check("план сайта и краткий вывод уходят модели как подсказка", function () {
+  const m = buildMessages({
+    text: "сосед затопил квартиру", qual: "ст. 1064 ГК РФ", lead: "Ущерб возмещает причинитель вреда.",
+    steps: ["Вызвать управляющую компанию", "Составить акт осмотра"],
+    norms: [{ id: "gk2-1064", code: "ГК РФ", num: "1064", title: "Общие основания" }]
+  });
+  const user = m[1].content;
+  assert.ok(user.indexOf("Краткий вывод сайта") !== -1, "нет краткого вывода");
+  assert.ok(user.indexOf("План действий") !== -1, "нет плана действий");
+  assert.ok(user.indexOf("1. Вызвать управляющую компанию") !== -1, "шаги не пронумерованы");
+});
+
+check("шаги обрезаются до шести и не раздувают запрос", function () {
+  const m = buildMessages({
+    text: "иск", steps: ["а", "б", "в", "г", "д", "е", "ж", "з"],
+    norms: [{ id: "x", code: "ГК РФ", num: "1", title: "т" }]
+  });
+  assert.ok(m[1].content.indexOf("6. е") !== -1, "шестой шаг потерялся");
+  assert.ok(m[1].content.indexOf("7. ж") === -1, "седьмой шаг не отсечён");
 });
 
 /* --- проверка источника запроса ------------------------------------------ */

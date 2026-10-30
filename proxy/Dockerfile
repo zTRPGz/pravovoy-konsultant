@@ -1,4 +1,4 @@
-# Прокси к GigaChat для российских площадок (Timeweb Cloud, VPS).
+# Прокси к GigaChat для VPS и Docker-площадок.
 # Сборка: docker build -t rf-laws-proxy ./proxy
 # Запуск:  docker run -p 8080:8080 --env-file proxy/.env rf-laws-proxy
 #
@@ -14,7 +14,6 @@ ENV PORT=8080
 COPY package.json ./
 COPY server.js ./
 COPY lib ./lib
-COPY russian_trusted_root_ca.pem ./
 
 # Процессу не нужна запись в каталог приложения.
 USER node

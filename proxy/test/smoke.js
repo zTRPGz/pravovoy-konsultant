@@ -209,6 +209,8 @@ async function post(body, headers) {
 
   const pre = await fetch(base + "/ask", { method: "OPTIONS", headers: { Origin: ORIGIN } });
   check("preflight отвечает 204", function () { assert.strictEqual(pre.status, 204); });
+  check("preflight разрешает заголовок общего токена",
+    function () { assert.ok(/X-Proxy-Token/i.test(pre.headers.get("access-control-allow-headers") || "")); });
 
   const noNorms = await post({ text: "ударил ножом в живот" }, { Origin: ORIGIN });
   check("без перечня норм — 400 (иначе модель выдумает статьи)", function () { assert.strictEqual(noNorms.status, 400); });
@@ -223,6 +225,68 @@ async function post(body, headers) {
   check("неизвестный путь — 404", function () { assert.strictEqual(notFound.status, 404); });
 
   child.kill();
+
+  /* --- Netlify-адаптер: та же логика, другая сигнатура ------------------- */
+  process.env.GIGACHAT_MOCK = "1";
+  process.env.ALLOWED_ORIGINS = ORIGIN;
+  const netlify = require(path.join(ROOT, "netlify", "functions", "ask.js")).handler;
+
+  function event(method, body, headers, extra) {
+    return Object.assign({
+      httpMethod: method,
+      headers: Object.assign({ Origin: ORIGIN, "x-nf-client-connection-ip": "203.0.113.7" }, headers || {}),
+      body: body == null ? null : (typeof body === "string" ? body : JSON.stringify(body))
+    }, extra || {});
+  }
+  function parsed(r) { return JSON.parse(r.body); }
+
+  const nh = await netlify(event("GET"));
+  check("Netlify: GET /health отвечает и сообщает mock-режим", function () {
+    assert.strictEqual(nh.statusCode, 200);
+    assert.strictEqual(parsed(nh).ok, true);
+    assert.strictEqual(parsed(nh).mock, true);
+  });
+
+  const npre = await netlify(event("OPTIONS"));
+  check("Netlify: preflight отвечает 204 и точным источником", function () {
+    assert.strictEqual(npre.statusCode, 204);
+    assert.strictEqual(npre.headers["Access-Control-Allow-Origin"], ORIGIN);
+    assert.ok(/X-Proxy-Token/i.test(npre.headers["Access-Control-Allow-Headers"] || ""));
+  });
+
+  const nok = await netlify(event("POST", good));
+  check("Netlify: разрешённый источник получает объяснение", function () {
+    assert.strictEqual(nok.statusCode, 200);
+    assert.strictEqual(parsed(nok).ok, true);
+    assert.ok(parsed(nok).plain.length > 20);
+  });
+
+  const nevil = await netlify(event("POST", good, { Origin: "https://evil.example" }));
+  check("Netlify: чужой источник получает 403", function () { assert.strictEqual(nevil.statusCode, 403); });
+
+  const nnone = await netlify(event("POST", { text: "ударил ножом в живот" }));
+  check("Netlify: без перечня норм — 400", function () { assert.strictEqual(nnone.statusCode, 400); });
+
+  const nbig = await netlify(event("POST", { text: "а".repeat(20000), norms: good.norms }));
+  check("Netlify: слишком большое тело — 413", function () { assert.strictEqual(nbig.statusCode, 413); });
+
+  const nbad = await netlify(event("POST", "{не json"));
+  check("Netlify: битый JSON — 400", function () { assert.strictEqual(nbad.statusCode, 400); });
+
+  const n64 = await netlify(event("POST", Buffer.from(JSON.stringify(good)).toString("base64"),
+    {}, { isBase64Encoded: true }));
+  check("Netlify: тело в base64 разбирается", function () { assert.strictEqual(n64.statusCode, 200); });
+
+  let last = null;
+  for (let i = 0; i < 13; i++) {
+    last = await netlify(event("POST", { text: "коротко" }, {
+      "x-nf-client-connection-ip": "198.51.100.9",
+      "x-forwarded-for": "10.0.0." + i
+    }));
+  }
+  check("Netlify: подделка X-Forwarded-For не обходит лимит на IP", function () {
+    assert.strictEqual(last.statusCode, 429);
+  });
   console.log("\n" + (bad ? "ПРОВАЛОВ: " + bad : "Все проверки пройдены") + " (" + ok + " ok)");
   process.exit(bad ? 1 : 0);
 })();

@@ -74,7 +74,7 @@ function corsHeaders(req) {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Proxy-Token",
     "Access-Control-Max-Age": "600",
     Vary: "Origin"
   };
@@ -106,4 +106,4 @@ function clientIp(req) {
   return xf || (req.socket && req.socket.remoteAddress) || "unknown";
 }
 
-module.exports = { rateOk: rateOk, originOk: originOk, corsHeaders: corsHeaders, readBody: readBody, clientIp: clientIp, PER_IP: PER_IP, PER_DAY: PER_DAY };
+module.exports = { rateOk: rateOk, originOk: originOk, corsHeaders: corsHeaders, readBody: readBody, clientIp: clientIp, PER_IP: PER_IP, PER_DAY: PER_DAY, MAX_BODY: MAX_BODY };

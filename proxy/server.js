@@ -1,7 +1,7 @@
 /* Автономный прокси к GigaChat: `node proxy/server.js`.
  *
- * Подходит для VPS, Timeweb Cloud, Yandex Cloud (виртуальная машина),
- * Render, Railway — любого места, где можно запустить Node 18+.
+ * Подходит для VPS, Yandex Cloud (виртуальная машина) и Docker-площадок —
+ * любого места, где можно запустить Node 18+.
  * Никаких зависимостей: только стандартная библиотека, поэтому деплой —
  * копирование каталога и `node proxy/server.js`.
  *
@@ -10,7 +10,7 @@
 "use strict";
 
 const http = require("http");
-const { ask, errorText } = require("./lib/gigachat");
+const app = require("./lib/app");
 const g = require("./lib/guard");
 
 const PORT = Number(process.env.PORT || 8080);
@@ -32,14 +32,7 @@ const server = http.createServer(async function (req, res) {
 
   if (req.method === "OPTIONS") { res.writeHead(204, cors); return res.end(); }
 
-  if (url === "/health" || url === "/") {
-    return send(res, 200, {
-      ok: true,
-      service: "rf-laws-gigachat-proxy",
-      mock: require("./lib/gigachat").mock(),
-      limits: { perMinute: g.PER_IP, perDay: g.PER_DAY }
-    }, cors);
-  }
+  if (url === "/health" || url === "/") return send(res, 200, app.health(), cors);
 
   if (url !== "/ask") return send(res, 404, { error: "нет такого метода" }, cors);
   if (req.method !== "POST") return send(res, 405, { error: "нужен POST" }, cors);
@@ -57,20 +50,8 @@ const server = http.createServer(async function (req, res) {
   try { body = await g.readBody(req); }
   catch (e) { return send(res, e.status || 400, { error: e.message }, cors); }
 
-  const text = String(body.text || "").trim();
-  if (text.length < 5) return send(res, 400, { error: "слишком короткое описание" }, cors);
-  if (!Array.isArray(body.norms) || !body.norms.length) {
-    return send(res, 400, { error: "нужен перечень норм: без него модель начнёт выдумывать статьи" }, cors);
-  }
-
-  try {
-    const out = await ask(body);
-    return send(res, 200, { ok: true, plain: out.plain, cite: out.cite }, cors);
-  } catch (e) {
-    const code = e && e.status ? e.status : 502;
-    console.error("[ask]", errorText(e), e && e.cause ? e.cause : "");
-    return send(res, code, { error: "GigaChat недоступен: " + errorText(e) }, cors);
-  }
+  const out = await app.askBody(body);
+  return send(res, out.status, out.json, cors);
 });
 
 server.listen(PORT, HOST, function () {

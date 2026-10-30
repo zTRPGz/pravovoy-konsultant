@@ -25,6 +25,7 @@ proxy/.env
 proxy/node_modules/
 proxy/*.pem
 proxy/russian_trusted_root_ca.pem
+proxy/.netlify/
 
 # Каталог публикации: производная от data/, его собирает хостинг
 # (или `npm run dist` перед ручной выгрузкой). В репозитории не хранится.

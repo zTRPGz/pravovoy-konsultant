@@ -80,7 +80,7 @@
 `tools/build-data.js` вместе с данными пишет крошечный `data/version.json`:
 
 ```json
-{"at":"2026-10-30T20:56:26.655Z","digest":"38ae55738c411039","articles":30943,"sources":441,"files":488,"code":"16874bddf1b7e19e"}
+{"at":"2026-10-30T21:26:58.653Z","digest":"38ae55738c411039","articles":30943,"sources":441,"files":488,"code":"f9c3d0f224e64927"}
 ```
 
 `digest` — это sha1 по содержимому всех `data/*.js` и `data/*.json`, у которых
@@ -421,16 +421,17 @@ cat data/version.json
 
 **Где разворачивать, чтобы работало в России без VPN.** Нужны две
 доступности сразу: браузер в РФ должен доставать прокси, а прокси — GigaChat.
-Поэтому предпочтительна российская площадка: Timeweb Cloud, Yandex Cloud,
-VPS в РФ (reg.ru, Beget) с HTTPS через Caddy. Vercel и Netlify обычно тоже
-открываются, но `*.vercel.app` в РФ периодически капризничает — лучше свой
-домен. **Cloudflare Workers не подходит:** `*.workers.dev` в России
-подвергается throttling и блокировкам.
+Бесплатный вариант без карты — **Netlify Functions**: `*.netlify.app`
+открывается из РФ, адаптер лежит в `proxy/netlify/`. Запасные варианты:
+российский VPS (reg.ru, Beget, Timeweb) с HTTPS через Caddy или Yandex Cloud
+(нужен платёжный аккаунт). Timeweb Cloud — платный. **Vercel из РФ не
+открывается**, **Cloudflare Workers тоже:** `*.workers.dev` подвергается
+throttling и блокировкам.
 
 **Что нужно, кроме кода:** аккаунт GigaChat (`developers.sber.ru`, ключ вида
-`client_id:client_secret` в base64 — разобрать на две части) и корневой
-сертификат НУЦ Минцифры (`NODE_EXTRA_CA_CERTS`), без него TLS-соединение с
-GigaChat не устанавливается.
+`client_id:client_secret` в base64 — разобрать на две части). Корневой
+сертификат НУЦ Минцифры уже встроен в `proxy/lib/russian-root-ca.js` — отдельно
+скачивать и задавать `NODE_EXTRA_CA_CERTS` не нужно.
 
 **Адрес обязательно по https** — сайт на GitHub Pages работает по https, и
 браузер заблокирует запрос к http-прокси как mixed content.

@@ -1,0 +1,19 @@
+# Netlify: в настройках сайта укажите Base directory = proxy.
+# Build command оставьте пустым: функция не требует сборки.
+# Публикуется только страница статуса, чтобы .env и тесты не попали на сайт.
+
+[build]
+  publish = "netlify/public"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/ask"
+  to = "/.netlify/functions/ask"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/ask"
+  status = 200
+  force = true

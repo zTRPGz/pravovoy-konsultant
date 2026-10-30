@@ -1,13 +1,12 @@
 /* Serverless-версия для Vercel: файл в api/ автоматически становится
  * эндпоинтом /api/ask. Логика — та же, что в server.js, через общий lib/.
  *
- * Проверено на Vercel (Node 20). Для Netlify нужен другой адаптер
- * (netlify/functions/ask.js с signature (event) => {statusCode, body}) —
- * см. proxy/README.md, раздел «Другие площадки».
+ * Проверено на Vercel (Node 20). Для Netlify есть свой адаптер:
+ * netlify/functions/ask.js с сигнатурой (event) => {statusCode, body}.
  */
 "use strict";
 
-const { ask, errorText } = require("../lib/gigachat");
+const { askBody } = require("../lib/app");
 const g = require("../lib/guard");
 
 module.exports = async function handler(req, res) {
@@ -28,21 +27,8 @@ module.exports = async function handler(req, res) {
   }
 
   const body = typeof req.body === "string" ? safeJson(req.body) : (req.body || {});
-  const text = String(body.text || "").trim();
-  if (text.length < 5) { res.status(400).json({ error: "слишком короткое описание" }); return; }
-  if (!Array.isArray(body.norms) || !body.norms.length) {
-    res.status(400).json({ error: "нужен перечень норм: без него модель начнёт выдумывать статьи" });
-    return;
-  }
-
-  try {
-    const out = await ask(body);
-    res.status(200).json({ ok: true, plain: out.plain, cite: out.cite });
-  } catch (e) {
-    const code = e && e.status ? e.status : 502;
-    console.error("[ask]", errorText(e), e && e.cause ? e.cause : "");
-    res.status(code).json({ error: "GigaChat недоступен: " + errorText(e) });
-  }
+  const out = await askBody(body);
+  res.status(out.status).json(out.json);
 };
 
 function safeJson(s) {

@@ -6009,6 +6009,10 @@
           '<div class="field" style="margin-top:8px"><label>Адрес прокси</label>' +
             '<input class="input" id="asAiUrl" type="url" inputmode="url" placeholder="https://ваш-прокси.example" value="' +
             esc(aiCfg().url) + '"></div>' +
+          '<div class="small muted" style="margin-top:4px">Своего сервера нет? Бесплатный вариант, который ' +
+            'открывается из России, — Netlify. Пошаговая инструкция: ' +
+            '<a href="https://github.com/zTRPGz/pravovoy-konsultant/blob/main/proxy/README.md" target="_blank" ' +
+            'rel="noopener">proxy/README.md</a>.</div>' +
           '<div class="actions-row" style="margin-top:8px">' +
             '<button class="btn btn-sm" type="button" id="asAiCheck">' + ic("check") + " Проверить связь</button>" +
             '<span class="small muted" id="asAiCheckState"></span></div>' +
@@ -6281,7 +6285,7 @@
     var st = e && e.status;
     if (/abort/i.test(msg)) return "сервер не ответил за 45 секунд — попробуйте ещё раз";
     if (/failed to fetch|networkerror|load failed/i.test(msg)) {
-      return "прокси не отвечает — адрес недоступен из вашей сети. Если это vercel.app, из России он часто блокируется: разместите прокси на российском хостинге (Timeweb, Yandex Cloud) или подключите свой домен";
+      return "прокси не отвечает — адрес недоступен из вашей сети. Если это vercel.app, из России он часто блокируется: бесплатный Netlify или российский VPS решают проблему";
     }
     if (st === 401 || st === 403) return "прокси отклонил запрос: проверьте ключи GigaChat в настройках сервера";
     if (st === 429) return "GigaChat ограничил частоту запросов — подождите минуту и повторите";

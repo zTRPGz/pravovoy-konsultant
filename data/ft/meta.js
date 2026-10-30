@@ -1,2 +1,2 @@
 /* Правовой консультант :: параметры полнотекстового индекса. tools/build-data.js */
-window.RF_FT_META={"shards":32,"docs":26270,"stems":19707,"postings":2168142,"tokens":6451963,"avgdl":245.6,"dict":11449,"built_at":"2026-10-29T21:31:29.965Z"};
+window.RF_FT_META={"shards":32,"docs":26364,"stems":19708,"postings":2172730,"tokens":6461675,"avgdl":245.09,"dict":11455,"built_at":"2026-10-30T11:33:05.661Z"};

@@ -989,6 +989,28 @@ server.listen(0, "127.0.0.1", async () => {
     ($("#asAiUrl") || {}).value || "поля нет");
   ok("под полем сказано, что адрес стоит по умолчанию и его можно заменить",
     /бесплатный прокси проекта/i.test(T(".as-ai") || "") && /Свой адрес/i.test(T(".as-ai") || ""));
+  /* У читателей могли остаться старые сохранённые адреса Vercel: из России они
+     часто не открываются. Предупреждение и кнопка возврата — аварийный выход. */
+  const aiUrl = $("#asAiUrl");
+  if (aiUrl) {
+    aiUrl.value = "https://pravovoy-konsultant.vercel.app";
+    aiUrl.dispatchEvent(new w.Event("change", { bubbles: true }));
+    await wait(50);
+    ok("старый адрес Vercel предупреждает, что из России он может не открыться",
+      /Vercel/i.test(T("#asAiUrlHint") || "") && /блокируется/i.test(T("#asAiUrlHint") || ""),
+      T("#asAiUrlHint") || "предупреждения нет");
+    const aiReset = $("#asAiReset");
+    ok("рядом есть кнопка «Адрес проекта»", !!aiReset);
+    if (aiReset) {
+      aiReset.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+      await wait(50);
+      ok("кнопка «Адрес проекта» возвращает бесплатный прокси",
+        /pravovoy-konsultant\.netlify\.app/.test(($("#asAiUrl") || {}).value || "") &&
+          /бесплатный прокси проекта/i.test(T("#asAiUrlHint") || ""),
+        ($("#asAiUrl") || {}).value || "поля нет");
+    }
+    w.localStorage.removeItem("rflaws.ai");
+  }
   ok("при выключенной опции кнопки объяснения нет — только подсказка «Настроить»",
     !$("#asOut [data-ai-run]") && !!$("#asOut [data-ai-setup]") && !$("#asOut .aib-text"),
     ($("#asOut [data-ai-run]") ? "кнопка объяснения есть" : "кнопки нет") + ", " +

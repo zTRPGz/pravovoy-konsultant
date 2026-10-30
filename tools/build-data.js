@@ -293,6 +293,14 @@ function decreeTitle(short, number) {
        : " (Постановление Правительства РФ)");
 }
 
+/* Указы Президента: тот же принцип реквизита в скобках. */
+function ukazTitle(short, number) {
+  var n = String(number || "").trim();
+  return String(short || "") +
+    (n ? " (Указ Президента РФ № " + n + ")"
+       : " (Указ Президента РФ)");
+}
+
 /* Постановления Пленума ВС РФ: реквизит плюс тема разъяснения — по номеру и
    дате найти нужное постановление невозможно, тема обязательна. */
 function plenumTitle(short, name) {
@@ -307,6 +315,7 @@ function displayName(cfg, number) {
   if (cfg.kind === "law") return lawTitle(cfg.short, number);
   if (cfg.kind === "fkz") return fkzTitle(cfg.full, number);
   if (cfg.kind === "decree") return decreeTitle(cfg.short, number);
+  if (cfg.kind === "ukaz") return ukazTitle(cfg.short, number);
   if (cfg.kind === "plenum") return plenumTitle(cfg.short, cfg.topic);
   return cfg.short;
 }
@@ -438,7 +447,7 @@ function build() {
 
     if (cfg.kind === "law") seenLawKeys[lawKeyOf(raw)] = cfg.id;
 
-    const res = parse.parseDoc(raw, { mode: cfg.mode || "articles" });
+    const res = parse.parseDoc(raw, { mode: cfg.mode || "articles", chaptersInText: !!cfg.chaptersInText });
     const arts = res.arts;
     const dupN = parse.dedupeNumbers(arts);
     if (dupN) warnings.push(cfg.short + ": повторяющихся номеров — " + dupN);
@@ -620,6 +629,23 @@ function build() {
     });
   })();
 
+  /* --- 6б. Указы Президента РФ (пункты, а не статьи) --- */
+  (function () {
+    const list = loadJSON(path.join(SRC, "ukazy.json"));
+    if (!list || !list.length) return;
+    list.forEach(function (raw) {
+      if (!raw.app_id) { warnings.push("у указа нет app_id: " + raw.slug); return; }
+      addDoc({
+        id: raw.app_id, kind: "ukaz", raw: raw, short: raw.short,
+        full: "Указ Президента РФ «" + innerQuotes(stripOuterQuotes(String(raw.name || "").replace(/^(Указ|Об утверждении)\s*/i, ""))) + "»",
+        branch: raw.branch, mode: "plain", chaptersInText: true,
+        req: raw.adopted ? "от " + raw.adopted + " № " + raw.number : "",
+        number: raw.number || "", adopted: raw.adopted || "",
+        slug: "", group: "extra", src: "ukazy.json", key: raw.app_id
+      });
+    });
+  })();
+
   /* --- 7. Постановления Пленума Верховного Суда РФ (пункты разъяснений) --- */
   (function () {
     const list = loadJSON(path.join(SRC, "plenums.json"));
@@ -692,7 +718,7 @@ function build() {
   })();
 
   /* --- запись реестра --- */
-  const order = { constitution: 0, code: 1, fkz: 2, law: 3, decree: 4, plenum: 5, review: 6 };
+  const order = { constitution: 0, code: 1, fkz: 2, law: 3, decree: 4, ukaz: 5, plenum: 6, review: 7 };
   registry.sort(function (a, b) {
     if (order[a.kind] !== order[b.kind]) return order[a.kind] - order[b.kind];
     return 0;
@@ -840,7 +866,7 @@ function build() {
   const graphStat = buildGraph(registry, index);
 
   /* --- отчёт --- */
-  const byKind = { code: 0, law: 0, fkz: 0, constitution: 0, decree: 0, plenum: 0, review: 0 };
+  const byKind = { code: 0, law: 0, fkz: 0, constitution: 0, decree: 0, ukaz: 0, plenum: 0, review: 0 };
   let ta = 0, ts = 0;
   stats.forEach(function (s) { ta += s.articles; ts += s.sub; byKind[s.kind] = (byKind[s.kind] || 0) + 1; });
 
@@ -858,6 +884,7 @@ function build() {
     " — кодексов " + byKind.code + ", федеральных законов " + byKind.law +
     ", ФКЗ " + byKind.fkz + ", Конституция " + byKind.constitution +
     ", постановлений Правительства " + byKind.decree +
+    ", указов Президента " + byKind.ukaz +
     ", постановлений Пленума ВС РФ " + byKind.plenum +
     ", обзоров судебной практики " + byKind.review);
   if (warnings.length) { console.log("\nПредупреждения:"); warnings.forEach(function (w) { console.log("  " + w); }); }

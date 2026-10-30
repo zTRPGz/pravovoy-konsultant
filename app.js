@@ -110,7 +110,8 @@
     up: '<path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>',
     down: '<path d="M12 5v14"/><path d="m6 13 6 6 6-6"/>',
     backspace: '<path d="M9.5 5H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9.5L3 12z"/><path d="m12.5 9.5 5 5"/><path d="m17.5 9.5-5 5"/>',
-    calculator: '<rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8.2" y="6" width="7.6" height="3" rx="1"/><path d="M8.6 12.4h.01"/><path d="M12 12.4h.01"/><path d="M15.4 12.4h.01"/><path d="M8.6 16h.01"/><path d="M12 16h.01"/><path d="M15.4 16h.01"/>'
+    calculator: '<rect x="5" y="3" width="14" height="18" rx="2"/><rect x="8.2" y="6" width="7.6" height="3" rx="1"/><path d="M8.6 12.4h.01"/><path d="M12 12.4h.01"/><path d="M15.4 12.4h.01"/><path d="M8.6 16h.01"/><path d="M12 16h.01"/><path d="M15.4 16h.01"/>',
+    sliders: '<path d="M4 6h16"/><circle cx="9" cy="6" r="2"/><path d="M4 12h16"/><circle cx="15" cy="12" r="2"/><path d="M4 18h16"/><circle cx="7" cy="18" r="2"/>'
   };
 
   function ic(name, cls) {
@@ -1222,7 +1223,7 @@
   var KIND_LABEL = {
     constitution: "Конституция", code: "Кодекс", fkz: "ФКЗ",
     law: "Федеральный закон", decree: "Постановление Правительства",
-    plenum: "Постановление Пленума", review: "Обзор практики"
+    ukaz: "Указ Президента", plenum: "Постановление Пленума", review: "Обзор практики"
   };
 
   /* Насколько слово «общее» для реестра: 0 — редкое, 1 — есть везде. */
@@ -1503,7 +1504,7 @@
     CODES.forEach(function (c) {
       if (c.kind === "plenum") m[c.id] = 0.7;
       else if (c.kind === "review") m[c.id] = 0.55;
-      else if (c.kind === "decree") m[c.id] = 0.9;
+      else if (c.kind === "decree" || c.kind === "ukaz") m[c.id] = 0.9;
     });
     return m;
   })();
@@ -3871,10 +3872,11 @@
     fkz: "Федеральные конституционные законы",
     law: "Федеральные законы",
     decree: "Постановления Правительства",
+    ukaz: "Указы Президента",
     plenum: "Постановления Пленума Верховного Суда РФ",
     review: "Обзоры судебной практики ВС РФ"
   };
-  var KIND_ORDER = ["constitution", "code", "fkz", "law", "decree", "plenum", "review"];
+  var KIND_ORDER = ["constitution", "code", "fkz", "law", "decree", "ukaz", "plenum", "review"];
 
   /* Свёрнутые группы источников в сайдбаре. Пока пользователь ни разу не
      переключал группы, по умолчанию свёрнуты ВСЕ (а не раскрыты).
@@ -3930,6 +3932,7 @@
     var nLaws = CODES.filter(function (c) { return c.kind === "law"; }).length;
     var nFkz = CODES.filter(function (c) { return c.kind === "fkz"; }).length;
     var nDec = CODES.filter(function (c) { return c.kind === "decree"; }).length;
+    var nUkaz = CODES.filter(function (c) { return c.kind === "ukaz"; }).length;
     var nPlen = CODES.filter(function (c) { return c.kind === "plenum"; }).length;
     var nUpd = Object.keys(updates).length;
     var nDocs = (REF.templates || []).length + ((window.RF_SUITS || {}).suits || []).length;
@@ -4032,6 +4035,7 @@
           ", " + nLaws + " " + plural(nLaws, ["федеральный закон", "федеральных закона", "федеральных законов"]) +
           ", Конституция Российской Федерации, " + nFkz + " " + plural(nFkz, ["федеральный конституционный закон", "федеральных конституционных закона", "федеральных конституционных законов"]) +
           ", " + nDec + " " + plural(nDec, ["постановление Правительства", "постановления Правительства", "постановлений Правительства"]) +
+          (nUkaz ? ", " + nUkaz + " " + plural(nUkaz, ["указ Президента", "указа Президента", "указов Президента"]) : "") +
           (nPlen ? " и " + nPlen + " " + plural(nPlen, ["постановление Пленума ВС РФ", "постановления Пленума ВС РФ", "постановлений Пленума ВС РФ"]) : "") +
           ". Полные тексты подгружаются по требованию.</p>" +
         '<div class="src-teaser">' +
@@ -6208,14 +6212,34 @@
       return r.text().then(function (s) {
         var j = null;
         try { j = JSON.parse(s); } catch (e) {}
-        if (!r.ok) throw new Error((j && j.error) || ("HTTP " + r.status));
+        if (!r.ok) {
+          var err = new Error((j && j.error) || ("HTTP " + r.status));
+          err.status = r.status;
+          throw err;
+        }
         if (!j) throw new Error("ответ прокси не JSON");
         return j;
       });
     }).finally(function () { clearTimeout(timer); });
   }
 
-  function renderAi(dst, r, p) {
+  /* Человеку важно понимать, что произошло с запросом. Коды прокси
+     переводим в действие, а не оставляем «HTTP 502» без объяснения. */
+  function aiErrorText(e) {
+    var msg = String(e && e.message ? e.message : e);
+    var st = e && e.status;
+    if (/abort/i.test(msg)) return "сервер не ответил за 45 секунд — попробуйте ещё раз";
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      return "прокси не отвечает — проверьте адрес и что он открыт по https";
+    }
+    if (st === 401 || st === 403) return "прокси отклонил запрос: проверьте ключи GigaChat в настройках сервера";
+    if (st === 429) return "GigaChat ограничил частоту запросов — подождите минуту и повторите";
+    if (st >= 500) return "прокси не смог получить ответ GigaChat — повторите позже";
+    if (st === 404) return "по адресу прокси нет /ask — проверьте адрес";
+    return msg;
+  }
+
+  function renderAi(dst, r, p, ms) {
     if (!String(r.plain || "").trim()) {
       dst.innerHTML = '<div class="warn-box">GigaChat вернул пустой ответ. Разбор выше от этого не зависит.' +
         '<div style="margin-top:8px"><button class="btn btn-sm" type="button" data-ai-retry>Повторить</button></div></div>';
@@ -6239,7 +6263,10 @@
         "это пересказ, а не вывод. Опирайтесь на разбор выше.</div>";
     }
     html += '<div class="actions-row" style="margin-top:10px">' +
-      '<button class="btn btn-sm" type="button" data-ai-copy>' + ic("clip") + " Скопировать объяснение</button></div>";
+      '<button class="btn btn-sm" type="button" data-ai-copy>' + ic("clip") + " Скопировать объяснение</button>" +
+      '<button class="btn btn-sm" type="button" data-ai-retry>Ещё вариант</button>' +
+      (ms ? '<span class="small muted">ответ за ' + (ms / 1000).toFixed(1).replace(".", ",") + " с</span>" : "") +
+      "</div>";
     html += '<div class="aib-note">Сгенерировано GigaChat по перечню норм сайта. Не юридическая консультация: ' +
       "проверьте каждую ссылку — разбор выше и текст статьи важнее.</div>";
     dst.innerHTML = html;
@@ -6249,11 +6276,37 @@
      и в ответе есть нормы. Ничего не ломается, если прокси недоступен: ошибка
      показывается в блоке, сам разбор остаётся на месте. */
   function mountAi(out, text) {
-    if (!out || !aiReady() || !navigator.onLine) return;
+    if (!out) return;
     var p = aiPayload(out, text);
     if (!p.norms.length) return;
+    var ready = aiReady() && navigator.onLine;
     var box = document.createElement("div");
     box.className = "card as-ai-box";
+    if (!ready) {
+      /* Пока объяснение не включено, кнопки не видно — и человек не знает,
+         что возможность вообще есть. Показываем компактную карточку с
+         переходом к настройке вместо того, чтобы молча ничего не рисовать. */
+      var why = location.protocol === "file:"
+        ? "На локальном файле прокси недоступен: откройте сайт по https."
+        : (!navigator.onLine ? "Нет сети — подключение появится, когда связь вернётся."
+          : (aiCfg().on ? "Укажите адрес прокси в настройках объяснения." : "Объяснение выключено — включите его, если нужен пересказ простыми словами."));
+      box.innerHTML = '<div class="aib-head">' + ic("chat") + " <b>Объяснить простыми словами</b>" +
+        '<span class="small muted">необязательно: черновик GigaChat по нормам сайта</span></div>' +
+        '<div class="small muted">' + esc(why) + " Разбор выше уже готов и от этого не зависит.</div>" +
+        (location.protocol === "file:" ? "" :
+          '<div class="actions-row" style="margin-top:8px"><button class="btn btn-sm" type="button" data-ai-setup>' +
+          ic("sliders") + " Настроить</button></div>");
+      out.appendChild(box);
+      var setup = box.querySelector("[data-ai-setup]");
+      if (setup) setup.addEventListener("click", function () {
+        var d = document.querySelector(".as-ai");
+        if (d) d.open = true;
+        if (d && d.scrollIntoView) d.scrollIntoView({ behavior: "smooth", block: "center" });
+        var u = document.querySelector("#asAiOn") || document.querySelector("#asAiUrl");
+        if (u) setTimeout(function () { u.focus(); }, 250);
+      });
+      return;
+    }
     box.innerHTML = '<div class="aib-head">' + ic("chat") + " <b>Объяснить простыми словами</b>" +
       '<span class="small muted">черновик GigaChat по нормам, которые подобрал сайт</span></div>' +
       '<div class="actions-row" style="margin-top:0">' +
@@ -6269,15 +6322,11 @@
       dst.setAttribute("data-busy", "1");
       btn.disabled = true;
       dst.innerHTML = '<div class="small muted">Спрашиваю GigaChat…</div>';
+      var started = Date.now();
       askAi(p).then(function (r) {
-        renderAi(dst, r, p);
+        renderAi(dst, r, p, Date.now() - started);
       }).catch(function (e) {
-        var msg = String(e && e.message ? e.message : e);
-        if (/abort/i.test(msg)) msg = "сервер не ответил за 45 секунд";
-        else if (/failed to fetch|networkerror|load failed/i.test(msg)) {
-          msg = "прокси не отвечает — проверьте адрес и что он открыт по https";
-        }
-        dst.innerHTML = '<div class="warn-box">Не получилось: ' + esc(msg) +
+        dst.innerHTML = '<div class="warn-box">Не получилось: ' + esc(aiErrorText(e)) +
           '. Разбор выше от этого не зависит — он сделан локально.' +
           '<div style="margin-top:8px"><button class="btn btn-sm" type="button" data-ai-retry>Повторить</button></div></div>';
       }).finally(function () {
@@ -13975,7 +14024,7 @@
     /* Состав базы считаем по реестру, а не пишем числа руками: иначе справка
        расходится с данными после каждой ночной сборки (так и было — в ней
        оставались 330 актов и 22 600 статей при 392 и 26 270). */
-    var kinds = { code: 0, law: 0, fkz: 0, decree: 0, plenum: 0, review: 0 };
+    var kinds = { code: 0, law: 0, fkz: 0, decree: 0, ukaz: 0, plenum: 0, review: 0 };
     CODES.forEach(function (c) { if (kinds[c.kind] != null) kinds[c.kind]++; });
     var nArticles = arts.length.toLocaleString("ru-RU");
     var start = '<div class="tiles help-start">' +
@@ -14060,6 +14109,7 @@
         kinds.fkz + " " + plural(kinds.fkz, ["федеральный конституционный закон", "федеральных конституционных закона", "федеральных конституционных законов"]) +
         ", " + kinds.decree + " " + plural(kinds.decree, ["постановление Правительства РФ", "постановления Правительства РФ", "постановлений Правительства РФ"]) +
         " (ПДД, правила регистрационного и миграционного учёта, правила оборота оружия, положение о воинском учёте и военно-врачебной экспертизе), " +
+        (kinds.ukaz ? kinds.ukaz + " " + plural(kinds.ukaz, ["указ Президента РФ", "указа Президента РФ", "указов Президента РФ"]) + ", " : "") +
         kinds.plenum + " " + plural(kinds.plenum, ["постановление Пленума Верховного Суда РФ", "постановления Пленума Верховного Суда РФ", "постановлений Пленума Верховного Суда РФ"]) +
         " и " + kinds.review + " " + plural(kinds.review, ["обзор судебной практики, утверждённый Президиумом ВС РФ", "обзора судебной практики, утверждённых Президиумом ВС РФ", "обзоров судебной практики, утверждённых Президиумом ВС РФ"]) +
         ". Всего — " + CODES.length + " " + plural(CODES.length, ["акт", "акта", "актов"]) + " и " + nArticles + " " +
@@ -17416,10 +17466,12 @@
     var nLaws = docs.filter(function (c) { return c.kind === "law"; }).length;
     var nFkz = docs.filter(function (c) { return c.kind === "fkz"; }).length;
     var nDec = docs.filter(function (c) { return c.kind === "decree"; }).length;
+    var nUkaz = docs.filter(function (c) { return c.kind === "ukaz"; }).length;
     var nPlen = docs.filter(function (c) { return c.kind === "plenum"; }).length;
     $("#versionTag").textContent = "v4.0 · " + nCodes + " " + plural(nCodes, ["кодекс", "кодекса", "кодексов"]) +
       " · " + nLaws + " " + plural(nLaws, ["закон", "закона", "законов"]) + " · " + nFkz + " ФКЗ" +
       (nDec ? " · " + nDec + " " + plural(nDec, ["постановление", "постановления", "постановлений"]) : "") +
+      (nUkaz ? " · " + nUkaz + " " + plural(nUkaz, ["указ", "указа", "указов"]) : "") +
       (nPlen ? " · " + nPlen + " Пленум" + (nPlen % 10 === 1 && nPlen % 100 !== 11 ? "" : "ов") : "");
 
     var collapsed = navCollapsed();

@@ -106,7 +106,7 @@ function collectSources() {
     });
   };
   walk(SRC);
-  ["fkz.json", "laws-extra.json", "decrees.json"].forEach((f) => {
+  ["fkz.json", "laws-extra.json", "decrees.json", "ukazy.json"].forEach((f) => {
     const l = loadJSON(path.join(SRC, f));
     if (Array.isArray(l)) l.forEach((raw) => add(raw, f));
   });
@@ -125,7 +125,7 @@ function collectSources() {
 
 /* Режим разбора ровно такой, как в tools/build-data.js */
 function modeOf(kind) {
-  return (kind === "constitution" || kind === "fkz" || kind === "decree" ||
+  return (kind === "constitution" || kind === "fkz" || kind === "decree" || kind === "ukaz" ||
     kind === "plenum" || kind === "review")
     ? "plain" : "articles";
 }
@@ -176,7 +176,7 @@ function auditSourceToIndex() {
     if (!src) { noSrc++; noSrcList.push(c.id + " «" + String(c.dataset).slice(0, 50) + "»"); return; }
     checked++;
 
-    const res = parse.parseDoc(src.raw, { mode: modeOf(c.kind) });
+    const res = parse.parseDoc(src.raw, { mode: modeOf(c.kind), chaptersInText: c.kind === "ukaz" });
     parse.dedupeNumbers(res.arts);
     const arts = res.arts;
 

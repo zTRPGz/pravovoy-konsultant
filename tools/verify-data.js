@@ -168,6 +168,10 @@ function sourceEntries(id) {
     const hit = srcJSON("decrees.json").filter(function (x) { return x.app_id === d.key; })[0];
     return hit ? hit.articles : null;
   }
+  if (d.src === "ukazy.json") {
+    const hit = srcJSON("ukazy.json").filter(function (x) { return x.app_id === d.key; })[0];
+    return hit ? hit.articles : null;
+  }
   if (d.src === "plenums.json") {
     const hit = srcJSON("plenums.json").filter(function (x) { return x.app_id === d.key; })[0];
     return hit ? hit.articles : null;

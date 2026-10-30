@@ -188,6 +188,24 @@
         if (entry.chapter != null) chapter = entry.chapter;
         if (entry.razdel != null) razdel = entry.razdel;
         var pt = normalize(entry.text);
+        /* Указы и постановления приходят пунктами, но внутри текста бывают
+           настоящие главы («Глава 1. Права, обязанности…» в общевоинских
+           уставах). Раньше в режиме plain они не читались, и весь указ
+           выглядел сплошным списком. Заголовок оставляем в тексте дословно,
+           а группу берём из последнего маркера записи. */
+        var pmarks = opts.chaptersInText ? extractMarkers(pt) : [];
+        if (pmarks.length) {
+          /* Первый маркер, а не последний: заголовок следующей главы часто
+             прилипает к концу предыдущей записи, и «последний» приписал бы
+             статью уже следующей главе. */
+          var pCh = "", pRz = "";
+          for (var pi = 0; pi < pmarks.length && !pCh && !pRz; pi++) {
+            if (/^ГЛАВА/i.test(pmarks[pi].line)) pCh = tidy(pmarks[pi].line);
+            else if (/^Раздел/i.test(pmarks[pi].line)) pRz = tidy(pmarks[pi].line);
+          }
+          if (pCh) { chapter = pCh; if (pRz) razdel = pRz; }
+          else if (pRz) { razdel = pRz; chapter = ""; }
+        }
         if (entry.number == null) {
           if (pt) arts.push({ n: "0", t: entry.title || "Преамбула и вводная часть", g: "", text: pt, red: lastRedaction(pt) });
           return;

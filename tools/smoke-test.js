@@ -58,6 +58,7 @@ const N_ARTICLES = VER.articles;
 const N_PLENUMS = countKind("plenum");
 const N_REVIEWS = countKind("review");
 const N_DECREES = countKind("decree");   // постановления Правительства РФ
+const N_UKAZY = countKind("ukaz");       // указы Президента РФ
 
 function ok(name, cond, extra) {
   lastStep = name;
@@ -208,9 +209,9 @@ server.listen(0, "127.0.0.1", async () => {
     /* ФКЗ проверяем порогом, а не равенством: их состав пополняется (волна 48
        добавила ФКЗ о судах общей юрисдикции), а смысл проверки — не потерять
        целый вид акта целиком. */
-    const laws = N_SOURCES - 1 - 24 - N_DECREES - N_PLENUMS - N_REVIEWS - k.fkz;
+    const laws = N_SOURCES - 1 - 24 - N_DECREES - N_UKAZY - N_PLENUMS - N_REVIEWS - k.fkz;
     return k.constitution === 1 && k.code === 24 && k.fkz >= 14 && k.law === laws &&
-      k.decree === N_DECREES && k.plenum === N_PLENUMS && k.review === N_REVIEWS;
+      k.decree === N_DECREES && k.ukaz === N_UKAZY && k.plenum === N_PLENUMS && k.review === N_REVIEWS;
   })(), (() => { const k = {}; (w.RF_CODES || []).forEach(c => k[c.kind] = (k[c.kind] || 0) + 1); return JSON.stringify(k); })());
   ok("новые источники: ФЗ о ФСБ и постановления Правительства", (() => {
     const by = {}; (w.RF_CODES || []).forEach(c => by[c.id] = c.kind);
@@ -956,8 +957,10 @@ server.listen(0, "127.0.0.1", async () => {
   ok("блок «Объяснение простыми словами» есть в разделе",
     !!$(".as-ai") && /GigaChat/.test(T(".as-ai") || ""), T(".as-ai > summary") || "нет блока");
   ok("по умолчанию галочка снята", !$("#asAiOn") || $("#asAiOn").checked === false);
-  ok("при выключенной опции карточки «Объяснить» в выводе нет",
-    !$("#asOut .as-ai-box"), $$("#asOut .as-ai-box").length + " карточек");
+  ok("при выключенной опции кнопки объяснения нет — только подсказка «Настроить»",
+    !$("#asOut [data-ai-run]") && !!$("#asOut [data-ai-setup]") && !$("#asOut .aib-text"),
+    ($("#asOut [data-ai-run]") ? "кнопка объяснения есть" : "кнопки нет") + ", " +
+      ($("#asOut [data-ai-setup]") ? "подсказка на месте" : "подсказки нет"));
   /* Включаем опцию так, как это делает читатель — через localStorage, — и
      проверяем, что карточка появляется. Сеть в smoke недоступна: важно, что
      блок монтируется и разбор остаётся на месте. */

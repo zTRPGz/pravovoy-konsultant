@@ -383,6 +383,7 @@ server.listen(0, "127.0.0.1", async () => {
      Ждём появления текста, а не угадываем время. */
   await waitFor(() => $("#artText") && /умышленное причинение смерти/i.test($("#artText").textContent), 12000);
   const body = $("#artText") ? $("#artText").textContent : "";
+  const uk105meta = T("#view .law-meta") || "";
   ok("текст ст. 105 УК загружен", /умышленное причинение смерти/i.test(body), body.length + " символов");
 
   /* Полный текст должен находиться и при повторном открытии: раньше карта
@@ -397,6 +398,13 @@ server.listen(0, "127.0.0.1", async () => {
   ok("название статьи", /Убийство/.test(T(".article-title") || ""), T(".article-title"));
   ok("справочная аннотация показана", $$("#view .article-body").length >= 2);
   ok("указана редакция статьи", /Редакция статьи: \d{2}\.\d{2}\.\d{4}/.test(body), (body.match(/Редакция статьи: \S+/) || [])[0]);
+  await nav("#/article/uk-3", 300); await artReady();
+  const uk3meta = T("#view .law-meta") || "";
+  ok("статья без даты правки ссылается на редакцию акта",
+    /Дата правки статьи в источнике не указана/.test(uk3meta) && /редакция акта/.test(uk3meta),
+    uk3meta.replace(/\s+/g, " ").slice(0, 120));
+  ok("статья с датой правки показывает именно её", /Редакция статьи:/.test(uk105meta),
+    uk105meta.replace(/\s+/g, " ").slice(0, 120));
   await nav("#/article/koap-19.7.10-1", 300); await artReady();
   ok("подстатья КоАП 19.7.10-1", /новостного агрегатора/i.test($("#artText").textContent), $("#artText").textContent.length + " символов");
 

@@ -1,0 +1,9 @@
+# Секреты и локальные файлы не должны попадать в образ.
+.env
+.env.*
+!.env.example
+test/
+api/
+vercel.json
+.vercelignore
+README.md

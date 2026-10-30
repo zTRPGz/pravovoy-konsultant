@@ -278,6 +278,20 @@ server.listen(0, "127.0.0.1", async () => {
     ok("«" + q + "»", first && first.getAttribute("data-go") === "#/article/" + want,
       first ? first.getAttribute("data-go") + ", результатов " + $$("#view .result").length : "нет результатов");
   }
+  /* Запрос из одного номера — это номер статьи, а не название акта. Раньше
+     покрытие делилось на пустой список слов, получался NaN, и блок «Акты по
+     запросу» показывал первые пять кодексов реестра — будто они подходят к
+     запросу «105». */
+  await nav("#/search/105", 90);
+  ok("«105» не показывает случайные акты",
+    !$("#view .src-hit"), $("#view .src-hit") ? $("#view .src-hit").textContent.replace(/\s+/g, " ").slice(0, 80) : "блока нет");
+  await nav("#/search/" + encodeURIComponent("105 УК"), 90);
+  ok("«105 УК» не дублирует акт блоком «Акты по запросу»",
+    !$("#view .src-hit"), $("#view .src-hit") ? $("#view .src-hit").textContent.replace(/\s+/g, " ").slice(0, 80) : "блока нет");
+  await nav("#/search/" + encodeURIComponent("закон о полиции"), 120);
+  ok("«закон о полиции» по-прежнему находит акт",
+    !!$('#view .src-hit [data-go="#/code/fz3pol"]'),
+    $("#view .src-hit") ? $("#view .src-hit").textContent.replace(/\s+/g, " ").slice(0, 80) : "блока нет");
   for (const q of ["обыск", "получение взятки", "срок предварительного следствия"]) {
     await nav("#/search/" + encodeURIComponent(q), 70);
     ok("«" + q + "» находит статьи", $$("#view .result").length > 0, $$("#view .result").length + " результатов");

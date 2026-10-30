@@ -4672,7 +4672,7 @@ window.RF_CODES=[
   "docpassing": "",
   "source_url": "http://actual.pravo.gov.ru/content/content.html#hash=292397c1fc84f78b9e478196b0cebc80073ae0fc74e0572a42c787e06db4a0bd&ttl=1",
   "dataset": "Об утверждении Правил пользования жилыми помещениями",
-  "replace_note": "",
+  "replace_note": "С 1 сентября 2021 г. действуют Правила пользования жилыми помещениями, утверждённые приказом Минстроя России от 14.05.2021 № 292/пр.",
   "count": 29
  },
  {

@@ -989,6 +989,8 @@ server.listen(0, "127.0.0.1", async () => {
     ($("#asAiUrl") || {}).value || "поля нет");
   ok("под полем сказано, что адрес стоит по умолчанию и его можно заменить",
     /бесплатный прокси проекта/i.test(T(".as-ai") || "") && /Свой адрес/i.test(T(".as-ai") || ""));
+  ok("кнопка возврата скрыта, пока стоит адрес проекта",
+    !$("#asAiReset") || $("#asAiReset").hidden === true);
   /* У читателей могли остаться старые сохранённые адреса Vercel: из России они
      часто не открываются. Предупреждение и кнопка возврата — аварийный выход. */
   const aiUrl = $("#asAiUrl");
@@ -1008,6 +1010,7 @@ server.listen(0, "127.0.0.1", async () => {
         /pravovoy-konsultant\.netlify\.app/.test(($("#asAiUrl") || {}).value || "") &&
           /бесплатный прокси проекта/i.test(T("#asAiUrlHint") || ""),
         ($("#asAiUrl") || {}).value || "поля нет");
+      ok("после возврата кнопка снова скрыта", $("#asAiReset").hidden === true);
     }
     w.localStorage.removeItem("rflaws.ai");
   }
@@ -2357,6 +2360,28 @@ server.listen(0, "127.0.0.1", async () => {
     ok("Enter на чипе открывает статью", (w.location.hash || "").indexOf("#/article/") !== -1,
       w.location.hash + " ← " + chipTarget);
   }
+
+  /* Список источников и «текстовые» ссылки появляются после отрисовки данных:
+     если разметку доступности делать только при первом рендере, они остаются
+     недоступны с клавиатуры. */
+  const srcNav = $$(".nav-item[data-href^='#/code/']");
+  ok("пункты списка источников доступны с клавиатуры",
+    srcNav.length > 0 && srcNav.every(el => el.getAttribute("tabindex") === "0"),
+    srcNav.filter(el => el.getAttribute("tabindex") === "0").length + " из " + srcNav.length);
+  const lnkKey = $$(".lnk[data-go]").filter(el => el.getAttribute("tabindex") === "0");
+  ok("текстовые ссылки .lnk доступны с клавиатуры", lnkKey.length > 0, lnkKey.length + " ссылок");
+
+  const a11yBack = w.location.hash || "#/home";
+  await nav("#/deadlines", 250);
+  const dlF = $("#dlFilter");
+  ok("фильтр сроков подписан для скринридера", !!dlF && dlF.getAttribute("aria-label") === "Фильтр сроков");
+  await nav("#/templates", 300);
+  const tplF = $("#tplFind");
+  ok("поиск шаблонов подписан для скринридера", !!tplF && /Поиск шаблона/.test(tplF.getAttribute("aria-label") || ""));
+  await nav("#/checklists", 300);
+  const linkedCards = $$(".card[data-go]").filter(el => el.getAttribute("tabindex") === "0");
+  ok("карточки-ссылки доступны с клавиатуры", linkedCards.length > 0, linkedCards.length + " карточек");
+  await nav(a11yBack, 200);
 
   /* --- настройки чтения --- */
   const readBtn = $("#readBtn"), readMenu = $("#readMenu");

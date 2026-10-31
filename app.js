@@ -3832,7 +3832,8 @@
 
   function a11yNav(root) {
     var scope = root || document;
-    $$(".nav-item, .code-card, .chip, .result, .palette-item, .quick-card, .scen-card, .tool-link", scope).forEach(function (el) {
+    $$(".nav-item, .code-card, .chip, .result, .palette-item, .quick-card, .scen-card, .tool-link, " +
+      ".card, .btn, .tab, .lnk, .ibtn, .resume, .src-hit-item", scope).forEach(function (el) {
       if (el.getAttribute("data-a11y") === "1") return;
       if (/^(BUTTON|A|INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
       if (!el.hasAttribute("data-go") && !el.hasAttribute("data-href")) return;
@@ -6340,7 +6341,7 @@
     var cite = (r.cite || []).filter(function (id) { return allow[id] && byId[id]; });
     var html = '<div class="aib-text">' + aibText(r.plain || "") + "</div>";
     if (cite.length) {
-      html += '<div class="chips" style="margin-top:10px">' + cite.map(function (id) {
+      html += '<div class="chips aib-cites" role="group" aria-label="Нормы, на которые ссылается объяснение" style="margin-top:10px">' + cite.map(function (id) {
         var a = byId[id], c = codeById(a.c) || { short: a.c };
         return '<div class="chip" data-go="#/article/' + encodeURIComponent(id) + '" title="' +
           esc(a.t) + '">' + esc(c.short) + " · ст. " + esc(a.dn) + "</div>";
@@ -6427,7 +6428,14 @@
       if (e.target.closest("[data-ai-retry]")) { runAi(); return; }
       if (e.target.closest("[data-ai-copy]")) {
         var txt = dst.querySelector(".aib-text");
-        copyText(txt ? txt.textContent : "", "Объяснение скопировано");
+        /* Ссылки копируем вместе с текстом: без них объяснение выглядит
+           готовым выводом, хотя его нужно сверять с нормами. */
+        var cites = Array.prototype.map.call(dst.querySelectorAll(".aib-cites .chip"), function (c) {
+          return String(c.textContent || "").replace(/\s+/g, " ").trim();
+        }).filter(Boolean);
+        var out = txt ? txt.textContent.trim() : "";
+        if (cites.length) out += "\n\nНормы: " + cites.join("; ");
+        copyText(out, "Объяснение скопировано");
       }
     });
   }
@@ -6449,6 +6457,7 @@
       var cur = aiNormUrl(url.value || AI_DEFAULT_URL);
       var def = aiNormUrl(AI_DEFAULT_URL);
       urlHint.style.color = "";
+      if (reset) reset.hidden = cur === def;
       if (cur === def) {
         urlHint.textContent = "Стоит бесплатный прокси проекта — " +
           def.replace(/^https?:\/\//, "") + ". Свой адрес можно указать вместо него.";
@@ -10406,7 +10415,7 @@
       "</div>" +
 
       '<h2>Справочник сроков <span class="small muted" id="dlCount"></span></h2>' +
-      '<div class="field" style="margin-bottom:10px"><input class="input" id="dlFilter" placeholder="Фильтр: апелляция, задержание, 10 суток…"></div>' +
+      '<div class="field" style="margin-bottom:10px"><input class="input" id="dlFilter" aria-label="Фильтр сроков" placeholder="Фильтр: апелляция, задержание, 10 суток…"></div>' +
       '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll"><table class="tbl"><thead><tr><th>Что</th><th>Срок</th><th>Основание</th></tr></thead><tbody id="dlBody">' +
       rows + "</tbody></table></div></div>" +
       '<div id="dlInfo" style="margin-top:10px"></div>' +
@@ -11477,7 +11486,7 @@
 
     /* панель: поиск по шаблонам и быстрый переход к разделу */
     var bar = '<div class="tpl-bar">' +
-      '<input class="input" id="tplFind" type="search" autocomplete="off" placeholder="Поиск шаблона: название, правовое основание, раздел">' +
+      '<input class="input" id="tplFind" type="search" autocomplete="off" aria-label="Поиск шаблона" placeholder="Поиск шаблона: название, правовое основание, раздел">' +
       '<div class="chips tpl-nav">' + groups.map(function (gr) {
         return '<div class="chip" data-tpl-jump="' + esc(gr.g) + '">' + esc(gr.g) + " <b>" + gr.items.length + "</b></div>";
       }).join("") + "</div>" +
@@ -12024,7 +12033,7 @@
     }).join("");
 
     var bar = '<div class="tpl-bar">' +
-      '<input class="input" id="suitFind" type="search" autocomplete="off" placeholder="Поиск заявления: название, правовое основание, суд">' +
+      '<input class="input" id="suitFind" type="search" autocomplete="off" aria-label="Поиск искового заявления" placeholder="Поиск заявления: название, правовое основание, суд">' +
       '<div class="chips tpl-nav">' + groups.map(function (gr) {
         return '<div class="chip" data-suit-jump="' + esc(gr.g) + '">' + esc(gr.g) + " <b>" + gr.items.length + "</b></div>";
       }).join("") + "</div>" +
@@ -12360,8 +12369,8 @@
 
     var form = '<div class="card"><h3 style="margin-top:0">Новое дело</h3>' +
       '<div class="actions-row">' +
-        '<input class="input" id="caseNewTitle" placeholder="Название — например: Дело № 123456, Иванов И.И." style="flex:1 1 260px">' +
-        '<input class="input" id="caseNewDesc" placeholder="Кратко: что произошло, статья, стадия" style="flex:1 1 260px">' +
+        '<input class="input" id="caseNewTitle" aria-label="Название дела" placeholder="Название — например: Дело № 123456, Иванов И.И." style="flex:1 1 260px">' +
+        '<input class="input" id="caseNewDesc" aria-label="Краткое описание дела" placeholder="Кратко: что произошло, статья, стадия" style="flex:1 1 260px">' +
         '<button class="btn btn-primary" id="caseNewBtn">Создать дело</button>' +
       "</div></div>";
 
@@ -16173,7 +16182,7 @@
 
       '<h2>Источники и их редакции</h2>' +
       '<div class="fresh-bar">' +
-        '<input class="input" id="frFilter" placeholder="Фильтр по названию, виду или реквизитам…">' +
+        '<input class="input" id="frFilter" aria-label="Фильтр источников" placeholder="Фильтр по названию, виду или реквизитам…">' +
         '<span class="small muted">показано: <b id="frCount">' + withText.length + "</b> из " + withText.length + "</span>" +
       "</div>" +
       '<div class="card" style="padding:0;overflow:hidden"><div class="tbl-scroll"><table class="tbl tbl-fresh"><thead><tr>' +
@@ -17609,6 +17618,10 @@
     /* значок ежедневной проверки в подвале панели */
     var fchip = $("#freshChip");
     if (fchip) fchip.innerHTML = freshnessChip();
+
+    /* Список источников перерисовывается целиком и раньше оставался без
+       keyboard-доступа: помечаем его заново после каждой перерисовки. */
+    a11yNav($("#codeNav"));
   }
 
   /* Цвет окна браузера / статус-бара телефона под тему: иначе системная

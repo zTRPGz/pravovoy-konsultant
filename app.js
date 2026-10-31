@@ -17626,10 +17626,10 @@
 
   /* Цвет окна браузера / статус-бара телефона под тему: иначе системная
      рамка оставалась тёмной даже в светлом режиме. Значения — фон приложения
-     из styles.css: #080b12 (dark), #eef2f9 (light). */
+     из styles.css: #131519 (dark), #f4f0e7 (light). */
   function setThemeColor() {
     var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute("content", state.theme === "dark" ? "#080b12" : "#eef2f9");
+    if (m) m.setAttribute("content", state.theme === "dark" ? "#131519" : "#f4f0e7");
   }
 
   function init() {

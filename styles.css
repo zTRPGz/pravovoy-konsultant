@@ -3058,6 +3058,7 @@ body::-webkit-scrollbar-track { background: transparent; }
   .sidebar, .topbar, .actions-row, .disclaimer, .no-print,
   .sidebar-backdrop, .skip-link, .read-menu, .tabs, .crumbs, .to-top,
   .update-bar { display: none !important; }
+  body::before, body::after { display: none; }
   body { background: #fff; color: #000; }
   .content { padding: 0; max-width: none; }
   .card, .doc-sheet, .law-text { border: none; background: #fff; }
@@ -3825,3 +3826,375 @@ button.lnk {
   .btn-primary::after { display: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
 }
+
+/* =========================================================================
+   РЕДАКЦИОННАЯ ТЕМА
+
+   Второй слой оформления поверх базового: «юридический архив», а не
+   «ночной кабинет». Бумажный фон, чернильный текст, засечки в заголовках
+   и тексте статей, тёмно-красная печать как акцент, тонкие линейки вместо
+   свечения и градиентных пятен. Ничего не двигает разметку и не меняет
+   классы — только токены и внешний вид, поэтому скрипты, тесты и
+   доступность работают как прежде.
+
+   Слой стоит последним намеренно: правила ниже перекрывают базовые, а
+   [data-theme="light"] идёт после :root, чтобы светлая тема выигрывала
+   при равной специфичности.
+   ========================================================================= */
+:root {
+  /* тёмная тема — «ночной читальный зал»: угольный фон, латунный акцент */
+  --bg:        #131519;
+  --bg-2:      #1a1d22;
+  --bg-3:      #20242b;
+  --bg-4:      #282d35;
+  --border:    #2a2f38;
+  --border-2:  #3d4450;
+  --line:      #23272e;
+  --card:      #1a1d22;
+  --text:      #f1eee7;
+  --text-2:    #c2c0b8;
+  --muted:     #8d8c84;
+  --accent:    #d3a86a;
+  --accent-2:  #9fb6d6;
+  --accent-3:  #b78d55;
+  --accent-bg: rgba(211,168,106,.13);
+  /* Кнопка «Основное действие» — глубокий синий: белый текст на латуни
+     нечитаем, а белый на #2c4462 даёт запас по контрасту. */
+  --accent-grad: linear-gradient(135deg, #2c4462, #1b2a41);
+  --skip-bg:   #2c4462;
+  --ok:        #6fbf8a;
+  --warn:      #e0b060;
+  --danger:    #e8796c;
+  --mark:      rgba(211,168,106,.28);
+  --tone-blue:   #8fb3d9;
+  --tone-violet: #b5a0d6;
+  --tone-teal:   #7fc7c4;
+  --tone-amber:  #d9b06a;
+  --tone-rose:   #d99189;
+  --tone-green:  #8fce9f;
+  --tone-slate:  #9aa5b1;
+  --shadow:    0 14px 30px -18px rgba(0,0,0,.8);
+  --shadow-sm: 0 6px 16px -10px rgba(0,0,0,.65);
+  --hair:      linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
+  --sheen:     none;   /* блик панелей: в редакционной теме не нужен */
+  --surface:   var(--card);
+  --lift:      0 0 0 transparent;
+  --doc-bg:    #101216;
+  --doc-ink:   #ece9e2;
+
+  /* Прямые углы: линейка и рамка читаются как типографская, а не как
+     «стеклянная» плитка. Пилюля остаётся только там, где она нужна
+     (точки, счётчики), поэтому общий --r-pill тоже почти прямой. */
+  --r-xs:   2px;
+  --r-sm:   3px;
+  --r-md:   4px;
+  --r-lg:   5px;
+  --r-xl:   7px;
+  --r-pill: 3px;
+  --radius:    var(--r-lg);
+  --radius-sm: var(--r-sm);
+
+  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Times New Roman", serif;
+
+  /* Кегли шапки и заголовка статьи тянутся от ширины окна. Живут в токенах:
+     вне :root допустимы только var(--fs-…) — так требует проверка шкалы. */
+  --fs-hero: clamp(30px, 4.6vw, 46px);
+  --fs-art-title: clamp(24px, 3vw, 30px);
+  /* Georgia мельче системного шрифта при том же кегле: в основном тексте
+     статьи настройку чтения поднимаем на 7 %, чтобы плотность строки
+     осталась прежней. Считается от выбора человека, а не вместо него. */
+  --fs-read-serif: calc(var(--read-fs, 15px) * 1.07);
+}
+
+[data-theme="light"] {
+  /* светлая тема — бумага: тёплый фон, чернильный текст, сургучный акцент */
+  --bg:        #f4f0e7;
+  --bg-2:      #fffdf9;
+  --bg-3:      #ece5d8;
+  --bg-4:      #e2d9c9;
+  --border:    #d8cfbd;
+  --border-2:  #bfb29a;
+  --line:      #e4dccd;
+  --card:      #fffdf9;
+  --text:      #1b2430;
+  --text-2:    #404b58;
+  --muted:     #5f6a74;
+  --accent:    #8a2f2b;
+  --accent-2:  #24466b;
+  --accent-3:  #8a6a2f;
+  --accent-grad: linear-gradient(135deg, #2f4f74, #1d3450);
+  --accent-bg: rgba(138,47,43,.10);
+  --skip-bg:   #24466b;
+  --ok:        #2f6b3f;
+  --warn:      #8a5d05;
+  --danger:    #a3271f;
+  --mark:      rgba(196,152,50,.35);
+  --tone-blue:   #24466b;
+  --tone-violet: #5b4780;
+  --tone-teal:   #1f615f;
+  --tone-amber:  #8a5d05;
+  --tone-rose:   #8a2f2b;
+  --tone-green:  #2f6b3f;
+  --tone-slate:  #5b6673;
+  --shadow:    0 12px 26px -18px rgba(60,45,25,.45);
+  --shadow-sm: 0 5px 14px -9px rgba(60,45,25,.3);
+  --hair:      linear-gradient(90deg, transparent, rgba(60,45,25,.14), transparent);
+  --surface:   var(--card);
+  --lift:      0 0 0 transparent;
+  --doc-bg:    #fffdf9;
+  --doc-ink:   #1b2430;
+}
+
+/* ---------- фон: бумага и зерно, без дрейфа и сетки ---------- */
+body::before {
+  background:
+    radial-gradient(900px 420px at 50% -12%, color-mix(in srgb, var(--text) 6%, transparent), transparent 72%);
+  animation: none;
+}
+body::after {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 0 0.32 0 0 0 0.045 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  background-repeat: repeat;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+body.is-scrolling::before { animation: none; }
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  color: var(--text);
+}
+
+/* ---------- типографика ---------- */
+/* Перенос строк по смыслу: заголовки не оставляют одно слово на строке,
+   абзацы не рвутся «висячими» предлогами (поддерживают Chromium и Safari,
+   остальные просто игнорируют свойство). */
+h1, h2, h3, .hero h1, .article-title { text-wrap: balance; }
+.article-body p, .lead { text-wrap: pretty; }
+
+h1, h2, h3,
+.hero h1,
+.article-title,
+.brand-name,
+.tpl-group-head,
+.hd-cell b,
+.stat-num {
+  font-family: var(--serif);
+}
+h1 { font-weight: 700; letter-spacing: -.2px; line-height: 1.18; }
+h2 { font-weight: 650; letter-spacing: -.1px; }
+h2::before {
+  width: 3px;
+  border-radius: 0;
+  background: var(--accent);
+  box-shadow: none;
+}
+.article-cite, .brand-sub, .nav-title, .section-label {
+  letter-spacing: .08em;
+}
+
+/* ---------- сайдбар ---------- */
+.sidebar { background: var(--bg-2); }
+.brand::after { display: none; }
+.brand-mark {
+  background: var(--accent-grad);
+  border-radius: var(--r-sm);
+  box-shadow: none;
+  color: #fff;
+}
+.brand-name { font-size: var(--fs-6); letter-spacing: 0; }
+.nav-title::after { background: linear-gradient(90deg, var(--border-2), transparent); }
+.nav-item { border-radius: var(--r-sm); }
+.nav-item:hover { background: var(--bg-3); transform: none; }
+.nav-item.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  box-shadow: none;
+}
+.nav-item.active::before {
+  left: -1px; top: 0; bottom: 0; width: 2px;
+  border-radius: 0;
+  background: var(--accent);
+  box-shadow: none;
+}
+.nav-item .cnt { border-radius: var(--r-xs); }
+.sidebar-foot { background: transparent; }
+
+/* ---------- верхняя панель и поиск ---------- */
+.topbar {
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(8px) saturate(110%);
+  border-bottom-color: var(--border);
+}
+[data-theme="light"] .topbar { background: color-mix(in srgb, var(--bg-2) 94%, transparent); }
+.topbar::after { display: none; }
+.search-input {
+  background: var(--bg-2);
+  border-radius: var(--r-sm);
+  padding: 10px 72px 10px 38px;
+}
+.search-input:focus {
+  background: var(--bg-2);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.search-sug, .palette {
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow);
+}
+.icon-btn, .side-close { border-radius: var(--r-sm); }
+
+/* ---------- главная: открытая редакционная шапка ---------- */
+.hero {
+  overflow: visible;
+  padding: 28px 0 26px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.hero::before, .hero::after { display: none; }
+.hero-badge {
+  padding: 4px 9px;
+  border-radius: var(--r-xs);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.hero h1 {
+  font-size: var(--fs-hero);
+  line-height: 1.1;
+  letter-spacing: -1px;
+  color: var(--text);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+.hero .lead {
+  font-family: var(--serif);
+  font-size: var(--fs-6);
+  color: var(--text-2);
+}
+.hero-desk {
+  background: var(--bg-2);
+  border-color: var(--border);
+  border-radius: var(--r-md);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.hd-live i { animation: none; box-shadow: none; }
+.hd-cell { border-radius: var(--r-xs); background: var(--bg-3); }
+.hd-chip {
+  border-radius: var(--r-xs);
+  background: transparent;
+  border-color: var(--border-2);
+}
+.hd-chip:hover { background: var(--accent-bg); }
+
+/* ---------- карточки и плитки ---------- */
+.card, .stat, .code-card {
+  background: var(--card);
+  border-color: var(--border);
+}
+.card::after { display: none; }
+.card:hover {
+  transform: none;
+  border-color: var(--border-2);
+  box-shadow: var(--shadow-sm);
+}
+.stat::after { display: none; }
+.stat::before {
+  width: 2px;
+  background: var(--t, var(--accent));
+  opacity: 1;
+}
+.stat:hover {
+  transform: none;
+  border-color: var(--border-2);
+  box-shadow: var(--shadow-sm);
+}
+.stat-ico { border-radius: var(--r-xs); }
+.code-card { border-left-width: 2px; }
+.code-card:hover { transform: none; }
+
+/* чипы: почти прямые плашки с рамкой, без подъёма */
+.chip {
+  border-radius: var(--r-xs);
+  background: transparent;
+  border-color: var(--border-2);
+}
+.chip:hover {
+  transform: none;
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.chip.on {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+
+/* кнопки */
+.btn {
+  border-radius: var(--r-sm);
+  background: var(--card);
+  border-color: var(--border-2);
+}
+.btn:hover {
+  transform: none;
+  background: var(--bg-3);
+  border-color: var(--accent);
+  box-shadow: none;
+}
+.btn-primary { background: var(--accent-grad); color: #fff; }
+.btn-primary:hover { filter: none; transform: none; box-shadow: none; }
+.btn-primary::after { display: none; }
+
+.input, .textarea, .select {
+  border-radius: var(--r-sm);
+  background: var(--bg-2);
+}
+
+.tab { border-radius: var(--r-xs); }
+.tab.on {
+  background: var(--accent-bg);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.quick-card:hover { transform: none; }
+.quick-card:hover .qc-ico { transform: none; box-shadow: none; }
+.quick-card::before { display: none; }
+
+/* ---------- статья: колонка архива ---------- */
+.article-head { border-bottom-color: var(--border); }
+.article-head::after {
+  width: 56px; height: 3px;
+  border-radius: 0;
+  background: var(--accent);
+}
+.article-cite {
+  color: var(--text-2);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  padding: 4px 9px;
+}
+.article-title {
+  font-size: var(--fs-art-title);
+  letter-spacing: -.2px;
+  line-height: 1.24;
+}
+.article-body, .law-text {
+  font-family: var(--serif);
+  font-size: var(--fs-read-serif);
+  letter-spacing: .002em;
+}
+.article-body p { margin-bottom: 14px; }
+.note-box, .info-box, .warn-box { border-radius: var(--r-xs); }
+
+

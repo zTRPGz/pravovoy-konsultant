@@ -18,6 +18,10 @@
           попасть в индекс; иначе целая глава потеряна.
      F. Метаданные
         — реестр, снимок актуальности, реквизиты.
+     H. Ручные списки актов
+        — каждый закон, постановление Правительства, указ и постановление
+          Пленума из списков tools/fetch-extra.js и tools/fetch-plenums.js
+          обязан остаться в реестре.
 
    Запуск:  node tools/audit.js
    Код возврата 1, если есть ошибки (не замечания).
@@ -608,6 +612,68 @@ function auditMeta() {
   console.log("         всего статей: " + global.RF_IDX.length);
 }
 
+/* --------------------------------------------------- H. ручные списки актов */
+
+/* Часть базы набирается вручную: законы, постановления Правительства, указы и
+   «заплаты» лежат списками в tools/fetch-extra.js, а постановления Пленума,
+   которых нет в каталоге sudact.ru, — в KNOWN внутри tools/fetch-plenums.js.
+   Загрузчик молча пропускает то, что портал не отдал, и тогда из реестра
+   исчезает целый источник — так 31.10.2026 пропали три закона и три
+   постановления, а все проверки остались зелёными: сравнить ночную сборку
+   было не с чем. Здесь сверка идёт по списку, а не по прошлой базе, поэтому
+   срабатывает и в CI, и после любой правки списка.
+
+   Ищем акт, а не только запись с нужным идентификатором: тот же закон может
+   прийти и из открытого набора данных (id «fz229»), и из ручного списка
+   (id «fz229isp») — сборщик оставляет тот, что полнее. Поэтому совпадением
+   считаем либо тот же id, либо тот же номер и дату принятия. Постановления
+   Пленума узнаём по адресу на sudact.ru: номер и год не различают базовый акт
+   и изменяющий. */
+function auditHandLists() {
+  head("H. Ручные списки актов");
+  const CODES = global.RF_CODES;
+  const stableIds = require(path.join(__dirname, "lib", "stable-ids.js"));
+  const extra = require(path.join(__dirname, "fetch-extra.js"));
+  const plenums = require(path.join(__dirname, "fetch-plenums.js"));
+
+  const norm = (n) => String(n == null ? "" : n).replace(/\D+/g, "");
+  const byDoc = {};
+  const ids = {};
+  CODES.forEach((c) => { byDoc[c.kind + "|" + norm(c.number) + "|" + c.adopted] = c.id; ids[c.id] = 1; });
+  const plenumSlugs = {};
+  CODES.forEach((c) => { if (c.kind === "plenum" && c.source_url) plenumSlugs[stableIds.slugTail(c.source_url)] = 1; });
+
+  const groups = [
+    { kind: "law", label: "федеральных законов", list: extra.EXTRA_LAWS },
+    { kind: "decree", label: "постановлений Правительства", list: extra.DECREES },
+    { kind: "ukaz", label: "указов Президента", list: extra.UKAZY },
+    { kind: "law", label: "заплат к набору данных", list: extra.PATCH }
+  ];
+  let lost = 0, listed = 0;
+  groups.forEach((g) => {
+    const list = g.list || [];
+    listed += list.length;
+    const miss = list.filter((f) => f.id && !ids[f.id] &&
+      !byDoc[g.kind + "|" + norm(f.number) + "|" + f.date] && !(extra.NO_TEXT_YET || {})[f.id]);
+    if (miss.length) {
+      lost += miss.length;
+      warn("нет в реестре " + g.label + ": " + miss.map((f) =>
+        f.id + " № " + f.number + " от " + f.date + " «" + String(f.short || f.name || "").slice(0, 40) + "»").join("; "));
+    }
+  });
+
+  const knownP = plenums.KNOWN || [];
+  const missP = knownP.filter((r) => !plenumSlugs[stableIds.slugTail(r.slug)]);
+  listed += knownP.length;
+  if (missP.length) {
+    lost += missP.length;
+    warn("нет в реестре постановлений Пленума вне каталога: " + missP.map((r) =>
+      "№ " + r.number + " от " + r.adopted + " (sudact.ru/" + r.slug + ")").join("; "));
+  }
+
+  if (!lost) ok("все акты из ручных списков — в реестре (" + listed + ")");
+}
+
 /* --------------------------------------------------- запуск */
 
 console.log("Правовой консультант :: сплошной аудит данных");
@@ -624,6 +690,7 @@ auditFt();
 auditRefs();
 auditChapters();
 auditMeta();
+auditHandLists();
 
 console.log("\n" + "=".repeat(64));
 console.log("Ошибок: " + errors.length + " · замечаний: " + notes.length +

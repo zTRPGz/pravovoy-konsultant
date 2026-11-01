@@ -116,6 +116,15 @@ check("прежний владелец коллизии сохраняет го�
   clashMap(stableIds.assignStableIds(clashDocs(CLASH), { "plenum8-2014": "zeta" })) ===
   "alpha=plenum8-2014-2,solo=plenum7-2019,zeta=plenum8-2014", "суффикс остаётся у нового акта");
 
+/* В выгрузке слаг — «law/<адрес>», в реестре — полный https-url. Разнобой
+   форм лишал правило первого смысла: прежний владелец не узнавался, и суффикс
+   доставался акту по алфавиту, а не по публикации. */
+const fromFull = clashMap(stableIds.assignStableIds(
+  [{ app_id: "plenum8-2014", slug: "law/zeta" }, { app_id: "plenum8-2014", slug: "law/alpha" }],
+  { "plenum8-2014": "https://sudact.ru/law/zeta/" }));
+check("владелец идентификатора узнаётся при разной форме слага",
+  fromFull === "law/alpha=plenum8-2014-2,law/zeta=plenum8-2014", fromFull);
+
 /* Правило не должно переписывать уже опубликованные идентификаторы:
    прогоняем его по реестру и сверяем результат с фактическими id. */
 const plenumsPub = codes.filter(function (c) { return c.kind === "plenum" && c.source_url; });

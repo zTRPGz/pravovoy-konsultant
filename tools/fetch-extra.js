@@ -285,6 +285,17 @@ const PATCH = [
      портала, там редакция от 01.10.2026 и все 31 статья. */
   { id: "fz218b", number: "218-ФЗ", date: "30.12.2004", short: "ФЗ о кредитных историях", branch: "Финансовое право", name: "О кредитных историях" }
 ];
+
+/* Актов из списков выше, текста которых портал ещё не отдаёт, мы ждём, а не
+   считаем прогон неудачным: иначе ночная сборка падала бы каждую ночь.
+   Проверено 1 ноября 2026: редакция помечена действующей, но вместо текста
+   служебная строка «Подготовка текста редакции». Как только портал опубликует
+   текст, акт придёт в базу сам — запись тогда отсюда убираем. Читателю о том,
+   что акт заменён, говорит баннер ACT_NOTES в tools/build-data.js. */
+const NO_TEXT_YET = {
+  pg540sred: "постановление № 540 от 24.04.2025: редакция действующая, текст не опубликован",
+  pg501kom: "постановление № 501 от 16.04.2025: редакция действующая, текст не опубликован"
+};
 const FKZ_LIST = [
   { number: "1-ФКЗ", date: "21.07.1994", short: "ФКЗ о КС РФ",   name: "О Конституционном Суде Российской Федерации" },
   { number: "1-ФКЗ", date: "28.04.1995", short: "ФКЗ об АС",     name: "Об арбитражных судах в Российской Федерации" },
@@ -387,7 +398,14 @@ async function redactionCandidates(hash) {
   const actual = list.filter(r => r.actual);
   const rest = list.filter(r => !r.actual && r.redcompleted)
     .sort((a, b) => String(b.reddate || "").localeCompare(String(a.reddate || "")));
-  return actual.concat(rest);
+  /* Акт «действует без изменений», а единственная редакция у него помечена
+     служебной датой в будущем и не готова (так портал выдаёт постановления
+     № 540 от 24.04.2025 и № 501 от 16.04.2025 — действующие положения о
+     среднем заработке и о командировках). Без этого отката акт не грузился
+     вовсе, и в базе оставалась только утратившая силу прежняя редакция.
+     Текст всё равно проходит проверку на заглушку ниже по fetchDoc. */
+  if (actual.length || rest.length) return actual.concat(rest);
+  return list.slice().sort((a, b) => String(b.reddate || "").localeCompare(String(a.reddate || "")));
 }
 
 /* Заглушка вместо текста: портал вернул не сам акт, а служебную строку. */
@@ -677,8 +695,24 @@ async function fetchDoc(found, name, extra, converter) {
     if (!isStubHtml(h) && a.length) { red = cand; html = h; arts = a; break; }
     if (cand === cands[0]) { red = cand; html = h; arts = a; }
   }
+  /* Итоговая проверка: если у всех редакций вместо текста служебная строка,
+     акт в базу не кладём. Портал так отдаёт постановления № 540 от 24.04.2025
+     и № 501 от 16.04.2025: редакция помечена действующей, текста нет. Один
+     «пункт» из строчки «Подготовка текста редакции» попал бы на сайт вместо
+     положения о среднем заработке — молчаливая подмена лучше честной ошибки. */
+  if (isStubHtml(html)) return { error: "текст редакции не опубликован: " + name };
   const adopt = (c.adoptions || [])[0] || {};
   const redDate = String(red.reddate || "");
+  const isoDay = (d) => { const m = String(d || "").match(/^(\d{2})\.(\d{2})\.(\d{4})/); return m ? m[3] + "-" + m[2] + "-" + m[1] : ""; };
+  /* Служебная редакция «действует с изменениями» датирована порталом далеко в
+     будущем (2031-09-01). На сайте это выглядело бы опечаткой, а по смыслу
+     такая редакция — текст акта на дату его принятия с внесёнными поправками,
+     поэтому ставим дату принятия. */
+  const redIso = /^\d{8}$/.test(redDate) ? redDate.slice(0, 4) + "-" + redDate.slice(4, 6) + "-" + redDate.slice(6, 8) : "";
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const redactionDate = redIso && redIso > todayIso
+    ? (isoDay(adopt.odate) || isoDay(found.docpass0date) || "")
+    : redIso;
   return {
     slug: name,
     number: adopt.onumber || found.docpass0number || "",
@@ -687,7 +721,7 @@ async function fetchDoc(found, name, extra, converter) {
     organ: adopt.organ || "",
     adopted: adopt.odate || "",
     docstate: c.docstate || "",
-    redaction_date: /^\d{8}$/.test(redDate) ? redDate.slice(0, 4) + "-" + redDate.slice(4, 6) + "-" + redDate.slice(6, 8) : "",
+    redaction_date: redactionDate,
     redid: red.redid,
     hash: hash,
     source_url: "http://actual.pravo.gov.ru/content/content.html#hash=" + hash + "&ttl=1",
@@ -734,8 +768,29 @@ async function collectMeta() {
 
 /* При подключении как модуля (для тестов) скрипт не выполняется */
 if (require.main !== module) {
-  module.exports = { htmlToParagraphs, paragraphsToArticles, paragraphsToItems, sectionNum, decodeEntities };
+  /* Списки экспортируются для tools/audit.js: он сверяет реестр с каждым
+     актом, который ведётся вручную. Профильные проверки не видят потерю —
+     им не с чем сравнивать, — а без сверки ночная сборка молча уменьшает
+     базу, как случилось 31.10.2026 с тремя законами. */
+  module.exports = {
+    htmlToParagraphs, paragraphsToArticles, paragraphsToItems, sectionNum, decodeEntities,
+    EXTRA_LAWS, DECREES, UKAZY, PATCH, NO_TEXT_YET
+  };
   return;
+}
+
+/* Неудача загрузки акта из ручного списка — ошибка прогона, а не «документа
+   просто стало меньше». Портал отдаёт страницы с перерывами, цикл качает
+   дальше и молча пропускает то, что не загрузилось. */
+function reportMissing(label, list, loaded) {
+  const miss = list.filter((f) => !loaded(f));
+  const wait = miss.filter((f) => NO_TEXT_YET[f.id]);
+  const real = miss.filter((f) => !NO_TEXT_YET[f.id]);
+  wait.forEach((f) => console.log("  пока без текста: " + f.id + " — " + NO_TEXT_YET[f.id]));
+  if (!real.length) return;
+  console.error("НЕ ЗАГРУЗИЛОСЬ " + label + ": " + real.length + " — " +
+    real.map((f) => f.id + " (" + f.number + " от " + f.date + ")").join(", "));
+  process.exitCode = 1;
 }
 
 (async () => {
@@ -841,12 +896,8 @@ if (require.main !== module) {
      проверки были зелёные, сравнить ночной сборке было не с чем. Неудачу
      считаем ошибкой прогона: тогда сборка остановится, а не опубликует базу
      с дырами. */
-  const extraMissing = EXTRA_LAWS.filter(f => !extraList.some(x => x && x.app_id === f.id));
-  if (extraMissing.length) {
-    console.error("НЕ ЗАГРУЗИЛОСЬ дополнительных законов: " + extraMissing.length + " — " +
-      extraMissing.map(f => f.number + " от " + f.date).join(", "));
-    process.exitCode = 1;
-  }
+  reportMissing("дополнительных законов", EXTRA_LAWS,
+    (f) => extraList.some((x) => x && x.app_id === f.id));
 
   // 4. Постановления Правительства (пункты, а не статьи)
   const decFile = path.join(SRC, "decrees.json");
@@ -880,11 +931,16 @@ if (require.main !== module) {
     fs.writeFileSync(decFile, JSON.stringify(decList, null, 1), "utf8");
     console.log("  сохранено: vendor/ruslaw/decrees.json (" + decList.length + ")");
   }
+  reportMissing("постановлений Правительства", DECREES,
+    (f) => decList.some((d) => d && d.app_id === f.id));
 
   // 4б. Указы Президента
   const ukazFile = path.join(SRC, "ukazy.json");
   if (fs.existsSync(ukazFile) && !FORCE) {
     console.log("Указы Президента: уже загружены (vendor/ruslaw/ukazy.json)");
+    const stored = JSON.parse(fs.readFileSync(ukazFile, "utf8"));
+    reportMissing("указов Президента", UKAZY,
+      (f) => stored.some((d) => d && d.app_id === f.id));
   } else {
     console.log("\nУказы Президента: " + UKAZY.length);
     const list = [];
@@ -902,6 +958,8 @@ if (require.main !== module) {
     }
     fs.writeFileSync(ukazFile, JSON.stringify(list, null, 1), "utf8");
     console.log("  сохранено: vendor/ruslaw/ukazy.json (" + list.length + ")");
+    reportMissing("указов Президента", UKAZY,
+      (f) => list.some((d) => d && d.app_id === f.id));
   }
 
   // 5. Заплатки: документы, которые в наборе данных оказались неполными
@@ -921,6 +979,8 @@ if (require.main !== module) {
       console.log("  ERR  " + f.id + " -> " + e.message);
     }
   }
+  reportMissing("заплат к набору данных", PATCH,
+    (f) => fs.existsSync(path.join(PATCH_DIR, f.id + ".json")));
 
   // 6. Метаданные по всем документам набора данных
   if (fs.existsSync(path.join(SRC, "meta.json")) && !FORCE) {

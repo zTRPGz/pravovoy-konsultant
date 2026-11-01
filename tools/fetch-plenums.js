@@ -156,6 +156,38 @@ const KNOWN = [
     redaction: "09.12.2025",
     title_short: "О практике рассмотрения судами вопросов, связанных с выдачей лиц " +
       "для уголовного преследования или исполнения приговора, а также передачей лиц для отбывания наказания"
+  },
+  {
+    slug: "law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-18052023",
+    url: BASE + "/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-18052023/",
+    adopted: "18.05.2023",
+    number: "12",
+    redaction: "18.05.2023",
+    title_short: "О внесении изменений в постановление Пленума Верховного Суда " +
+      "Российской Федерации от 3 апреля 2008 года N 3 О практике рассмотрения судами уголовных " +
+      "дел об уклонении от призыва на военную службу и от прохождения военной или альтернативной " +
+      "гражданской службы"
+  },
+  {
+    slug: "law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-22122022_1",
+    url: BASE + "/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-22122022_1/",
+    adopted: "22.12.2022",
+    number: "41",
+    redaction: "22.12.2022",
+    title_short: "О внесении изменений в постановление Пленума Верховного Суда " +
+      "Российской Федерации от 16 мая 2017 года N 15 О некоторых вопросах, возникающих при " +
+      "рассмотрении судами дел об административном надзоре за лицами, освобожденными из мест " +
+      "лишения свободы"
+  },
+  {
+    slug: "law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-22122022_2",
+    url: BASE + "/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-22122022_2/",
+    adopted: "22.12.2022",
+    number: "40",
+    redaction: "22.12.2022",
+    title_short: "О некоторых вопросах, возникающих в судебной практике при рассмотрении " +
+      "дел об административных правонарушениях, связанных с несоблюдением административных " +
+      "ограничений, устанавливаемых при административном надзоре"
   }
 ];
 
@@ -513,13 +545,16 @@ async function main() {
   let prevList = [];
   try { prevList = JSON.parse(fs.readFileSync(OUT, "utf8")); } catch (e) { /* первой сборки нет */ }
   const prevIds = stableIds.idToSlug(prevList);
+  const published = [];
   try {
     const ctx = { window: {} };
     vm.createContext(ctx);
     vm.runInContext(fs.readFileSync(path.join(ROOT, "data", "registry.js"), "utf8"), ctx);
     (ctx.window.RF_CODES || []).forEach((c) => {
       if (c.kind === "plenum" && c.source_url) {
-        prevIds[c.id] = String(c.source_url).replace(/\/+$/, "").split("/").pop();
+        const slug = stableIds.slugTail(c.source_url);
+        prevIds[c.id] = slug;
+        published.push({ id: c.id, slug: slug, title: c.short || c.id });
       }
     });
   } catch (e) { /* реестра ещё нет — собираем с нуля */ }
@@ -528,6 +563,28 @@ async function main() {
   done.forEach((d, i) => {
     if (bases[i] !== d.app_id) console.log("  суффикс за коллизию номера: " + bases[i] + " → " + d.app_id);
   });
+
+  /* Опубликованный акт не имеет права исчезнуть из выгрузки. Каталог sudact.ru
+     отдаёт страницы с паузами, обход прерывается на первой неудачной, и акты с
+     поздних страниц выпадают из набора — так 31.10.2026 пропали № 12 от
+     18.05.2023 и № 40, № 41 от 22.12.2022. Раньше это становилось видно только
+     по записям ленты «убран из базы». Прогон считаем неудачным: сборка данных
+     всё равно встала бы на защите реестра (tools/build-data.js), а здесь
+     называется конкретный документ и способ его вернуть. */
+  const loadedSlugs = Object.create(null);
+  done.forEach((d) => { loadedSlugs[stableIds.slugTail(d.slug)] = 1; });
+  const dropped = published.filter((p) => !loadedSlugs[p.slug]);
+  if (dropped.length) {
+    console.error("\nНЕ ЗАГРУЗИЛОСЬ постановлений, уже опубликованных в базе: " + dropped.length);
+    dropped.forEach((p) => console.error("  • " + p.id + " — " + String(p.title).slice(0, 70) +
+      "\n      https://sudact.ru/law/" + p.slug + "/"));
+    console.error("Прогоните загрузку заново (sudact.ru мог прервать выдачу страниц). Если");
+    console.error("акт больше не в каталоге, но текст нужен — добавьте его слаг в KNOWN в");
+    console.error("tools/fetch-plenums.js; если акт упразднён навсегда — внесите его id в");
+    console.error("ALLOWED_LOSS в tools/build-data.js с причиной.");
+    process.exitCode = 1;
+    return;
+  }
 
   /* Новые постановления — в начале списка: практика последних лет нужнее. */
   done.sort((a, b) => {
@@ -552,5 +609,5 @@ if (require.main === module) {
 
 module.exports = {
   get, getCached, extractBody, docHeader, plenumItems,
-  ruDate, cleanTitle, decodeEntities, BASE, UA
+  ruDate, cleanTitle, decodeEntities, BASE, UA, KNOWN
 };

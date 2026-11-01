@@ -24,6 +24,13 @@
 /* docs    — разобранные документы, у каждого есть app_id (базовый) и slug.
    prevIds — карта «прежний идентификатор -> slug» из прошлой выгрузки.
    Возвращает тот же массив docs с присвоенными уникальными app_id. */
+
+/* Слаг везде сравниваем по хвосту адреса: в выгрузки это «law/<адрес>»,
+   а в реестре — полный https-url, и сверять их напрямую нельзя. */
+function slugTail(slug) {
+  return String(slug || "").replace(/\/+$/, "").split("/").pop();
+}
+
 function assignStableIds(docs, prevIds) {
   const prev = prevIds || {};
   const groups = Object.create(null);
@@ -34,13 +41,13 @@ function assignStableIds(docs, prevIds) {
 
   Object.keys(groups).forEach(function (base) {
     const g = groups[base];
-    const holder = prev[base];
+    const holder = slugTail(prev[base]);
     g.sort(function (a, b) {
       /* прежний владелец голого id — первый; остальные — по слагу */
-      const ka = a.slug === holder ? 0 : 1;
-      const kb = b.slug === holder ? 0 : 1;
+      const ka = slugTail(a.slug) === holder ? 0 : 1;
+      const kb = slugTail(b.slug) === holder ? 0 : 1;
       if (ka !== kb) return ka - kb;
-      return String(a.slug) < String(b.slug) ? -1 : String(a.slug) > String(b.slug) ? 1 : 0;
+      return slugTail(a.slug) < slugTail(b.slug) ? -1 : slugTail(a.slug) > slugTail(b.slug) ? 1 : 0;
     });
     g.forEach(function (d, i) { d.app_id = i === 0 ? base : base + "-" + (i + 1); });
   });
@@ -50,8 +57,8 @@ function assignStableIds(docs, prevIds) {
 /* Карта «идентификатор -> slug» из записей прошлой выгрузки. */
 function idToSlug(list) {
   const map = Object.create(null);
-  (list || []).forEach(function (d) { if (d && d.app_id && d.slug) map[d.app_id] = d.slug; });
+  (list || []).forEach(function (d) { if (d && d.app_id && d.slug) map[d.app_id] = slugTail(d.slug); });
   return map;
 }
 
-module.exports = { assignStableIds: assignStableIds, idToSlug: idToSlug };
+module.exports = { assignStableIds: assignStableIds, idToSlug: idToSlug, slugTail: slugTail };

@@ -4761,9 +4761,41 @@
       "</select>";
   }
 
+    /* Адрес нормы или источника человек мог сохранить месяц назад, а за ночь
+     акт сняли с портала или пересобрали. Раньше на таком адресе оставалась
+     одна строка «не найдено» — и единственный выход был жать кнопку «Назад»,
+     не понимая, что именно случилось. Теперь кроме объяснения есть куда
+     уйти: источник, где жила статья, ищется по префиксу идентификатора —
+     нормы называются «источник-номер». */
+  function srcOfArticleId(id) {
+    var cut = String(id).lastIndexOf("-");
+    while (cut > 0) {
+      var base = String(id).slice(0, cut);
+      if (codeById(base)) return base;
+      cut = String(id).lastIndexOf("-", cut - 1);
+    }
+    return "";
+  }
+
+  function deadEndView(icon, title, detail, links) {
+    var usable = (links || []).filter(function (l) { return l && l[1]; });
+    return '<div class="empty"><div class="ico">' + ic(icon) + "</div><div>" + esc(title) + "</div>" +
+      (detail ? '<div class="small muted" style="margin-top:6px;max-width:52ch">' + esc(detail) + "</div>" : "") +
+      (usable.length ? '<div class="chips" style="margin-top:12px">' + usable.map(function (l) {
+        return '<span class="chip" data-go="' + esc(l[1]) + '">' + esc(l[0]) + "</span>";
+      }).join("") + "</div>" : "") +
+      "</div>";
+  }
+
   function viewArticle(id) {
     var a = byId[id];
-    if (!a) return '<div class="empty"><div class="ico">' + ic("file") + '</div><div>Статья не найдена.</div></div>';
+    if (!a) {
+      var src = srcOfArticleId(id);
+      return deadEndView("file", "Статья не найдена.",
+        "Такой нормы нет в текущей сборке: адрес устарел — статью перенумеровали или документ не вошёл в базу.",
+        (src ? [["Открыть «" + codeById(src).short + "»", "#/code/" + encodeURIComponent(src)]] : []).concat(
+          [["Поиск по нормам", "#/search/"], ["Все источники", "#/sources"]]));
+    }
     var c = codeById(a.c) || { short: a.c, full: a.c, color: "#888", branch: "" };
     var fav = isFav(id);
     var noteText = getNotes()[id] || "";
@@ -5395,7 +5427,9 @@
 
   function viewCode(id) {
     var c = codeById(id);
-    if (!c) return '<div class="empty"><div class="ico">' + ic("book") + '</div><div>Источник не найден.</div></div>';
+    if (!c) return deadEndView("book", "Источник не найден.",
+      "Этого акта нет в текущей сборке: ссылка устарела — документ сняли с портала или база ещё не обновила его.",
+      [["Все источники", "#/sources"], ["Поиск по нормам", "#/search/"], ["Что изменилось", "#/new"]]);
     var isPl = isPlenum(c);
     /* Порядок документа, а не номеров: у постановлений номера пунктов
        повторяются в приложениях («1. Тормозные системы» рядом с «1. ОБЩИЕ
@@ -14924,7 +14958,9 @@
   function viewDiff(id) {
     if (!id) return viewDiffIndex();
     var c = CO[id];
-    if (!c) return '<div class="empty"><div class="ico">' + ic("book") + '</div><div>Источник не найден.</div></div>';
+    if (!c) return deadEndView("book", "Источник не найден.",
+      "Сравнивать редакции нечего: этого акта нет в текущей сборке — ссылка устарела или документ сняли с портала.",
+      [["Все источники", "#/sources"], ["Сравнить другой акт", "#/diff"], ["Поиск по нормам", "#/search/"]]);
     var opts = versionOptions(id);
     var hasVer = verList(id).length;
     var optHtml = function (sel) {
@@ -15725,7 +15761,13 @@
 
   function viewChanged(id) {
     var a = byId[id];
-    if (!a) return '<div class="empty"><div class="ico">' + ic("file") + '</div><div>Статья не найдена.</div></div>';
+    if (!a) {
+      var psrc = srcOfArticleId(id);
+      return deadEndView("file", "Статья не найдена.",
+        "Показывать изменения негде: такой нормы нет в текущей сборке — адрес устарел или акт не вошёл в базу.",
+        (psrc ? [["Открыть «" + codeById(psrc).short + "»", "#/code/" + encodeURIComponent(psrc)]] : []).concat(
+          [["Лента изменений", "#/new"], ["Все источники", "#/sources"]]));
+    }
     var c = codeById(a.c) || { short: a.c, full: a.c, color: "#888" };
 
     var events = articleChangeEvents(id);

@@ -1121,6 +1121,26 @@ server.listen(0, "127.0.0.1", async () => {
   await nav("#/code/нет-такого");
   ok("несуществующий источник объясняет себя словами",
     /не найден/i.test($("#view").textContent || ""), ($("#view").textContent || "").slice(0, 60));
+  /* Слова «не найдено» без выхода — тупик: читатель остаётся на пустом экране
+     и не понимает, жив ли сайт. Поэтому у объяснения обязательно есть ссылки,
+     и они работают. */
+  const deadCodeChips = $$("#view .chip[data-go]");
+  ok("у объяснения есть куда уйти", deadCodeChips.length >= 2,
+    deadCodeChips.map(c => c.getAttribute("data-go")).join(" "));
+  const toSources = deadCodeChips.filter(c => c.getAttribute("data-go") === "#/sources")[0];
+  ok("чип ведёт к списку источников", !!toSources);
+  if (toSources) {
+    toSources.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+    await wait(300);
+    ok("переход с мёртвого адреса работает", w.location.hash === "#/sources", w.location.hash);
+  }
+
+  await nav("#/article/uk-99999");
+  const deadArtChips = $$("#view .chip[data-go]");
+  ok("пропавшая статья ведёт к своему источнику, а не в пустоту",
+    /Статья не найдена/.test($("#view").textContent || "") &&
+    !!deadArtChips.filter(c => c.getAttribute("data-go") === "#/code/uk")[0],
+    deadArtChips.map(c => c.getAttribute("data-go")).join(" "));
 
   await nav("#/такого-раздела-нет");
   ok("неизвестный раздел показывает навигатор, а не пустоту",

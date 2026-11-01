@@ -1142,6 +1142,17 @@ server.listen(0, "127.0.0.1", async () => {
     !!deadArtChips.filter(c => c.getAttribute("data-go") === "#/code/uk")[0],
     deadArtChips.map(c => c.getAttribute("data-go")).join(" "));
 
+  /* Справочный слой живут по тем же законам: ссылку на чек-лист или шаблон
+     человек мог переслать себе в заметки год назад. */
+  for (const trio of [["#/checklist/нет-такого", "#/checklists", "чек-лист"],
+                      ["#/template/нет-такого", "#/templates", "шаблон"],
+                      ["#/suit/нет-такого", "#/suits", "иск"]]) {
+    await nav(trio[0]);
+    const chip = $$("#view .chip[data-go]").filter(c => c.getAttribute("data-go") === trio[1])[0];
+    ok("пропавший " + trio[2] + " предлагает список", !!chip,
+      $$("#view .chip[data-go]").map(c => c.getAttribute("data-go")).join(" "));
+  }
+
   await nav("#/такого-раздела-нет");
   ok("неизвестный раздел показывает навигатор, а не пустоту",
     $("#view").children.length > 0 && ($("#view").textContent || "").length > 200,

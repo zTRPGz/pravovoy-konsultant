@@ -10935,7 +10935,9 @@
 
   function viewChecklist(id) {
     var c = (REF.checklists || []).filter(function (x) { return x.id === id; })[0];
-    if (!c) return '<div class="empty"><div class="ico">' + ic("checkbox") + '</div><div>Чек-лист не найден.</div></div>';
+    if (!c) return deadEndView("checkbox", "Чек-лист не найден.",
+      "Такого чек-листа нет в текущей сборке: ссылка устарела или памятку пересобрали.",
+      [["Все чек-листы", "#/checklists"], ["Помощь по разделам", "#/help"]]);
     var txt = c.t + "\nОснование: " + c.basis + "\n\n" + c.items.map(function (x, i) { return (i + 1) + ". " + x; }).join("\n");
     return '<h1>' + esc(c.t) + "</h1>" +
       '<p class="lead">Правовое основание: ' + esc(c.basis) + "</p>" +
@@ -11784,7 +11786,9 @@
 
   function viewTemplate(id) {
     var t = tplById(id);
-    if (!t) return '<div class="empty"><div class="ico">' + ic("file") + '</div><div>Шаблон не найден.</div></div>';
+    if (!t) return deadEndView("file", "Шаблон не найден.",
+      "Такого шаблона нет в текущей сборке: ссылка устарела или документ переиздали под другим названием.",
+      [["Все шаблоны", "#/templates"], ["Исковые заявления", "#/suits"]]);
     var profile = getProfile();
     var vals = {};
     (t.fields || []).forEach(function (f) { vals[f.k] = tplValue(f, profile); });
@@ -12140,7 +12144,9 @@
 
   function viewSuit(id) {
     var s = suitById(id);
-    if (!s) return '<div class="empty"><div class="ico">' + ic("file") + '</div><div>Исковое заявление не найдено.</div></div>';
+    if (!s) return deadEndView("file", "Исковое заявление не найдено.",
+      "Такого иска нет в текущей сборке: ссылка устарела или образец переиздали под другим названием.",
+      [["Все иски", "#/suits"], ["Шаблоны документов", "#/templates"]]);
     var profile = getProfile();
     var vals = {};
     (s.fields || []).forEach(function (f) { vals[f.k] = tplValue(f, profile); });

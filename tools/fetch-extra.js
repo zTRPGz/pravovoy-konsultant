@@ -37,6 +37,7 @@ const BPA = "ebpi";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
   "Chrome/128.0.0.0 Safari/537.36 pravovoy-konsultant/0.4 (open legal reference tool)";
 const GAP = 1200; // мс между запросами — вежливая нагрузка на официальный сервис
+const TIMEOUT_MS = 90000; // потолок на один запрос: больше — повтор, а не зависание
 
 /* Конституция ищется по точному названию (оно уникально в базе). */
 const KONST_NAME = "Конституция Российской Федерации";
@@ -333,7 +334,13 @@ async function api(pathname, tries) {
     if (wait > 0) await new Promise(r => setTimeout(r, wait));
     lastReq = Date.now();
     try {
-      const res = await fetch(API + pathname, { headers: { "User-Agent": UA } });
+      /* Без таймаута одно зависшее соединение удерживает прогон до двух
+         часов — ровно столько, сколько workflow разрешает работать, после
+         чего процесс убивается и база не обновляется вовсе. */
+      const res = await fetch(API + pathname, {
+        headers: { "User-Agent": UA },
+        signal: AbortSignal.timeout(TIMEOUT_MS)
+      });
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
     } catch (e) {

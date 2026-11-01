@@ -65,7 +65,8 @@ async function get(url, tries) {
     lastReq = Date.now();
     try {
       const res = await fetch(url, {
-        headers: { "User-Agent": UA, "Accept-Language": "ru-RU,ru;q=0.9" }
+        headers: { "User-Agent": UA, "Accept-Language": "ru-RU,ru;q=0.9" },
+        signal: AbortSignal.timeout(90000)
       });
       if (res.status === 404) return { status: 404, html: "" };
       if (!res.ok) throw new Error("HTTP " + res.status);

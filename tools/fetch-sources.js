@@ -123,7 +123,10 @@ async function download(base, dir, name) {
      оборванный запрос не должен лишать ночную сборку целого кодекса. */
   for (let a = 0; a < 3; a++) {
     try {
-      const res = await fetch(url, { headers: { "User-Agent": UA } });
+      const res = await fetch(url, {
+        headers: { "User-Agent": UA },
+        signal: AbortSignal.timeout(90000)
+      });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const buf = Buffer.from(await res.arrayBuffer());
       if (buf.length < 1000) throw new Error("слишком маленький ответ: " + buf.length);
@@ -167,7 +170,10 @@ async function batch(label, base, dir, map) {
   console.log("\nМАНИФЕСТЫ (даты актуальных редакций)");
   for (const [base, dir, name] of [[BASE_CODES, OUT, "manifest.json"], [BASE_LAWS, OUT_LAWS, "manifest.json"]]) {
     try {
-      const res = await fetch(base + name, { headers: { "User-Agent": UA } });
+      const res = await fetch(base + name, {
+        headers: { "User-Agent": UA },
+        signal: AbortSignal.timeout(90000)
+      });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const buf = Buffer.from(await res.arrayBuffer());
       fs.writeFileSync(path.join(dir, name), buf);

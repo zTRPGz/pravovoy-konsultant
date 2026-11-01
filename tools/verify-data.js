@@ -691,8 +691,23 @@ if (fs.existsSync(EXTRA_TOOL)) {
   check("сетевой запрос повторяется, а не обрывает выгрузку",
     /async function api\(pathname, tries\)/.test(exSrc) && /if \(a === tries - 1\) throw e/.test(exSrc),
     "один оборванный запрос отнимал у ночи всю базу: акт не догружался, сборка падала");
+  check("у запроса есть потолок ожидания",
+    /AbortSignal\.timeout\(TIMEOUT_MS\)/.test(exSrc) && /const TIMEOUT_MS = \d+/.test(exSrc),
+    "без него зависшее соединение держит прогон до лимита workflow — два часа впустую");
   check("незагруженный акт из ручного списка — ошибка прогона",
     /function reportMissing/.test(exSrc) && /process\.exitCode = 1/.test(exSrc));
+
+  /* Тот же класс риска в двух других загрузчиках: набор данных и каталог
+     Пленумов качаются сотнями запросов, и зависший из них стоит ночной
+     сборки целиком. */
+  ["fetch-sources.js", "fetch-plenums.js"].forEach(function (tool) {
+    const src = fs.readFileSync(path.join(ROOT, "tools", tool), "utf8");
+    check(tool + ": каждый fetch с потолком ожидания",
+      (src.match(/AbortSignal\.timeout\(\d+\)/g) || []).length ===
+      (src.match(/await\s+fetch\(/g) || []).length,
+      (src.match(/await\s+fetch\(/g) || []).length + " запросов, таймаутов " +
+      (src.match(/AbortSignal\.timeout\(\d+\)/g) || []).length);
+  });
 }
 
 /* 6 --------------------------------------------------------------- шаблоны */

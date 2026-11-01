@@ -16478,14 +16478,18 @@
         (e.redFrom ? ' <span class="muted">(была от ' + esc(fmtRed(e.redFrom)) + ")</span>" : "") +
         "</span></div>");
     }
-    rows.push(newBits(e.s, e.add, "новая статья", "новые статьи", "новых статей"));
-    rows.push(newBits(e.s, e.chg, "изменённая статья", "изменённые статьи", "изменённых статей"));
-    rows.push(newBits(e.s, e.del, "исключённая статья", "исключённые статьи", "исключённых статей"));
+    /* Если документа в текущей сборке нет, все его номера ведут в пустоту:
+       приложение показало бы строку из серых чисел, по которым ничего не
+       открывается. Вместо них — одна понятная строка. */
+    if (codeById(e.s)) {
+      rows.push(newBits(e.s, e.add, "новая статья", "новые статьи", "новых статей"));
+      rows.push(newBits(e.s, e.chg, "изменённая статья", "изменённые статьи", "изменённых статей"));
+      rows.push(newBits(e.s, e.del, "исключённая статья", "исключённые статьи", "исключённых статей"));
 
-    /* статусы норм: ссылка ведёт на статью, подпись — по её id */
-    if (e.rep && e.rep.length) {
-      rows.push('<div class="nrow"><span class="nrow-l">' + e.rep.length + " " +
-        plural(e.rep.length, ["норма утратила силу", "нормы утратили силу", "норм утратили силу"]) +
+      /* статусы норм: ссылка ведёт на статью, подпись — по её id */
+      if (e.rep && e.rep.length) {
+        rows.push('<div class="nrow"><span class="nrow-l">' + e.rep.length + " " +
+          plural(e.rep.length, ["норма утратила силу", "нормы утратили силу", "норм утратили силу"]) +
         '</span><span class="nrow-v">' + e.rep.slice(0, NEW_LIST_MAX).map(function (id) {
           var aid = artLinkId(id), good = aid || id;
           var num = esc(good.slice(good.lastIndexOf("-") + 1));
@@ -16495,19 +16499,26 @@
         }).join("<span class=\"nsep\">,</span> ") +
         (e.rep.length > NEW_LIST_MAX ? '<span class="nmore"> и ещё ' + (e.rep.length - NEW_LIST_MAX) + "</span>" : "") +
         "</span></div>");
-    }
-    if (e.res && e.res.length) {
-      rows.push('<div class="nrow"><span class="nrow-l">' + e.res.length + " " +
-        plural(e.res.length, ["норма снова действует", "нормы снова действуют", "норм снова действуют"]) +
-        '</span><span class="nrow-v">' + e.res.slice(0, NEW_LIST_MAX).map(function (id) {
-          var aid = artLinkId(id), good = aid || id;
-          var num = esc(good.slice(good.lastIndexOf("-") + 1));
-          return aid
-            ? '<a class="nlnk" href="#/article/' + encodeURIComponent(aid) + '">' + num + "</a>"
-            : '<span class="nlnk-dead" title="Такой статьи в базе нет">' + num + "</span>";
-        }).join("<span class=\"nsep\">,</span> ") +
-        (e.res.length > NEW_LIST_MAX ? '<span class="nmore"> и ещё ' + (e.res.length - NEW_LIST_MAX) + "</span>" : "") +
-        "</span></div>");
+      }
+      if (e.res && e.res.length) {
+        rows.push('<div class="nrow"><span class="nrow-l">' + e.res.length + " " +
+          plural(e.res.length, ["норма снова действует", "нормы снова действуют", "норм снова действуют"]) +
+          '</span><span class="nrow-v">' + e.res.slice(0, NEW_LIST_MAX).map(function (id) {
+            var aid = artLinkId(id), good = aid || id;
+            var num = esc(good.slice(good.lastIndexOf("-") + 1));
+            return aid
+              ? '<a class="nlnk" href="#/article/' + encodeURIComponent(aid) + '">' + num + "</a>"
+              : '<span class="nlnk-dead" title="Такой статьи в базе нет">' + num + "</span>";
+          }).join("<span class=\"nsep\">,</span> ") +
+          (e.res.length > NEW_LIST_MAX ? '<span class="nmore"> и ещё ' + (e.res.length - NEW_LIST_MAX) + "</span>" : "") +
+          "</span></div>");
+      }
+    } else {
+      var nArts = (e.add || []).length + (e.chg || []).length + (e.del || []).length +
+        (e.rep || []).length + (e.res || []).length;
+      rows.push('<div class="nrow"><span class="nrow-l">Статей в базе нет</span><span class="nrow-v">' +
+        '<span class="small muted">документ не вошёл в текущую сборку' +
+        (nArts ? " — изменённые нормы (" + nArts + ") негде открыть" : "") + "</span></span></div>");
     }
 
     /* Документ мог исчезнуть из реестра (обзор сняли с портала). Тогда ссылка

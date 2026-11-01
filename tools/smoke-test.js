@@ -3220,7 +3220,9 @@ server.listen(0, "127.0.0.1", async () => {
         { d: isoDay(0), s: "nk2", a: "НК РФ ч. II", k: "law", rep: ["nk2-143", "nk2-146"], res: ["nk2-163"], arts: 210 },
         { d: isoDay(0), s: "obzor-3-2026", a: "Обзор ВС РФ № 3 (2026)", k: "review", add: ["1*", "999"], arts: 52 },
         { d: isoDay(2), s: "fz44", a: "ФЗ о контрактной системе", k: "law", fresh: 1, arts: 12 },
-        { d: isoDay(40), s: "zz-old", a: "Отменённый закон", k: "law", fresh: -1 }
+        /* Документ, снятый с портала: записи о его статьях в ленте остаются,
+           но открыть их негде — в текущей сборке документа нет. */
+        { d: isoDay(40), s: "zz-old", a: "Отменённый закон", k: "law", fresh: -1, add: ["7"], chg: ["9"] }
       ]
     };
 
@@ -3256,7 +3258,7 @@ server.listen(0, "127.0.0.1", async () => {
     ok("даты сгруппированы", $$2("#view .ndate").length === 3, $$2("#view .ndate").length + " дат");
     ok("первая дата — сегодняшний день", (T2("#view .ndate") || "").includes(TODAY_LONG), T2("#view .ndate"));
     ok("сводка: редакции, статьи, статусы",
-      /1/.test(T2("#view .grid .stat:nth-child(2)") || "") && /6/.test(T2("#view .grid .stat:nth-child(3)") || "") &&
+      /1/.test(T2("#view .grid .stat:nth-child(2)") || "") && /8/.test(T2("#view .grid .stat:nth-child(3)") || "") &&
       /3/.test(T2("#view .grid .stat:nth-child(4)") || ""),
       [T2("#view .grid .stat:nth-child(2)"), T2("#view .grid .stat:nth-child(3)"), T2("#view .grid .stat:nth-child(4)")].join(" / "));
 
@@ -3290,6 +3292,16 @@ server.listen(0, "127.0.0.1", async () => {
     /* документы */
     ok("добавленный документ помечен", $$2("#view .ncard.cn-doc-new").length === 1);
     ok("убранный документ помечен", $$2("#view .ncard.cn-doc-del").length === 1);
+    /* Номера статей исчезнувшего документа открыть негде: карточка обязана
+       объяснить это, а не показывать строку из серых чисел-пустышек. */
+    {
+      const goneCard = $$2("#view .ncard").filter(c => c.getAttribute("data-ns") === "zz-old")[0];
+      ok("у исчезнувшего документа — объяснение вместо номеров",
+        !!goneCard && /Статей в базе нет/.test(goneCard.textContent) &&
+        /не вошёл в текущую сборку/.test(goneCard.textContent) &&
+        !goneCard.querySelector("a.nlnk") && !goneCard.querySelector(".nlnk-t"),
+        goneCard ? goneCard.textContent.replace(/\s+/g, " ").slice(0, 120) : "нет карточки");
+    }
     ok("ссылка на документ ведёт в его раздел", !!$2('#view a[href="#/code/uk"]'));
 
     /* непрочитанное */

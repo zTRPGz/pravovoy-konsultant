@@ -834,6 +834,19 @@ if (require.main !== module) {
     fs.writeFileSync(extraFile, JSON.stringify(extraList, null, 1), "utf8");
     console.log("  сохранено: vendor/ruslaw/laws-extra.json (" + extraList.length + ")");
   }
+  /* Список EXTRA_LAWS ведётся вручную, и в CI он качается с нуля: если портал
+     не отдал закон, тот молча исчезает из laws-extra.json, а из базы вместе с
+     ним пропадает целый источник. Так 31.10.2026 ночная сборка потеряла законы
+     о судебных приставах, о социальном обслуживании и об учреждениях УИС —
+     проверки были зелёные, сравнить ночной сборке было не с чем. Неудачу
+     считаем ошибкой прогона: тогда сборка остановится, а не опубликует базу
+     с дырами. */
+  const extraMissing = EXTRA_LAWS.filter(f => !extraList.some(x => x && x.app_id === f.id));
+  if (extraMissing.length) {
+    console.error("НЕ ЗАГРУЗИЛОСЬ дополнительных законов: " + extraMissing.length + " — " +
+      extraMissing.map(f => f.number + " от " + f.date).join(", "));
+    process.exitCode = 1;
+  }
 
   // 4. Постановления Правительства (пункты, а не статьи)
   const decFile = path.join(SRC, "decrees.json");

@@ -732,6 +732,46 @@ function build() {
     });
   })();
 
+  /* --- база не имеет права тихонько ужминаться -------------------------
+     Каждая ночная сборка качает выгрузки с нуля. Если страница источника не
+     отдалась, каталог перестроился или акт переименовали, документ просто
+     исчезает из реестра: аудит, сверка и прогон интерфейса при этом зелёные —
+     им не с чем сравнивать, прошлой базы в CI нет. Так 31.10.2026 из базы
+     пропали три закона (приставы, соцобслуживание, УИС) и три постановления,
+     и заметили это только по записям ленты «убран из базы».
+     Сравнение с закоммиченным реестром останавливает сборку до записи
+     файлов: публикация не состоится, пока потерю не разберут. Если источник
+     убран намеренно, его id вносят в ALLOWED_LOSS с причиной. */
+  const ALLOWED_LOSS = {
+    /* "id": "причина удаления" */
+  };
+
+  const prevRegistry = (function () {
+    try {
+      const ctx = { window: {} };
+      vm.createContext(ctx);
+      vm.runInContext(fs.readFileSync(path.join(OUT_DATA, "registry.js"), "utf8"), ctx);
+      return ctx.window.RF_CODES || [];
+    } catch (e) { return []; }
+  })();
+  const nowIds = {};
+  registry.forEach(function (c) { nowIds[c.id] = 1; });
+  const lostSources = prevRegistry.filter(function (c) {
+    return !nowIds[c.id] && !ALLOWED_LOSS[c.id];
+  });
+  if (lostSources.length) {
+    console.error("\nОШИБКА: в этой сборке база потеряла " + lostSources.length + " источников:");
+    lostSources.forEach(function (c) {
+      console.error("  • " + c.id + " «" + String(c.short).slice(0, 60) + "» — " + (c.source_url || "ссылки нет"));
+    });
+    console.error("Причины бывают две: страница источника не отдалась в этом прогоне");
+    console.error("(качающие скрипты молча пропускают неудачу) или документ переименовали");
+    console.error("на портале. Прогоните загрузку заново; если источник удалён навсегда —");
+    console.error("занесите его id в ALLOWED_LOSS в tools/build-data.js с причиной.");
+    process.exitCode = 1;
+    return;
+  }
+
   /* --- запись реестра --- */
   const order = { constitution: 0, code: 1, fkz: 2, law: 3, decree: 4, ukaz: 5, plenum: 6, review: 7 };
   registry.sort(function (a, b) {

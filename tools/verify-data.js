@@ -98,6 +98,37 @@ check("снимок актуальности покрывает все исто�
   codes.every(function (c) { return !!freshDocs[c.id]; }),
   codes.filter(function (c) { return !freshDocs[c.id]; }).map(function (c) { return c.id; }).join(", ") || "все " + Object.keys(freshDocs).length);
 
+/* Идентификатор постановления Пленума — «plenum<номер>-<год>». Один номер в
+   одном году бывает у двух актов (базовый и изменяющий), второму достаётся
+   суффикс. Выдача суффикса не должна зависеть от порядка строк каталога
+   sudact.ru: перенумерация молча переставила бы сохранённые ссылки читателя
+   и записи ленты изменений на чужой документ. */
+const stableIds = require(path.join(ROOT, "tools", "lib", "stable-ids.js"));
+const clashDocs = (order) => order.map((d) => ({ app_id: d.base, slug: d.slug }));
+const clashMap = (list) => list.map((d) => d.slug + "=" + d.app_id).sort().join(",");
+const CLASH = [{ base: "plenum8-2014", slug: "zeta" }, { base: "plenum8-2014", slug: "alpha" },
+  { base: "plenum7-2019", slug: "solo" }];
+const straight = clashMap(stableIds.assignStableIds(clashDocs(CLASH), {}));
+const reversed = clashMap(stableIds.assignStableIds(clashDocs(CLASH.slice().reverse()), {}));
+check("суффикс коллизии Пленума не зависит от порядка каталога",
+  straight === reversed && straight === "alpha=plenum8-2014,solo=plenum7-2019,zeta=plenum8-2014-2", straight);
+check("прежний владелец коллизии сохраняет голый идентификатор",
+  clashMap(stableIds.assignStableIds(clashDocs(CLASH), { "plenum8-2014": "zeta" })) ===
+  "alpha=plenum8-2014-2,solo=plenum7-2019,zeta=plenum8-2014", "суффикс остаётся у нового акта");
+
+/* Правило не должно переписывать уже опубликованные идентификаторы:
+   прогоняем его по реестру и сверяем результат с фактическими id. */
+const plenumsPub = codes.filter(function (c) { return c.kind === "plenum" && c.source_url; });
+const slugOf = function (c) { return String(c.source_url).replace(/\/+$/, "").split("/").pop(); };
+const rebuiltIds = {};
+stableIds.assignStableIds(plenumsPub.map(function (c) {
+  return { app_id: "plenum" + c.number + "-" + String(c.adopted).slice(-4), slug: slugOf(c) };
+}), {}).forEach(function (d) { rebuiltIds[d.slug] = d.app_id; });
+const idDrift = plenumsPub.filter(function (c) { return rebuiltIds[slugOf(c)] !== c.id; });
+check("разбор коллизий повторяет идентификаторы опубликованного реестра", idDrift.length === 0,
+  idDrift.length ? idDrift.map(function (c) { return c.id + " → " + rebuiltIds[slugOf(c)]; }).join(", ")
+    : plenumsPub.length + " постановлений");
+
 /* 2 ------------------------------------------------- статьи против полных текстов */
 console.log("\n2. Полные тексты");
 let missingInFull = 0, dupIndex = 0;

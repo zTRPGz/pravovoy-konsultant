@@ -31,7 +31,9 @@
 
 const fs = require("fs");
 const path = require("path");
+const vm = require("vm");
 const { htmlToParagraphs, decodeEntities } = require("./fetch-extra");
+const stableIds = require("./lib/stable-ids.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT, "vendor", "ruslaw");
@@ -122,7 +124,11 @@ function parseList(html) {
 /* Документы, которых нет в каталоге sudact.ru, хотя их страницы открываются.
    Постановление № 15 от 16.05.2017 (административный надзор) уже разобрано в
    базе — 52 пункта, — но строки в /vsrf/plenum/ нет. Без этого списка ночная
-   сборка, перезаписывая plenums.json по каталогу, молча выбросила бы акт. */
+   сборка, перезаписывая plenums.json по каталогу, молча выбросила бы акт.
+   Тот же список страхует от обрыва постраничной загрузки: страница каталога
+   может не открыться (sudact отдаёт паузу между запросами), обход прерывается
+   на ней, и акты с поздних страниц просто исчезают из выгрузки — как стало с
+   № 64 от 27.12.2016 и № 11 от 14.06.2012 в прогоне 1 ноября 2026. */
 const KNOWN = [
   {
     slug: "law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-16052017_2",
@@ -132,6 +138,24 @@ const KNOWN = [
     redaction: "22.12.2022",
     title_short: "О некоторых вопросах, возникающих при рассмотрении судами дел " +
       "об административном надзоре за лицами, освобожденными из мест лишения свободы"
+  },
+  {
+    slug: "law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27122016",
+    url: BASE + "/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-27122016/",
+    adopted: "27.12.2016",
+    number: "64",
+    redaction: "09.12.2025",
+    title_short: "О некоторых вопросах, возникающих при рассмотрении судами дел, " +
+      "связанных с приостановлением деятельности или ликвидацией некоммерческих организаций"
+  },
+  {
+    slug: "law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-14062012",
+    url: BASE + "/law/postanovlenie-plenuma-verkhovnogo-suda-rf-ot-14062012/",
+    adopted: "14.06.2012",
+    number: "11",
+    redaction: "09.12.2025",
+    title_short: "О практике рассмотрения судами вопросов, связанных с выдачей лиц " +
+      "для уголовного преследования или исполнения приговора, а также передачей лиц для отбывания наказания"
   }
 ];
 
@@ -479,14 +503,30 @@ async function main() {
   if (!done.length) { console.error("Нечего сохранять."); process.exitCode = 1; return; }
 
   /* Уникальность идентификаторов: «plenum<номер>-<год>». Один номер в одном
-     году теоретически может встретиться дважды — тогда добавляем суффикс. */
-  const used = Object.create(null);
-  done.forEach((d) => {
-    let id = d.app_id, k = 2;
-    while (used[id]) id = d.app_id + "-" + k++;
-    if (id !== d.app_id) console.log("  переименован: " + d.app_id + " → " + id);
-    used[id] = 1;
-    d.app_id = id;
+     году встречается дважды (базовый акт и изменяющий) — второму достаётся
+     суффикс. Выдаём его не по порядку каталога, а по устойчивому правилу
+     (см. tools/lib/stable-ids.js): иначе перестановка строк на sudact.ru
+     перенумеровала бы акты, и сохранённые ссылки, лента изменений и снимок
+     актуальности молча указывали бы на чужой документ.
+     Эталоном служит закоммиченный реестр: в CI локальной прошлой выгрузки
+     нет, а ссылки читателя ведут именно на опубликованные идентификаторы. */
+  let prevList = [];
+  try { prevList = JSON.parse(fs.readFileSync(OUT, "utf8")); } catch (e) { /* первой сборки нет */ }
+  const prevIds = stableIds.idToSlug(prevList);
+  try {
+    const ctx = { window: {} };
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(path.join(ROOT, "data", "registry.js"), "utf8"), ctx);
+    (ctx.window.RF_CODES || []).forEach((c) => {
+      if (c.kind === "plenum" && c.source_url) {
+        prevIds[c.id] = String(c.source_url).replace(/\/+$/, "").split("/").pop();
+      }
+    });
+  } catch (e) { /* реестра ещё нет — собираем с нуля */ }
+  const bases = done.map((d) => d.app_id);
+  stableIds.assignStableIds(done, prevIds);
+  done.forEach((d, i) => {
+    if (bases[i] !== d.app_id) console.log("  суффикс за коллизию номера: " + bases[i] + " → " + d.app_id);
   });
 
   /* Новые постановления — в начале списка: практика последних лет нужнее. */

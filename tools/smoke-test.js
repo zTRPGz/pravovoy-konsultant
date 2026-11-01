@@ -292,6 +292,15 @@ server.listen(0, "127.0.0.1", async () => {
   ok("«закон о полиции» по-прежнему находит акт",
     !!$('#view .src-hit [data-go="#/code/fz3pol"]'),
     $("#view .src-hit") ? $("#view .src-hit").textContent.replace(/\s+/g, " ").slice(0, 80) : "блока нет");
+  /* Подпись вида акта берётся из реквизитов: у закона РФ с номером
+     «2124-I» писать «Федеральный закон» — значит придумывать акт, которого
+     не существует. */
+  await nav("#/search/" + encodeURIComponent("закон о СМИ"), 140);
+  const smiHit = $('#view .src-hit [data-go="#/code/fz2124smi"]');
+  const smiKind = smiHit && smiHit.querySelector(".sh-kind");
+  ok("акт № 2124-I подписан как закон РФ, а не как федеральный закон",
+    !!smiKind && /Закон РФ/.test(smiKind.textContent) && !/Федеральный/.test(smiKind.textContent),
+    smiKind ? smiKind.textContent : (smiHit ? smiHit.textContent.slice(0, 60) : "акт не в блоке «Акты по запросу»"));
   for (const q of ["обыск", "получение взятки", "срок предварительного следствия"]) {
     await nav("#/search/" + encodeURIComponent(q), 70);
     ok("«" + q + "» находит статьи", $$("#view .result").length > 0, $$("#view .result").length + " результатов");

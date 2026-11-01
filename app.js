@@ -1241,6 +1241,16 @@
     ukaz: "Указ Президента", plenum: "Постановление Пленума", review: "Обзор практики"
   };
 
+  /* Закон РСФСР/РФ с номером вида «2124-I» федеральным законом не является:
+     подписывать его «Федеральный закон» — значит сообщать реквизит, которого
+     в акте нет. Номер смотрим у самого источника, а не в названии: название
+     собирается из тех же реквизитов и менять его ради подписи не нужно. */
+  function kindLabel(c) {
+    if (!c) return "акт";
+    if (c.kind === "law" && /-I{1,3}$/i.test(String(c.number || "").trim())) return "Закон РФ";
+    return KIND_LABEL[c.kind] || c.kind || "акт";
+  }
+
   /* Насколько слово «общее» для реестра: 0 — редкое, 1 — есть везде. */
   function srcGeneric(s) {
     var idx = srcIndex(), df = idx.df || {};
@@ -1363,7 +1373,7 @@
         var c = h.c;
         var req = [c.req, c.redaction ? "ред. " + fmtRed(c.redaction) : ""].filter(Boolean).join(" · ");
         return '<div class="src-hit-item" data-go="#/code/' + esc(c.id) + '">' +
-          '<span class="sh-kind">' + esc(KIND_LABEL[c.kind] || c.kind || "акт") + "</span>" +
+          '<span class="sh-kind">' + esc(kindLabel(c)) + "</span>" +
           '<span class="sh-main"><span class="sh-t">' + esc(c.short) + "</span>" +
             '<span class="sh-sub">' + esc(req || c.full || "") + "</span></span>" +
           '<span class="sh-count">' + esc(String(c.count || 0)) + " " + plural(c.count || 0, ["статья", "статьи", "статей"]) + "</span>" +
@@ -16781,7 +16791,7 @@
        где слово «полиция» упомянуто. */
     if (nq) {
       srcFind(parseQuery(q), 4).forEach(function (h) {
-        items.push({ type: "code", title: h.c.short, sub: KIND_LABEL[h.c.kind] || h.c.full, go: "#/code/" + h.c.id });
+        items.push({ type: "code", title: h.c.short, sub: kindLabel(h.c) || h.c.full, go: "#/code/" + h.c.id });
       });
     }
     /* Словарь — до статей: если человек набрал «преступление», определение

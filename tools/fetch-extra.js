@@ -326,13 +326,24 @@ const FKZ_LIST = [
 /* ---------------------------------------------------------------- сеть */
 
 let lastReq = 0;
-async function api(pathname) {
-  const wait = GAP - (Date.now() - lastReq);
-  if (wait > 0) await new Promise(r => setTimeout(r, wait));
-  const res = await fetch(API + pathname, { headers: { "User-Agent": UA } });
-  lastReq = Date.now();
-  if (!res.ok) throw new Error("HTTP " + res.status);
-  return res.json();
+async function api(pathname, tries) {
+  tries = tries || 3;
+  for (let a = 0; a < tries; a++) {
+    const wait = GAP - (Date.now() - lastReq);
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    lastReq = Date.now();
+    try {
+      const res = await fetch(API + pathname, { headers: { "User-Agent": UA } });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    } catch (e) {
+      /* Сервис отвечает рывками: обрыв одного из ~200 запросов не должен
+         обрывать всю ночную выгрузку — иначе акт не догрузится, а проверка
+         ручных списков честно сообщит о потере. */
+      if (a === tries - 1) throw e;
+      await new Promise(r => setTimeout(r, 2000 * (a + 1)));
+    }
+  }
 }
 const q = (o) => encodeURIComponent(JSON.stringify(o));
 
@@ -815,7 +826,7 @@ if (require.main !== module) {
      базу, как случилось 31.10.2026 с тремя законами. */
   module.exports = {
     htmlToParagraphs, paragraphsToArticles, paragraphsToItems, sectionNum, decodeEntities,
-    EXTRA_LAWS, DECREES, UKAZY, PATCH, NO_TEXT_YET
+    EXTRA_LAWS, DECREES, UKAZY, PATCH, NO_TEXT_YET, api
   };
   return;
 }

@@ -119,12 +119,21 @@ async function download(base, dir, name) {
   if (fs.existsSync(dest) && fs.statSync(dest).size > 1000) {
     return { name, status: "есть", size: fs.statSync(dest).size };
   }
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) throw new Error("HTTP " + res.status);
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 1000) throw new Error("слишком маленький ответ: " + buf.length);
-  fs.writeFileSync(dest, buf);
-  return { name, status: "скачан", size: buf.length };
+  /* Три попытки: хост с набором данных отдаёт файлы рывками, и один
+     оборванный запрос не должен лишать ночную сборку целого кодекса. */
+  for (let a = 0; a < 3; a++) {
+    try {
+      const res = await fetch(url, { headers: { "User-Agent": UA } });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length < 1000) throw new Error("слишком маленький ответ: " + buf.length);
+      fs.writeFileSync(dest, buf);
+      return { name, status: "скачан", size: buf.length };
+    } catch (e) {
+      if (a === 2) throw e;
+      await new Promise(r => setTimeout(r, 3000 * (a + 1)));
+    }
+  }
 }
 
 async function batch(label, base, dir, map) {

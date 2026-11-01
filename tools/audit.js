@@ -606,6 +606,16 @@ function auditMeta() {
   CODES.forEach((c) => { if (byShort[c.short]) dupShort++; else byShort[c.short] = 1; });
   if (dupShort) warn("источников с повторяющимся кратким названием: " + dupShort);
 
+  /* Род акта в подписи не должен называться дважды: «Закон РФ «Закон о
+     СМИ»» читается как опечатка, а выглядит как два разных документа.
+     Подпись собирается в build-data.js, поэтому проверка — по готовому
+     реестру: так видно и правило сборки, и ручной список за один проход. */
+  const doubled = CODES.filter((c) =>
+    /(?:ФЗ|Закон\s+РФ|ФКЗ|Указ|Постановление)\s+«\s*(?:Федеральн|ФЗ|Закон|ФКЗ|Указ|Постановление)/i.test(String(c.short || "")));
+  if (doubled.length) warn("названий с дважды названным родом акта: " + doubled.length +
+    " — " + doubled.slice(0, 4).map((c) => c.short).join("; "));
+  else ok("ни в одном названии род акта не назван дважды");
+
   const kinds = {};
   CODES.forEach((c) => { kinds[c.kind] = (kinds[c.kind] || 0) + 1; });
   console.log("         виды актов: " + Object.keys(kinds).map((k) => k + "=" + kinds[k]).join(", "));

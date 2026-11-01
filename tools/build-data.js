@@ -276,10 +276,12 @@ function stripOuterQuotes(s) {
 function codeTitle(short, brief) { return brief ? short + " (" + brief + ")" : short; }
 
 /* «ФЗ о ФСБ» + «40-ФЗ» → «ФЗ «О ФСБ» № 40»;
-   «ФЗ о банках» + «395-I» → «Закон РФ «О банках» № 395-I» */
+   «ФЗ о банках» + «395-I» → «Закон РФ «О банках» № 395-I».
+   Служебное слово вида акта снимаем и в форме «Закон о СМИ»: без этого
+   получалось «Закон РФ «Закон о СМИ»» — род акта назван дважды. */
 function lawTitle(short, number) {
   var s = String(short || "");
-  var m = /^(?:ФЗ|Закон\s+РФ)\s+(.+)$/i.exec(s);
+  var m = /^(?:ФЗ|Закон(?:\s+РФ)?)\s+(.+)$/i.exec(s);
   var topic = capFirst((m ? m[1] : s).trim());
   var num = String(number || "").trim();
   var type, n;

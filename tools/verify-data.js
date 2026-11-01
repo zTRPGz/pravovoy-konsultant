@@ -2045,6 +2045,19 @@ check("манифест называет приложение, адрес зап
   manif.display === "standalone" && !!manif.theme_color && !!manif.background_color &&
   manif.lang === "ru" && manif.scope === "./",
   manif ? manif.name + " · " + manif.start_url + " · " + manif.display : "полей не хватает");
+/* Цвет темы объявлен в трёх местах: манифест (оболочка установленного
+   приложения), meta в разметке (статус-бар телефона) и токен --bg (сама
+   страница). Разъехавшись, они дают чужую рамку вокруг приложения, и это
+   видно только на телефоне. Берём последний блок :root: оформление может
+   лежать вторым слоем и перекрывать базовую палитру. */
+const themeMeta = (htmlSrc.match(/name="theme-color" content="(#[0-9a-fA-F]{6})"/) || [])[1];
+const rootBlocks = [...cssSrc.matchAll(/:root\s*\{([\s\S]*?)\}/g)].map((m) => m[1]);
+const rootBg = rootBlocks.length
+  ? (rootBlocks[rootBlocks.length - 1].match(/--bg:\s*(#[0-9a-fA-F]{6})/) || [])[1]
+  : "";
+check("цвет темы одинаков в манифесте, разметке и палитре",
+  !!manif && !!themeMeta && !!rootBg && manif.theme_color === themeMeta && themeMeta === rootBg,
+  [manif && manif.theme_color, themeMeta, rootBg].join(" / "));
 check("манифест несёт иконку приложения",
   !!manif && Array.isArray(manif.icons) && manif.icons.length > 0 &&
   manif.icons.every(function (i) { return !!i.src && !!i.type; }),

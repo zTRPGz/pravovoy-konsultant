@@ -3198,15 +3198,29 @@ server.listen(0, "127.0.0.1", async () => {
   }
 
   {
+    /* Даты фикстуры — относительно сегодняшнего дня: период ленты считается
+       от фактической даты, и с зафиксированными числами самая старая запись
+       ровно через месяц выпадала из окна «Месяц». */
+    const DAY_MS = 86400000;
+    const isoDay = (daysAgo) => {
+      const t = new Date(Date.now() - daysAgo * DAY_MS);
+      const p = (n) => String(n).padStart(2, "0");
+      return t.getFullYear() + "-" + p(t.getMonth() + 1) + "-" + p(t.getDate());
+    };
+    const MON_GEN = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля",
+      "августа", "сентября", "октября", "ноября", "декабря"];
+    const nowD = new Date();
+    const TODAY_LONG = nowD.getDate() + " " + MON_GEN[nowD.getMonth()] + " " + nowD.getFullYear();
+
     const FIX = {
-      built_at: "2026-10-11T20:00:00.000Z",
+      built_at: isoDay(1) + "T20:00:00.000Z",
       entries: [
-        { d: "2026-10-12", s: "uk", a: "УК РФ (Уголовный кодекс)", k: "code", red: "2026-10-01", redFrom: "2026-08-15", arts: 538 },
-        { d: "2026-10-12", s: "upk", a: "УПК РФ (Уголовно-процессуальный кодекс)", k: "code", add: ["91", "92"], chg: ["108"], del: ["475"], arts: 561 },
-        { d: "2026-10-12", s: "nk2", a: "НК РФ ч. II", k: "law", rep: ["nk2-143", "nk2-146"], res: ["nk2-163"], arts: 210 },
-        { d: "2026-10-12", s: "obzor-3-2026", a: "Обзор ВС РФ № 3 (2026)", k: "review", add: ["1*", "999"], arts: 52 },
-        { d: "2026-10-10", s: "fz44", a: "ФЗ о контрактной системе", k: "law", fresh: 1, arts: 12 },
-        { d: "2026-10-01", s: "zz-old", a: "Отменённый закон", k: "law", fresh: -1 }
+        { d: isoDay(0), s: "uk", a: "УК РФ (Уголовный кодекс)", k: "code", red: "2026-10-01", redFrom: "2026-08-15", arts: 538 },
+        { d: isoDay(0), s: "upk", a: "УПК РФ (Уголовно-процессуальный кодекс)", k: "code", add: ["91", "92"], chg: ["108"], del: ["475"], arts: 561 },
+        { d: isoDay(0), s: "nk2", a: "НК РФ ч. II", k: "law", rep: ["nk2-143", "nk2-146"], res: ["nk2-163"], arts: 210 },
+        { d: isoDay(0), s: "obzor-3-2026", a: "Обзор ВС РФ № 3 (2026)", k: "review", add: ["1*", "999"], arts: 52 },
+        { d: isoDay(2), s: "fz44", a: "ФЗ о контрактной системе", k: "law", fresh: 1, arts: 12 },
+        { d: isoDay(40), s: "zz-old", a: "Отменённый закон", k: "law", fresh: -1 }
       ]
     };
 
@@ -3228,9 +3242,19 @@ server.listen(0, "127.0.0.1", async () => {
     const nav2 = async (hash, ms) => { w2.location.hash = hash; await wait(ms || 200); };
 
     await nav2("#/new", 400);
+    /* Период по умолчанию — «Месяц», и запись старше 31 дня за него не
+       попадает. Её возвращает чип «Весь срок»: при отставшей ночной сборке
+       без этого варианта экран «за период изменений нет» был бы тупиком. */
+    ok("в периоде «Месяц» — пять записей", $$2("#view .ncard").length === 5,
+      $$2("#view .ncard").length + " карточек");
+    ok("запись старше периода скрыта", !$2('#view .ncard[data-ns="zz-old"]'));
+    const chipAll = $$2('#view [data-np="400"]')[0];
+    ok("чип периода «Весь срок» есть", !!chipAll && /Весь срок/.test(chipAll.textContent),
+      chipAll ? chipAll.textContent.trim() : "нет чипа");
+    if (chipAll) { chipAll.click(); await wait(300); }
     ok("записей в ленте — шесть", $$2("#view .ncard").length === 6, $$2("#view .ncard").length + " карточек");
     ok("даты сгруппированы", $$2("#view .ndate").length === 3, $$2("#view .ndate").length + " дат");
-    ok("первая дата — 12 октября 2026", /12 октября 2026/.test($2("#view .ndate").textContent || ""), T2("#view .ndate"));
+    ok("первая дата — сегодняшний день", (T2("#view .ndate") || "").includes(TODAY_LONG), T2("#view .ndate"));
     ok("сводка: редакции, статьи, статусы",
       /1/.test(T2("#view .grid .stat:nth-child(2)") || "") && /6/.test(T2("#view .grid .stat:nth-child(3)") || "") &&
       /3/.test(T2("#view .grid .stat:nth-child(4)") || ""),

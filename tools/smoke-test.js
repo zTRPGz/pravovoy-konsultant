@@ -3461,6 +3461,99 @@ server.listen(0, "127.0.0.1", async () => {
   ok("мелкий и вертикальный жест раздел не меняют", w.location.hash === hashSwipeC,
     hashSwipeC + " → " + w.location.hash);
 
+  section = "27. Судебные решения по конкретным делам"; console.log("\n" + section);
+
+  /* Кураторский слой RF_REF.decisions: проверяем не только данные, но и все
+     три точки показа. Карточки НАМЕРЕННО не имеют класса .result — иначе
+     раздел 6 считает их «лишним списком норм» в ответе Помощника. */
+  const DEC = (() => {
+    const box = { RF_REF: {} };
+    new Function("window", fs.readFileSync(path.join(ROOT, "data", "40-reference.js"), "utf8"))(box);
+    return box.RF_REF.decisions || [];
+  })();
+  ok("кураторский слой загружен", DEC.length >= 7, DEC.length + " решений");
+  ok("приложение видит тот же слой",
+    Array.isArray(w.RF_REF.decisions) && w.RF_REF.decisions.length === DEC.length,
+    w.RF_REF.decisions ? w.RF_REF.decisions.length + " записей" : "нет данных");
+
+  await nav("#/home", 250);
+  /* Плитки главной и чипы «тупиковых» страниц ходят по data-go, а не href:
+     так один обработчик обслуживает и клик, и клавиатуру. */
+  ok("на главной есть вход в раздел решений",
+    $$('#view .tool-link[data-go="#/decisions"]').length === 1,
+    $$('#view .tool-link[data-go="#/decisions"]').length + " плиток");
+
+  await nav("#/decisions", 350);
+  ok("раздел судебных решений открывается",
+    /Судебные решения ВС РФ/.test(T("#view h1") || ""), T("#view h1"));
+  const decCards = $$('#view .related[data-go^="#/decision/"]');
+  ok("в списке ровно все решения", decCards.length === DEC.length,
+    decCards.length + " карточек из " + DEC.length);
+  ok("у каждой карточки есть номер дела",
+    $$('#view .related[data-go^="#/decision/"] .badge-code').length === DEC.length);
+  ok("ссылки списка ведут на существующие решения",
+    decCards.every(el => DEC.some(x => x.id ===
+      decodeURIComponent((el.getAttribute("data-go") || "").replace("#/decision/", "")))),
+    decCards.length + " ссылок");
+  ok("в списке есть предупреждение о природе акта",
+    /не создаёт норму/.test($("#view").textContent || ""));
+
+  await nav("#/decision/vsrf-47apu16-9", 350);
+  ok("карточка апелляционного определения открывается",
+    /Амнистия/.test(T("#view h1") || ""), T("#view h1"));
+  ok("указан номер дела и реквизиты",
+    /47-АПУ16-9/.test($("#view").textContent || "") &&
+    /Биктимиров/.test($("#view").textContent || "") &&
+    /29\.11\.2016/.test($("#view").textContent || ""));
+  ok("правовая позиция выведена целиком",
+    /ч\. 5 ст\. 74 УК РФ/.test($("#view").textContent || "") &&
+    /ст\. 70 УК РФ/.test($("#view").textContent || ""));
+  ok("решение привязано к нормам базы",
+    $$('#view a[href="#/article/uk-74"]').length >= 1 &&
+    $$('#view a[href="#/article/uk-70"]').length >= 1);
+  ok("внешние источники открываются безопасно",
+    $$('#view a[target="_blank"]').length >= 2 &&
+    $$('#view a[target="_blank"]').every(a => /noopener/.test(a.getAttribute("rel") || "")) &&
+    $$('#view a[target="_blank"]').every(a => /^https:\/\//.test(a.getAttribute("href") || "")));
+  ok("на карточке есть дисклеймер и дата проверки",
+    /не создаёт норму/.test($("#view").textContent || "") &&
+    /12\.11\.2026/.test($("#view").textContent || ""));
+
+  await nav("#/decision/net-takogo-resheniya", 250);
+  ok("неизвестное решение отдаёт понятный тупик",
+    /не найдено/i.test($("#view").textContent || "") &&
+    $$('#view [data-go="#/decisions"]').length >= 1,
+    (T("#view .empty") || "").slice(0, 70));
+
+  /* Страница статьи: блок показывается строго по arts[], без поиска по словам. */
+  await nav("#/article/uk-74", 700);
+  const decOnArt = DEC.filter(x => (x.arts || []).indexOf("uk-74") !== -1).length;
+  ok("на странице нормы есть блок решений",
+    /Позиции ВС РФ по конкретным делам/.test($("#view").textContent || ""));
+  ok("показаны только решения, привязанные к этой норме",
+    $$('#view a[href^="#/decision/"]').length === decOnArt,
+    $$('#view a[href^="#/decision/"]').length + " из " + decOnArt);
+  ok("на странице нормы тоже есть дисклеймер",
+    /не создаёт норму/.test($("#view").textContent || ""));
+  await nav("#/article/gk1-1", 700);
+  ok("на чужой норме блок решений не появляется",
+    !/Позиции ВС РФ по конкретным делам/.test($("#view").textContent || ""));
+
+  /* Помощник: отдельный блок после «Судебной практики», не более трёх актов. */
+  await nav("#/assistant", 300);
+  $("#asInput").value = "Глазов, Савельев и Пигалов по взаимной договорённости проникли в гараж кооператива и похитили 150 кг бивня мамонта. Владелец утверждает, что купил бивни у геологов. Определите объект преступления.";
+  $("#asRun").dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  await wait(300);
+  const asDec = $$('#asOut .related[data-go^="#/decision/"]');
+  ok("Помощник показывает решения отдельным блоком",
+    $$("#asOut h2").some(el => /Решения ВС РФ по конкретным делам/.test(el.textContent || "")) &&
+    asDec.length >= 1, asDec.length + " актов");
+  ok("в Помощнике не больше трёх решений", asDec.length <= 3, asDec.length + " актов");
+  ok("решения не выдаются за результаты поиска по нормам",
+    $$('#asOut .result[data-go^="#/decision/"]').length === 0);
+  ok("рядом с блоком решений есть дисклеймер",
+    /не создаёт норму/.test($("#asOut").textContent || ""));
+
   console.log("\n" + "=".repeat(60));
   console.log("Ошибок в консоли: " + errors.length);
   errors.slice(0, 8).forEach(e => console.log("   " + e));

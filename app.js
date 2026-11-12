@@ -194,6 +194,12 @@
   var EXTRA = window.RF_EXTRA || { codes: [], articles: [] };
   var ANNOT = window.RF_ANNOT || {};
   var REF = window.RF_REF || {};
+  /* Кураторский слой судебных актов по конкретным делам (см. блок рядом с
+     relatedArticlesHtml). Объявлен здесь, у остальных данных: viewHome()
+     показывает на него ссылку, а он должен быть готов к первому рендеру. */
+  var DECISIONS = REF.decisions || [];
+  var DEC_BY_ID = {};
+  DECISIONS.forEach(function (d) { DEC_BY_ID[d.id] = d; });
   var TERMS = window.RF_TERMS || [];
   var IDX = window.RF_IDX || [];
   var FRESH = window.RF_FRESH || null;
@@ -3198,6 +3204,7 @@
     if (name === "checklist") return { name: "checklist", arg: parts[1] };
     if (name === "template") return { name: "template", arg: parts[1] };
     if (name === "suit") return { name: "suit", arg: parts[1] };
+    if (name === "decision") return { name: "decision", arg: dec(parts[1] || "") };
     if (name === "calc") return { name: "calc", arg: parts[1] || "base" };
     return { name: name, arg: parts[1] || null };
   }
@@ -3236,7 +3243,8 @@
       diff: "Сравнение редакций", compare: "Две статьи бок о бок", favorites: "Избранное",
       collection: "Подборка норм", cases: "Дела", timeline: "Лента изменений", stats: "Аналитика",
       graph: "Связи источников", help: "Как пользоваться", search: "Поиск",
-      terms: "Термины", term: "Термин", sources: "Источники"
+      terms: "Термины", term: "Термин", sources: "Источники",
+      decisions: "Судебные решения ВС РФ", decision: "Судебное решение"
     }[r.name];
     if (t !== undefined) {
       if (r.name === "search") return "Поиск" + (r.q ? ": " + r.q : "");
@@ -3580,6 +3588,8 @@
     else if (r.name === "template") v.innerHTML = viewTemplate(r.arg);
     else if (r.name === "suits") v.innerHTML = viewSuits();
     else if (r.name === "suit") v.innerHTML = viewSuit(r.arg);
+    else if (r.name === "decisions") v.innerHTML = viewDecisions();
+    else if (r.name === "decision") v.innerHTML = viewDecision(r.arg);
     else if (r.name === "freshness") v.innerHTML = viewFreshness();
     else if (r.name === "new") { v.innerHTML = viewNew(r.arg); bindNew(); }
     else if (r.name === "favorites") v.innerHTML = viewFavorites();
@@ -4052,6 +4062,7 @@
           toolLink("folder", "Дела", state.cases.length ? "Дел заведено: " + state.cases.length + " — нормы, заметки, журнал" : "Папки по делам: нормы с заметками и журнал", "#/cases", "amber") +
           toolLink("swap", "Сравнение", "Редакции источника и две статьи бок о бок", "#/diff", "violet") +
           toolLink("chart", "Аналитика", "Состав базы, статусы норм, лента изменений", "#/stats", "blue") +
+          (DECISIONS.length ? toolLink("scales", "Судебные решения", DECISIONS.length + " " + plural(DECISIONS.length, ["позиция", "позиции", "позиций"]) + " ВС РФ по конкретным делам", "#/decisions", "violet") : "") +
           toolLink("refresh", "Проверка актуальности", nUpd ? nUpd + " " + plural(nUpd, ["источник требует", "источника требуют", "источников требуют"]) + " обновления" : "Сверить редакции с официальным источником", "#/freshness", "green") +
           toolLink("ban", "Утратившие силу", (STATUS_META.total || 0) + " " + plural(STATUS_META.total || 0, ["норма утратила силу", "нормы утратили силу", "норм утратили силу"]), "#/repealed", "slate") +
           toolLink("activity", "Новое", "Что изменилось в базе за последние сборки", "#/new", "amber") +
@@ -4873,6 +4884,7 @@
       articleChronoHtml(id) +
       incomingRefsPanel(id) +
       relatedArticlesHtml(a) +
+      decisionsForArticleHtml(id) +
       '<div class="section-label" style="margin-top:22px">Официальный текст статьи</div>' +
       '<div class="article-body" id="artText"><div class="loading">Загрузка полного текста…</div></div>' +
       actions +
@@ -8395,6 +8407,18 @@
               (c.redaction ? "<span>ред. от " + esc(fmtRed(c.redaction)) + "</span>" : "") + "</div>" +
           "</div>";
         }).join("");
+    }
+
+    /* Отдельные судебные акты по конкретным делам идут СВОИМ блоком, после
+       постановлений Пленума: у них другая природа и другой дисклеймер. В режим
+       «ответ только по одному источнику» не добавляем — там перечень уже
+       ограничен выбранным актом, и блок сверху противоречил бы запросу. */
+    var decMatches = [];
+    if (!sc.length) decMatches = decisionsForAssistant(help, keyIds);
+    if (decMatches.length) {
+      html += '<h2>Решения ВС РФ по конкретным делам</h2>' +
+        '<div class="small muted" style="margin:-6px 0 12px">' + esc(decisionDisclaimer()) + "</div>" +
+        decMatches.map(decisionCardHtml).join("");
     }
 
     /* Близкие нормы теперь выводятся в блоке «Вывод по запросу» (conclusionBox),
@@ -14247,6 +14271,7 @@
         "<p>В сайдбаре слева — все акты, сгруппированные по виду: Конституция, Кодексы, ФКЗ, ФЗ, постановления Правительства, указы Президента, постановления Пленума ВС РФ и обзоры судебной практики. Группу можно <b>свернуть и развернуть</b> кликом по заголовку — состояние запоминается.</p>" +
         "<p>Отдельная вкладка <b>«Источники»</b> показывает весь реестр одним списком: фильтр по названию, коду или номеру, группы по виду акта. У каждой карточки две кнопки — <b>«Открыть»</b> (читать статьи по главам) и <b>«Спросить Помощника»</b>: вопрос решается в режиме «ответ только по этому источнику», то есть помощник опирается исключительно на нормы выбранного акта. Режим включается сразу и действует до конца сеанса; вернуть ответ по всей базе можно кнопкой «Снять всё» в списке источников на странице Помощника.</p>" +
         "<p>Судебная практика — два вида актов, они не смешиваются: <b>постановления Пленума ВС РФ</b> (разъяснения) и <b>обзоры судебной практики</b>, утверждённые Президиумом ВС РФ. Обзор открывается как обычный источник — со списком пунктов, оглавлением по разделам и датой утверждения.</p>" +
+        "<p>Отдельно от них — раздел <b>«Судебные решения»</b>: отобраны вручную апелляционные и кассационные определения ВС РФ по конкретным делам. Это третий, справочный слой: такие акты не создают норму и не обязательны для других дел, поэтому они не попали ни в реестр источников, ни в поиск по тексту, ни в граф связей. Карточка решения показывает правовую позицию, нормы базы, пункт обзора, если он есть на сайте, и проверенные внешние источники. Те же решения появляются на страницах статей и в ответе Помощника — всегда со своей пометкой о природе акта.</p>" +
         "<p>Приложение сверяет даты редакций «день в день» и показывает результат значком в панели. Нормы, утратившие силу, помечены зачёркиванием и серой плашкой; полный реестр — в разделе <b>«Утратившие силу»</b>, где список можно отсеять по периоду («за месяц», «за неделю») и по году с месяцем. Если акт утратил силу целиком, на странице акта и на каждой его статье показывается красный баннер, а там, где замена известна, — чем именно акт заменён.</p>" +
         "<p><b>«Новое»</b> — лента изменений по дням: новые статьи, новые редакции, утрата силы. <b>«Аналитика»</b> — сводные цифры, лента по годам и <b>«Связи источников»</b>: граф перекрёстных ссылок между актами. Размер кружка — сколько ссылок ведёт к акту и из него, толщина линии — сколько раз акты ссылаются друг на друга. Нажмите на кружок, чтобы увидеть, на какие акты ссылается этот и кто ссылается на него. Граф посчитан заранее при сборке базы, поэтому открывается сразу.</p>") +
 
@@ -15679,6 +15704,166 @@
           '<span class="badge badge-code" style="border-color:' + c.color + '44;color:' + c.color + '">' + esc(c.short) + "</span>" +
           '<span class="related-t">' + esc(unitShort(c, b.dn)) + " · " + esc(b.t) + "</span></a>";
       }).join("") + "</div></div>";
+  }
+
+  /* ======================================================================
+     Кураторский слой судебных решений по конкретным делам.
+
+     Данные — RF_REF.decisions (data/40-reference.js). Это НЕ источники базы:
+     решения не попадают в RF_CODES / RF_IDX / полнотекстовый поиск / граф
+     связей, потому что не являются нормами. Пленумы и обзоры уже лежат в
+     реестре отдельными видами актов; подмешивать к ним единичные определения
+     нельзя — Помощник стал бы выдавать их как «норму». Три точки показа:
+       1) страница статьи — по arts[];
+       2) ответ Помощника — по help[] и по нормам, вошедшим в ответ;
+       3) отдельный раздел #/decisions и карточка #/decision/<id>.
+     Рядом с каждым блоком — дисклеймер: акт по конкретному делу не создаёт
+     норму и не обязателен для других дел.
+     ====================================================================== */
+  function decisionById(id) { return DEC_BY_ID[id] || null; }
+
+  function decisionShort(s, n) {
+    s = String(s || "");
+    return s.length > n ? s.slice(0, n).replace(/\s+\S*$/, "") + "…" : s;
+  }
+  function decisionSortKey(d) {
+    var m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(d.date || "");
+    return m ? m[3] + m[2] + m[1] : "00000000";
+  }
+  function decisionCite(d) {
+    return d.form + " " + d.court + (d.date ? " от " + d.date : "") + " № " + d.case_no;
+  }
+  function decisionDisclaimer() {
+    return "Судебный акт по конкретному делу не создаёт норму и не является разъяснением Пленума ВС РФ. Позиция не обязательна для других дел — сверьтесь с текстом решения и с действующей редакцией закона.";
+  }
+
+  /* Карточка решения НАМЕРЕННО не использует класс .result: это не результат
+     поиска по нормам. Смоук-тест считает «лишним списком норм» каждый .result
+     среди прямых потомков #asOut вне блока «Судебная практика», и кураторский
+     блок с отдельным заголовком ломал бы эту проверку. Разметка .related уже
+     пережила все мобильные ловушки (длинные плашки, nowrap, переносы). */
+  function decisionCardHtml(d) {
+    return '<div class="related" data-go="#/decision/' + encodeURIComponent(d.id) + '" style="cursor:pointer">' +
+      '<div class="related-h">' +
+        '<span class="badge badge-code">' + esc(d.case_no) + "</span>" +
+        ic("scales") +
+        "<span>" + esc(d.title) + "</span>" +
+      "</div>" +
+      '<div class="related-list" style="padding-top:0">' +
+        '<div class="related-t" style="padding:0 8px 4px">' + esc(decisionShort(d.position, 190)) + "</div>" +
+      "</div>" +
+      '<div class="small muted" style="padding:0 12px 10px">' + esc(d.form) +
+        (d.date ? " · " + esc(d.date) : "") + " · " + esc(d.area) +
+        (d.review ? " · пункт обзора ВС РФ — на сайте" : "") + "</div>" +
+      "</div>";
+  }
+
+  /* На странице статьи показываем только решения, у которых эта норма прямо
+     указана в arts[]. Никакого поиска по словам: кураторский слой намеренно
+     маленький и точный, случайные совпадения здесь вреднее пустого блока. */
+  function decisionsForArticleHtml(artId) {
+    var list = DECISIONS.filter(function (d) { return (d.arts || []).indexOf(artId) !== -1; });
+    if (!list.length) return "";
+    return '<div class="related">' +
+      '<div class="related-h">' + ic("scales") + ' Позиции ВС РФ по конкретным делам' +
+        '<span class="small muted">судебные акты по этой норме — подобраны вручную</span></div>' +
+      '<div class="related-list">' + list.map(function (d) {
+        return '<a class="related-item" href="#/decision/' + encodeURIComponent(d.id) + '">' +
+          '<span class="badge badge-code">' + esc(d.case_no) + "</span>" +
+          '<span class="related-t">' + esc(d.title) + "</span></a>";
+      }).join("") + "</div>" +
+      '<div class="small muted" style="padding:0 12px 10px">' + esc(decisionDisclaimer()) + "</div>" +
+      "</div>";
+  }
+
+  /* В Помощнике решение подбирается двумя путями: явная привязка к разбору
+     (help[]) весит сильнее, чем совпадение нормы из ответа (arts[]). Берём не
+     больше трёх — блок не должен вытеснять нормы и постановления Пленума. */
+  function decisionsForAssistant(helpItems, keyArticleIds) {
+    var hid = {}, aid = {}, out = [];
+    (helpItems || []).forEach(function (x) { if (x && x.h && x.h.id) hid[x.h.id] = 1; });
+    (keyArticleIds || []).forEach(function (a) { if (a && a.id) aid[a.id] = 1; });
+    DECISIONS.forEach(function (d) {
+      var w = 0;
+      (d.help || []).forEach(function (h) { if (hid[h]) w += 2; });
+      (d.arts || []).forEach(function (a) { if (aid[a]) w += 1; });
+      if (w) out.push({ d: d, w: w });
+    });
+    out.sort(function (a, b) { return b.w - a.w; });
+    return out.slice(0, 3).map(function (x) { return x.d; });
+  }
+
+  function viewDecisions() {
+    var sorted = DECISIONS.slice().sort(function (a, b) {
+      var ka = decisionSortKey(a), kb = decisionSortKey(b);
+      return kb > ka ? 1 : kb < ka ? -1 : 0;
+    });
+    return "<h1>Судебные решения ВС РФ</h1>" +
+      '<p class="lead">' + sorted.length + " " + plural(sorted.length, ["решение", "решения", "решений"]) +
+      " по конкретным уголовным делам: перерастание кражи в разбой, проникновение в помещение, умысел на убийство, поджог имущества, понятые при задержании, амнистия и прежнее условное осуждение, отягчающие обстоятельства при ДТП.</p>" +
+      '<div class="note-box" style="border-left-color:var(--accent)">' +
+        '<div class="section-label" style="margin-top:0">Три разных слоя, не смешивайте их</div>' +
+        "<p><b>Нормы</b> — кодексы и законы в реестре источников. <b>Разъяснения</b> — постановления Пленума ВС РФ. <b>Обзоры практики</b> — акты, утверждённые Президиумом ВС РФ, они открываются как обычные источники. " +
+        "Здесь же — <b>отдельные судебные акты по конкретным делам</b>: их позиции полезны как иллюстрация применения нормы, но обязательной силы для других дел не имеют.</p>" +
+        "<p class=\"small muted\">Отбор ручной, под разборы Помощника. У каждого решения указаны нормы базы, пункт обзора ВС РФ, если он есть на сайте, и проверенные внешние источники.</p>" +
+      "</div>" +
+      sorted.map(decisionCardHtml).join("") +
+      '<div class="disclaimer"><b>Важно.</b> ' + esc(decisionDisclaimer()) + "</div>";
+  }
+
+  function viewDecision(id) {
+    var d = decisionById(id);
+    if (!d) {
+      return deadEndView("scales", "Судебное решение не найдено.",
+        "Такой записи нет в текущей сборке: ссылка устарела или решение ещё не добавлено.",
+        [["Все судебные решения", "#/decisions"], ["Разобрать ситуацию", "#/assistant"], ["Навигатор", "#/home"]]);
+    }
+    var arts = (d.arts || []).map(function (aid) { return byId[aid]; }).filter(Boolean);
+    var artsHtml = arts.length ? "<h2>Нормы, к которым отнесено решение</h2>" +
+      '<div class="chips">' + arts.map(function (a) {
+        var c = codeById(a.c) || { short: a.c };
+        return '<a class="chip" href="#/article/' + encodeURIComponent(a.id) + '">' +
+          esc(c.short) + " · ст. " + esc(a.dn) + " " + esc(a.t) + "</a>";
+      }).join("") + "</div>" : "";
+    var helps = (d.help || []).map(function (hid) {
+      return (REF.help || []).filter(function (h) { return h.id === hid; })[0];
+    }).filter(Boolean);
+    var helpHtml = helps.length ? "<h2>Разборы Помощника</h2>" +
+      '<div class="chips">' + helps.map(function (h) {
+        return '<span class="chip">' + esc(h.t) + "</span>";
+      }).join("") + '<a class="chip" href="#/assistant">Открыть Помощник →</a></div>' : "";
+    var rev = d.review && byId[d.review] ? byId[d.review] : null;
+    var reviewHtml = rev ? "<h2>Текст позиции в обзоре ВС РФ</h2>" +
+      '<div class="related"><div class="related-list">' +
+        '<a class="related-item" href="#/article/' + encodeURIComponent(rev.id) + '">' +
+          '<span class="badge badge-code">' + esc((codeById(rev.c) || { short: rev.c }).short) + "</span>" +
+          '<span class="related-t">' + esc(rev.t) + "</span></a>" +
+      "</div></div>" : "";
+    var srcHtml = "<h2>Источники</h2>" +
+      '<div class="related"><div class="related-list">' + (d.sources || []).map(function (s) {
+        return '<a class="related-item" href="' + esc(s.url) + '" target="_blank" rel="noopener">' +
+          '<span class="related-t">' + esc(s.label) + " ↗</span></a>";
+      }).join("") + "</div></div>";
+    return '<div class="crumbs"><span class="lnk" data-go="#/decisions">Судебные решения ВС РФ</span></div>' +
+      "<h1>" + esc(d.title) + "</h1>" +
+      '<div class="result-meta" style="margin:-6px 0 14px">' +
+        '<span class="badge badge-code">' + esc(d.case_no) + "</span>" +
+        "<span>" + esc(d.form) + "</span>" +
+        (d.date ? "<span>от " + esc(d.date) + "</span>" : "") +
+        "<span>" + esc(d.area) + "</span>" +
+      "</div>" +
+      '<div class="note-box" style="border-left-color:var(--accent)">' +
+        '<div class="section-label" style="margin-top:0">Реквизиты</div>' +
+        "<p>" + esc(decisionCite(d)) + (d.person ? " · по делу " + esc(d.person) : "") + "</p>" +
+        (!d.date && d.date_note ? '<p class="small muted">' + esc(d.date_note) + "</p>" : "") +
+        (d.review_date ? '<p class="small muted">Позиция опубликована в обзоре, утв. ' + esc(d.review_date) + ".</p>" : "") +
+      "</div>" +
+      '<h2>Правовая позиция</h2><div class="article-body"><p>' + esc(d.position) + "</p></div>" +
+      (d.summary ? '<h2>Что решил суд по делу</h2><div class="article-body"><p>' + esc(d.summary) + "</p></div>" : "") +
+      (d.note ? '<div class="note-box">' + esc(d.note) + "</div>" : "") +
+      reviewHtml + artsHtml + helpHtml + srcHtml +
+      '<div class="disclaimer"><b>Важно.</b> ' + esc(decisionDisclaimer()) +
+        " Ссылки и позиции проверены " + esc(d.verified_at) + ".</div>";
   }
 
   function findRow(rows, num) {

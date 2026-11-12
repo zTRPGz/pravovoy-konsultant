@@ -739,6 +739,76 @@ check("каждый RETIRED продублирован в ALLOWED_LOSS",
   retiredIds.every((id) => lossBlock.indexOf('"' + id + '"') !== -1),
   retiredIds.length ? "не продублированы: " + retiredIds.join(", ") : "список пуст");
 
+/* 5h ------------------------------------------------- судебные решения */
+console.log("\n5h. Кураторский слой судебных решений");
+
+/* Апелляционные/кассационные определения по конкретным делам — третий слой,
+   а не «ещё один вид практики». Главный риск: случайно записать их в реестр
+   источников или в поисковый индекс, и Помощник начнёт выдавать акт по делу
+   как норму. Проверяем и данные, и три точки показа в app.js. */
+const decisions = ref.decisions || [];
+const decAppSrc = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+const decGraphSrc = fs.readFileSync(path.join(ROOT, "data", "graph.js"), "utf8");
+const helpIdSet = {};
+(ref.help || []).forEach((h) => { helpIdSet[h.id] = 1; });
+
+const decProblems = [];
+const decSeen = {};
+decisions.forEach((d) => {
+  const where = d.id || d.case_no || "(без id)";
+  if (!d.id || !d.case_no || !d.title || !d.court || !d.form || !d.area) {
+    decProblems.push(where + ": не заполнены реквизиты");
+  }
+  if (d.kind !== "decision") decProblems.push(where + ": kind обязан быть decision");
+  if (d.id) { if (decSeen[d.id]) decProblems.push("дубль id: " + d.id); decSeen[d.id] = 1; }
+  if (!Array.isArray(d.arts) || !d.arts.length) decProblems.push(where + ": нет arts[]");
+  (d.arts || []).forEach((a) => { if (!known[a]) decProblems.push(where + " → битая статья " + a); });
+  (d.help || []).forEach((h) => { if (!helpIdSet[h]) decProblems.push(where + " → битый разбор " + h); });
+  if (d.review && !known[d.review]) decProblems.push(where + " → битый пункт обзора " + d.review);
+  if (!d.position || !d.summary) decProblems.push(where + ": нет позиции или описания дела");
+  if (!Array.isArray(d.sources) || !d.sources.length) decProblems.push(where + ": нет источников");
+  (d.sources || []).forEach((s) => {
+    if (!/^https:\/\//.test(s.url || "") || !s.label) decProblems.push(where + ": ссылка без https или без подписи");
+  });
+  if (!/^\d{2}\.\d{2}\.\d{4}$/.test(d.verified_at || "")) decProblems.push(where + ": нет даты проверки");
+  if (d.date && !/^\d{2}\.\d{2}\.\d{4}$/.test(d.date)) decProblems.push(where + ": кривая дата решения");
+  if (!d.date && !d.date_note) decProblems.push(where + ": дата не указана и не объяснена");
+});
+check("структура и ссылки судебных решений корректны", decProblems.length === 0,
+  decProblems.length ? decProblems.slice(0, 6).join("; ") : decisions.length + " решений");
+check("слой не пуст", decisions.length > 0, decisions.length + " записей");
+check("решения не объявлены пленумами или обзорами",
+  decisions.every((d) => d.kind !== "plenum" && d.kind !== "review") &&
+  !codes.some((c) => c.kind === "decision"),
+  "иначе Помощник выдаст акт по делу как разъяснение нормы");
+check("решения не попали в реестр, индекс и граф связей",
+  decisions.every((d) => !codes.some((c) => c.id === d.id) &&
+    !idx.some((r) => r[0] + "-" + r[1] === d.id) &&
+    decGraphSrc.indexOf('"' + d.id + '"') === -1),
+  "иначе единичный акт станет источником базы");
+check("на странице статьи есть блок решений по arts[]",
+  /decisionsForArticleHtml\(id\)/.test(decAppSrc) &&
+  /var list = DECISIONS\.filter\(/.test(decAppSrc),
+  "иначе кураторский слой видно только со своего раздела");
+check("Помощник показывает решения отдельным блоком после Пленумов",
+  /Решения ВС РФ по конкретным делам/.test(decAppSrc) &&
+  /decisionsForAssistant\(help, keyIds\)/.test(decAppSrc) &&
+  decAppSrc.indexOf("decisionsForAssistant(help, keyIds)") > decAppSrc.indexOf("<h2>Судебная практика<"),
+  "блок «Судебная практика» остаётся только про постановления Пленума");
+check("режим одного источника не добавляет чужие решения",
+  /if \(!sc\.length\) decMatches = decisionsForAssistant/.test(decAppSrc),
+  "иначе «ответь только по УК» покажет сверху ещё и практику");
+check("есть раздел со списком и карточка решения",
+  /r\.name === "decisions"/.test(decAppSrc) &&
+  /r\.name === "decision"/.test(decAppSrc) &&
+  /name === "decision"\) return \{ name: "decision"/.test(decAppSrc) &&
+  /function viewDecision\(/.test(decAppSrc) &&
+  /#\/decisions/.test(decAppSrc),
+  "иначе слой недоступен с главной и по прямой ссылке");
+check("дисклеймер о природе акта стоит во всех точках показа",
+  (decAppSrc.match(/decisionDisclaimer\(\)/g) || []).length >= 4,
+  "статья, Помощник, список, карточка");
+
 /* 6 --------------------------------------------------------------- шаблоны */
 console.log("\n6. Шаблоны документов");
 const tplProblems = [];

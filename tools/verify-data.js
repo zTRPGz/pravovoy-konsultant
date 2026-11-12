@@ -710,6 +710,35 @@ if (fs.existsSync(EXTRA_TOOL)) {
   });
 }
 
+/* 5g ------------------------ Пленум, пропавший из каталога sudact.ru */
+console.log("\n5g. Пленум, выпавший из каталога");
+
+/* Портал убрал строку Пленума № 3 от 03.04.2008 из /vsrf/plenum/, оставив
+   саму страницу текста. Защита «опубликованное не может исчезнуть» валила
+   ночную сборку четыре ночи подряд, хотя акт можно было просто докачать по
+   source_url из реестра. Проверяем, что догрузка осталась и что она идёт
+   ДО раздачи идентификаторов: иначе восстановленный акт занял бы чужой id. */
+const PLENUM_TOOL = path.join(ROOT, "tools", "fetch-plenums.js");
+const pSrc = fs.readFileSync(PLENUM_TOOL, "utf8");
+const restoreAt = pSrc.indexOf("восстановлено из реестра");
+check("пропавший из каталога Пленум догружается по прямой ссылке реестра",
+  /const dropped = published\.filter\(/.test(pSrc) && restoreAt !== -1 &&
+  /c\.source_url \|\| BASE/.test(pSrc) && /done\.push\(res\)/.test(pSrc),
+  "иначе один исчезнувший из каталога акт останавливает весь ночной прогон");
+check("идентификаторы выдаются после догрузки",
+  restoreAt !== -1 && pSrc.indexOf("const bases = done.map") > restoreAt);
+check("если не отдалась и страница текста — прогон по-прежнему красный",
+  /if \(fatal\.length\)/.test(pSrc) && /process\.exitCode = 1/.test(pSrc));
+/* RETIRED без зеркальной записи в ALLOWED_LOSS — тупик: загрузчик забудет
+   про акт, а защита реестра не даст его удалить и уронит сборку данных. */
+const retBlock = (pSrc.match(/const RETIRED = \{[\s\S]*?\n\};/) || [""])[0];
+const bdSrc = fs.readFileSync(path.join(ROOT, "tools", "build-data.js"), "utf8");
+const lossBlock = (bdSrc.match(/const ALLOWED_LOSS = \{[\s\S]*?\n  \};/) || [""])[0];
+const retiredIds = (retBlock.match(/"[a-z0-9-]+"\s*:/g) || []).map((s) => s.replace(/["\s:]/g, ""));
+check("каждый RETIRED продублирован в ALLOWED_LOSS",
+  retiredIds.every((id) => lossBlock.indexOf('"' + id + '"') !== -1),
+  retiredIds.length ? "не продублированы: " + retiredIds.join(", ") : "список пуст");
+
 /* 6 --------------------------------------------------------------- шаблоны */
 console.log("\n6. Шаблоны документов");
 const tplProblems = [];

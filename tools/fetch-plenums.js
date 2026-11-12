@@ -192,6 +192,15 @@ const KNOWN = [
   }
 ];
 
+/* Акты, которые sudact.ru убрал навсегда вместе со страницей. Такой id
+   исключается из числа опубликованных: иначе ночная сборка каждую ночь
+   пыталась бы скачать мёртвый адрес и падала. Каждый id ОБЯЗАТЕЛЕН ещё и в
+   ALLOWED_LOSS (tools/build-data.js) — без этого защита реестра не даст базе
+   честно потерять источник. Оба списка заполняются только вручную, с причиной. */
+const RETIRED = {
+  /* "plenumNN-YYYY": "причина" */
+};
+
 async function loadCatalogue(noCache) {
   const seen = Object.create(null);
   const all = [];
@@ -552,40 +561,70 @@ async function main() {
     vm.createContext(ctx);
     vm.runInContext(fs.readFileSync(path.join(ROOT, "data", "registry.js"), "utf8"), ctx);
     (ctx.window.RF_CODES || []).forEach((c) => {
-      if (c.kind === "plenum" && c.source_url) {
-        const slug = stableIds.slugTail(c.source_url);
-        prevIds[c.id] = slug;
-        published.push({ id: c.id, slug: slug, title: c.short || c.id });
-      }
+      if (c.kind !== "plenum" || !c.source_url || RETIRED[c.id]) return;
+      const slug = stableIds.slugTail(c.source_url);
+      prevIds[c.id] = slug;
+      published.push({ id: c.id, slug: slug, title: c.short || c.id, reg: c });
     });
   } catch (e) { /* реестра ещё нет — собираем с нуля */ }
-  const bases = done.map((d) => d.app_id);
-  stableIds.assignStableIds(done, prevIds);
-  done.forEach((d, i) => {
-    if (bases[i] !== d.app_id) console.log("  суффикс за коллизию номера: " + bases[i] + " → " + d.app_id);
-  });
 
   /* Опубликованный акт не имеет права исчезнуть из выгрузки. Каталог sudact.ru
      отдаёт страницы с паузами, обход прерывается на первой неудачной, и акты с
      поздних страниц выпадают из набора — так 31.10.2026 пропали № 12 от
      18.05.2023 и № 40, № 41 от 22.12.2022. Раньше это становилось видно только
-     по записям ленты «убран из базы». Прогон считаем неудачным: сборка данных
-     всё равно встала бы на защите реестра (tools/build-data.js), а здесь
-     называется конкретный документ и способ его вернуть. */
+     по записям ленты «убран из базы», поэтому здесь стоит жёсткая проверка.
+
+     Но сам по себе прогон не должен падать из-за того, что портал перестал
+     показывать акт в КАТАЛОГЕ, хотя страница документа жива. Так было с
+     09.11.2026: sudact убрал из /vsrf/plenum/ строку Пленума № 3 от
+     03.04.2008, текст по прямой ссылке открывался, а ночная сборка в четырёх
+     прогонах (05, 09, 10 и 11 ноября) вставала на этой проверке — без коммита,
+     без сборки данных и без публикации. Теперь пропавший акт
+     догружается по source_url из закоммиченного реестра; падение остаётся
+     только для случая, когда не отдаётся и сама страница текста. */
   const loadedSlugs = Object.create(null);
   done.forEach((d) => { loadedSlugs[stableIds.slugTail(d.slug)] = 1; });
   const dropped = published.filter((p) => !loadedSlugs[p.slug]);
-  if (dropped.length) {
-    console.error("\nНЕ ЗАГРУЗИЛОСЬ постановлений, уже опубликованных в базе: " + dropped.length);
-    dropped.forEach((p) => console.error("  • " + p.id + " — " + String(p.title).slice(0, 70) +
-      "\n      https://sudact.ru/law/" + p.slug + "/"));
-    console.error("Прогоните загрузку заново (sudact.ru мог прервать выдачу страниц). Если");
-    console.error("акт больше не в каталоге, но текст нужен — добавьте его слаг в KNOWN в");
-    console.error("tools/fetch-plenums.js; если акт упразднён навсегда — внесите его id в");
-    console.error("ALLOWED_LOSS в tools/build-data.js с причиной.");
+  const fatal = [];
+  for (let i = 0; i < dropped.length; i++) {
+    const p = dropped[i], c = p.reg || {};
+    const row = {
+      slug: "law/" + p.slug,
+      url: c.source_url || BASE + "/law/" + p.slug + "/",
+      adopted: c.adopted || "",
+      number: c.number || "",
+      redaction: c.redaction || "",
+      title_short: c.dataset || p.title
+    };
+    let res;
+    try { res = await buildOne(row); }
+    catch (e) { res = { error: String(e && e.message || e) }; }
+    if (res.error) { fatal.push({ p: p, error: res.error }); continue; }
+    done.push(res);
+    loadedSlugs[p.slug] = 1;
+    console.log("  восстановлено из реестра (нет в каталоге, текст по прямой ссылке): " +
+      p.id + " · " + res.n_articles + " п. · " + p.slug);
+  }
+  if (fatal.length) {
+    console.error("\nНЕ ВОССТАНОВИЛОСЬ опубликованных постановлений: " + fatal.length);
+    fatal.forEach((f) => console.error("  • " + f.p.id + " — " + String(f.p.title).slice(0, 70) +
+      "\n      https://sudact.ru/law/" + f.p.slug + "/\n      причина: " + f.error));
+    console.error("Акта нет в каталоге и не отдалась страница текста. Если страница просто");
+    console.error("не открылась с первого раза — прогоните загрузку заново. Если акт убран");
+    console.error("навсегда — внесите его id в RETIRED (tools/fetch-plenums.js) и в");
+    console.error("ALLOWED_LOSS (tools/build-data.js), оба с причиной.");
     process.exitCode = 1;
     return;
   }
+
+  /* Идентификаторы выдаём ПОСЛЕ догрузки: восстановленный акт участвует в
+     общей раздаче суффиксов, иначе он получил бы «голый» id, уже занятый
+     другим документом с тем же номером и годом. */
+  const bases = done.map((d) => d.app_id);
+  stableIds.assignStableIds(done, prevIds);
+  done.forEach((d, i) => {
+    if (bases[i] !== d.app_id) console.log("  суффикс за коллизию номера: " + bases[i] + " → " + d.app_id);
+  });
 
   /* Новые постановления — в начале списка: практика последних лет нужнее. */
   done.sort((a, b) => {

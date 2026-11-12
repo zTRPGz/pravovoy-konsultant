@@ -24,10 +24,10 @@
 <meta property="og:locale" content="ru_RU">
 <meta property="og:url" content="https://ztrpgz.github.io/pravovoy-konsultant/">
 <meta property="og:title" content="Правовой консультант — кодексы, сроки, памятки, шаблоны документов">
-<meta property="og:description" content="441 источник и 30 943 статьи: поиск по тексту, разбор ситуации с указанием норм, калькуляторы сроков и пошлин, памятки, чек-листы и готовые шаблоны. Бесплатно, без регистрации, работает офлайн.">
+<meta property="og:description" content="444 источника и 30 991 статья: поиск по тексту, разбор ситуации с указанием норм, решения ВС РФ по конкретным делам, калькуляторы сроков и пошлин, памятки и шаблоны. Бесплатно, без регистрации, работает офлайн.">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Правовой консультант — кодексы, сроки, памятки, шаблоны документов">
-<meta name="twitter:description" content="Поиск по 30 943 статьям, разбор ситуации, калькуляторы сроков и пошлин, чек-листы и бланки. Бесплатно, без регистрации, работает офлайн.">
+<meta name="twitter:description" content="Поиск по 30 991 статье, разбор ситуации, судебные решения ВС РФ по делам, калькуляторы сроков и пошлин, чек-листы и бланки. Бесплатно, без регистрации, работает офлайн.">
 <!-- Метка версии из адреса (?v=…). GitHub Pages не даёт задавать заголовки
      кеширования: и разметка, и styles.css, и app.js уходят с max-age=600.
      Из-за этого браузер до десяти минут показывал старую вёрстку и старый
@@ -113,6 +113,12 @@
         </div>
         <div class="nav-item" data-nav="sources" data-href="#/sources">
           <span class="ico" data-ico="scales"></span><span class="lbl">Источники</span>
+        </div>
+        <!-- Отдельный слой судебных актов по конкретным делам. Без пункта меню
+             раздел был доступен только по прямому адресу #/decisions и плитке
+             на главной — читатели просто не находили добавленные решения. -->
+        <div class="nav-item" data-nav="decisions" data-href="#/decisions">
+          <span class="ico" data-ico="book"></span><span class="lbl">Судебные решения<span class="cnt" id="decCount">0</span></span>
         </div>
       </div>
 

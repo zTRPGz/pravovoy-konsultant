@@ -3554,6 +3554,64 @@ server.listen(0, "127.0.0.1", async () => {
   ok("рядом с блоком решений есть дисклеймер",
     /не создаёт норму/.test($("#asOut").textContent || ""));
 
+  /* --- находимость: до этой правки раздел открывался только по прямому
+     адресу #/decisions, а номер дела вообще нигде не искался. Читатель
+     закономерно писал «не нашёл добавленные акты». ---------------------- */
+  section = "28. Как найти судебные решения"; console.log("\n" + section);
+
+  const menuDec = $$('.nav-item[data-nav="decisions"]');
+  ok("в боковом меню есть пункт «Судебные решения»",
+    menuDec.length === 1 && /Судебные решения/.test(menuDec[0].textContent || ""),
+    menuDec.length + " пунктов");
+  ok("счётчик в меню равен числу решений",
+    T("#decCount") === String(DEC.length), T("#decCount"));
+
+  await nav("#/decisions", 250);
+  ok("пункт меню подсвечен на списке решений",
+    $$('.nav-item.active[data-nav="decisions"]').length === 1);
+  await nav("#/decision/vsrf-47apu16-9", 250);
+  ok("пункт меню подсвечен и на карточке решения",
+    $$('.nav-item.active[data-nav="decisions"]').length === 1);
+
+  await nav("#/home", 250);
+  ok("в шапке главной есть быстрый чип раздела",
+    $$('#view .hd-chip[data-go="#/decisions"]').length === 1,
+    $$('#view .hd-chip[data-go="#/decisions"]').length + " чипов");
+
+  /* Подсказки по ходу ввода: номер дела должен узнаваться ещё до Enter. */
+  const decSugInput = $("#searchInput");
+  decSugInput.value = "47-АПУ16-9";
+  decSugInput.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await wait(300);
+  ok("номер дела находится в подсказках строки поиска",
+    !!$('#searchSug .sg-item[data-sug-go="#/decision/vsrf-47apu16-9"]'),
+    T("#searchSug") || "панели нет");
+  ok("подсказка подписана как решение по делу",
+    /Решение по делу/.test(T("#searchSug") || ""));
+
+  await nav("#/search/" + encodeURIComponent("47-АПУ16-9"), 300);
+  const decInSearch = $$('#view .related[data-go^="#/decision/"]');
+  ok("поиск по номеру дела показывает нужное решение",
+    decInSearch.some(el => el.getAttribute("data-go") === "#/decision/vsrf-47apu16-9"),
+    decInSearch.length + " карточек");
+  ok("решения в выдаче не выдаются за статьи",
+    $$('#view .result[data-go^="#/decision/"]').length === 0);
+  ok("блок решений озаглавлен и снабжён дисклеймером",
+    $$('#view h2').some(el => /Судебные решения ВС РФ/.test(el.textContent || "")) &&
+    /не создаёт норму/.test(T("#view") || ""));
+  ok("из блока можно перейти ко всем решениям",
+    $$('#view [data-go="#/decisions"]').length >= 1);
+
+  await nav("#/search/" + encodeURIComponent("суд"), 200);
+  ok("широкий запрос не засорён решениями",
+    $$('#view .related[data-go^="#/decision/"]').length === 0 &&
+    !$$('#view h2').some(el => /Судебные решения ВС РФ/.test(el.textContent || "")));
+
+  await nav("#/search", 200);
+  ok("на пустой странице поиска есть пример номера дела",
+    $$('#view .chip[data-go^="#/search/"]').some(c => /47-АПУ16-9/.test(c.textContent || "")),
+    "иначе читатель не догадается, что дела тоже ищутся");
+
   console.log("\n" + "=".repeat(60));
   console.log("Ошибок в консоли: " + errors.length);
   errors.slice(0, 8).forEach(e => console.log("   " + e));

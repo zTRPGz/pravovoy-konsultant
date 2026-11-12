@@ -809,6 +809,39 @@ check("дисклеймер о природе акта стоит во всех 
   (decAppSrc.match(/decisionDisclaimer\(\)/g) || []).length >= 4,
   "статья, Помощник, список, карточка");
 
+/* Находимость слоя. Данные и роутинг были выложены, но раздел открывался
+   только по прямому адресу и плитке в конце «Инструментов»: читатели
+   закономерно писали «не нашёл добавленные акты». Проверяем все входы. */
+const decHtmlSrc = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+const decSwSrc = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
+check("в боковом меню есть пункт «Судебные решения»",
+  /data-nav="decisions"[^>]*data-href="#\/decisions"|data-href="#\/decisions"[^>]*data-nav="decisions"/.test(decHtmlSrc) &&
+  /id="decCount"/.test(decHtmlSrc) && /\$\("#decCount"\)/.test(decAppSrc),
+  "иначе раздел доступен только по прямому адресу");
+check("пункт меню подсвечивается и на списке, и на карточке",
+  /k === "decisions" && \(n === "decisions" \|\| n === "decision"\)/.test(decAppSrc),
+  "иначе активный пункт гаснет при открытии решения");
+check("номер дела ищется прямо из строки поиска",
+  /function decisionHits\(/.test(decAppSrc) &&
+  /decisionHits\(q, 2, true\)/.test(decAppSrc) &&
+  /Судебные решения ВС РФ<\/div>/.test(decAppSrc),
+  "«47-АПУ16-9» не лежит в RF_IDX — без отдельного сопоставления подсказки пусты");
+check("в выдаче поиска решения идут своим блоком, а не нормами",
+  /function decisionSearchBlock\(/.test(decAppSrc) &&
+  /var decBlock = decisionSearchBlock\(q\)/.test(decAppSrc) &&
+  /head \+ decBlock \+ relaxed/.test(decAppSrc) &&
+  /head \+ decBlock \+ srcBlock/.test(decAppSrc) &&
+  /return '<div class="related" data-go="#\/decision\//.test(decAppSrc),
+  "карточка .result попала бы в счётчик результатов по статьям");
+check("на главной два входа в раздел — чип и плитка",
+  /data-go="#\/decisions">' \+ ic\("scales"\) \+ "Решения ВС РФ/.test(decAppSrc) &&
+  (decAppSrc.match(/toolLink\("scales", "Судебные решения"/g) || []).length === 1,
+  "плитка одна, иначе смоук-тест главной видит дубль");
+check("воркер не держит привязанные к старой сборке копии ?v=",
+  /searchParams\.has\("v"\)/.test(decSwSrc) && /c\.delete\(r\)/.test(decSwSrc) &&
+  /k !== CACHE/.test(decSwSrc),
+  "иначе зашедший по старому ?v= никогда не увидит новый раздел");
+
 /* 6 --------------------------------------------------------------- шаблоны */
 console.log("\n6. Шаблоны документов");
 const tplProblems = [];

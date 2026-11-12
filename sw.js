@@ -28,7 +28,9 @@
 
    Любая ошибка кеша глушится: воркер не должен ломать загрузку страницы.
    Новый воркер забирает управление сразу (skipWaiting + clientsClaim), а
-   старые кеши удаляются при активации.
+   старые кеши удаляются при активации. Там же вычищаются копии с меткой
+   ?v=<сборка>: иначе зашедший по старому версионному адресу никогда не
+   увидел бы новую разметку и новые разделы.
    ========================================================================= */
 
 "use strict";
@@ -49,7 +51,23 @@ self.addEventListener("activate", function (e) {
   e.waitUntil((function () {
     return caches.keys().then(function (keys) {
       return Promise.all(keys.map(function (k) {
-        return k === CACHE ? null : caches.delete(k);
+        if (k !== CACHE) return caches.delete(k);  // кеши старых стратегий — целиком
+        /* Адреса с ?v=<отпечаток> считаются неизменяемыми и отдаются из кеша
+           БЕЗ запроса в сеть. Если читатель когда-то нажал «Обновить» и
+           остался на этом адресе, все файлы с той же меткой навсегда
+           застыли на старой сборке: новые разделы у него не появлялись,
+           даже когда обновление приложения уже выложено. При смене воркера
+           выкидываем ТОЛЬКО такие, привязанные к сборке, копии — обычные
+           адреса (без ?v=) оставляем, иначе человек без сети разом
+           потерял бы весь офлайн-запас базы. */
+        return caches.open(k).then(function (c) {
+          return c.keys().then(function (reqs) {
+            return Promise.all(reqs.filter(function (r) {
+              try { return new URL(r.url).searchParams.has("v"); }
+              catch (err) { return false; }
+            }).map(function (r) { return c.delete(r); }));
+          });
+        });
       }));
     }).then(function () {
       return self.clients.claim();

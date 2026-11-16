@@ -842,6 +842,41 @@ check("воркер не держит привязанные к старой с�
   /k !== CACHE/.test(decSwSrc),
   "иначе зашедший по старому ?v= никогда не увидит новый раздел");
 
+/* 5i ------------------------------------------- обзор, выпавший из каталога */
+console.log("\n5i. Обзор, выпавший из каталога");
+
+/* 14.11.2026 каталог Президиума перестал показывать четыре обзора 2020 года,
+   хотя их страницы отдавали полный текст. Загрузчик их просто не видел, и
+   ночная сборка три ночи падала на стороже потери источников в
+   tools/build-data.js. Теперь опубликованный обзор догружается по прямой
+   ссылке из реестра, а если и страница не отдалась — берётся из data/full. */
+const revSrc = fs.readFileSync(path.join(ROOT, "tools", "fetch-reviews.js"), "utf8");
+const revRefetchAt = revSrc.indexOf("нет в каталоге");
+check("обзор, выпавший из каталога, догружается по прямой ссылке реестра",
+  /const gone = Object\.keys\(published\)/.test(revSrc) &&
+  /url: c\.source_url/.test(revSrc) && revRefetchAt !== -1 &&
+  /догружен по прямой ссылке/.test(revSrc) && /done\.push\(res\)/.test(revSrc),
+  "иначе один исчезнувший из каталога обзор останавливает весь ночной прогон");
+check("если страница не отдалась — текст берётся из опубликованной базы",
+  /function restoreFromPublished\(/.test(revSrc) &&
+  /data", "full"/.test(revSrc) && /RF_FULL/.test(revSrc) &&
+  /restored_from_base: true/.test(revSrc),
+  "vendor/ в git нет: у ночной сборки прошлого набора нет вовсе");
+check("идентификатор восстановленного обзора не пересчитывается",
+  /res\.app_id = c\.id/.test(revSrc) &&
+  /refetched\.forEach\(\(r\) => \{ keptSlug\[r\.slug\] = 1/.test(revSrc),
+  "иначе ссылки и закладки на обзор увели бы в другой документ");
+check("если не помогли ни страница, ни база — прогон красный",
+  /failed\.push\(row\)/.test(revSrc) && /if \(failed\.length && !prev\.length\)/.test(revSrc));
+/* RETIRED без зеркальной записи в ALLOWED_LOSS — тупик: загрузчик забудет про
+   обзор, а сторож реестра не даст его удалить и уронит сборку данных. */
+const revRetBlock = (revSrc.match(/const RETIRED = \{[\s\S]*?\n\};/) || [""])[0];
+const revRetired = (revRetBlock.match(/"[a-z0-9-]+"\s*:/g) || [])
+  .map((s) => s.replace(/["\s:]/g, ""));
+check("каждый убранный обзор продублирован в ALLOWED_LOSS",
+  revRetired.every((id) => lossBlock.indexOf('"' + id + '"') !== -1),
+  revRetired.length ? "не продублированы: " + revRetired.join(", ") : "список пуст");
+
 /* 6 --------------------------------------------------------------- шаблоны */
 console.log("\n6. Шаблоны документов");
 const tplProblems = [];

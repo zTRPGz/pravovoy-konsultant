@@ -35,6 +35,14 @@
    Совсем новый документ, свёрстанный деревом, в набор не попадает: собрать
    его нечем.
 
+   Отдельный случай — документ, который каталог перестал показывать совсем.
+   14.11.2026 из каталога Президиума пропали четыре обзора 2020 года, хотя их
+   страницы были живы и отдавали полный текст. Такой обзор догружается по
+   прямой ссылке из реестра (data/registry.js), как Пленум в
+   tools/fetch-plenums.js; если и страница не отдалась — текст берётся из
+   опубликованной базы (data/full/<id>.js). Идентификатор при этом не
+   пересчитывается: это тот же документ, и его id держат ссылки и закладки.
+
    ---------------------------------------------------------------------------
    Результат: vendor/ruslaw/reviews.json — форма, совместимая с plenums.json
    (kind «review», режим разбора «plain» в tools/build-data.js).
@@ -50,7 +58,9 @@
 
 const fs = require("fs");
 const path = require("path");
+const vm = require("vm");
 const P = require("./fetch-plenums.js");
+const stableIds = require("./lib/stable-ids.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT, "vendor", "ruslaw");
@@ -528,6 +538,93 @@ async function buildOne(row) {
   };
 }
 
+/* --------------------------------------- восстановление из базы сайта */
+
+/* Почему это нужно. Портал постепенно переводит обзоры на вёрстку «дерево
+   подстраниц», собрать которую нельзя (см. заголовок файла). Локально спасает
+   прошлый набор в vendor/, но в git его нет: ночная сборка идёт на чистой
+   копии, и у неё прошлого текста нет вовсе. 14–16.11.2026 так пропали четыре
+   обзора 2020 года (усыновление детей, противодействие коррупции, привлечение
+   к административной ответственности, споры о реализации имущества), и
+   сборка три ночи подряд падала на стороже потери источников в
+   tools/build-data.js.
+
+   Опубликованная база — тот же самый текст, уже разобранный и проверенный
+   аудитом: берём его из data/registry.js и data/full/<id>.js. Терять обзор
+   из-за смены вёрстки на портале нельзя, а выдумывать нумерацию нельзя тем
+   более. */
+
+/* Навсегда убранные с портала обзоры: id → причина. Запись здесь означает
+   «не догружать и не восстанавливать». Её id ОБЯЗАТЕЛЬНО вносят ещё и в
+   ALLOWED_LOSS в tools/build-data.js: иначе сторож потери источников уронит
+   сборку — он сравнивает реестр с прошлым и о таком удалении не знает. */
+const RETIRED = {
+  /* "obzor-...": "причина удаления" */
+};
+
+/* slug документа → запись реестра (только обзоры, у которых есть ссылка). */
+function publishedReviews() {
+  const map = Object.create(null);
+  let codes = [];
+  try {
+    const ctx = { window: {} };
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(path.join(ROOT, "data", "registry.js"), "utf8"), ctx);
+    codes = ctx.window.RF_CODES || [];
+  } catch (e) {
+    return map;
+  }
+  codes.forEach(function (c) {
+    if (c.kind !== "review" || !c.source_url) return;
+    map[stableIds.slugTail(c.source_url)] = c;
+  });
+  return map;
+}
+
+/* Собирает запись обзора из опубликованных данных. Возвращает null, если
+   документа в базе нет или текст пуст, — тогда вызывающий считает пропуск
+   потерей и валит прогон. */
+function restoreFromPublished(slug, meta) {
+  if (!meta || !meta.id) return null;
+  const file = path.join(ROOT, "data", "full", meta.id + ".js");
+  if (!fs.existsSync(file)) return null;
+  let rows;
+  try {
+    const ctx = { window: {} };
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(file, "utf8"), ctx);
+    rows = (ctx.window.RF_FULL || {})[meta.id] || [];
+  } catch (e) {
+    return null;
+  }
+  /* Формат строки data/full: [номер, название, глава, редакция, текст]. */
+  const arts = rows.map(function (r) {
+    return { number: r[0], title: r[1], chapter: r[2], text: r[4] };
+  }).filter(function (a) { return a && a.text; });
+  if (!arts.length) return null;
+  return {
+    slug: slug,
+    app_id: meta.id,
+    number: meta.number || "",
+    adopted: meta.adopted || "",
+    redaction_date: meta.redaction || meta.adopted || "",
+    name: meta.dataset || meta.short,
+    short: meta.short,
+    full: meta.full,
+    organ: "Президиум Верховного Суда Российской Федерации",
+    docstate: meta.docstate || "Действует",
+    branch: meta.branch || "Судебная практика",
+    source_url: meta.source_url,
+    license: "текст нормативного правового акта; авторским правом не охраняется (п. 6 ст. 1259 ГК РФ)",
+    fetched_at: new Date().toISOString(),
+    n_articles: arts.length,
+    articles: arts,
+    /* Метка источника записи: по ней видно, что текст взят из базы, а не
+       скачан в этом прогоне. В приложение и в реестр она не попадает. */
+    restored_from_base: true
+  };
+}
+
 /* ------------------------------------------------- проверка актуальности */
 
 async function checkFreshness() {
@@ -615,7 +712,9 @@ async function main() {
   const done = [];
   const skipped = [];
   const kept = [];   // пропуск, но прошлый текст на месте — документ не теряем
+  const restored = [];  // пропуск, но текст взят из опубликованной базы
   const failed = [];
+  const published = publishedReviews();
   for (let i = 0; i < take.length; i++) {
     const r = take[i];
     process.stdout.write("[" + (i + 1) + "/" + take.length + "] " + r.slug.slice(0, 56) + " … ");
@@ -637,8 +736,23 @@ async function main() {
         done.push(prevBySlug[r.slug]);
         continue;
       }
+      /* Прошлого набора нет (ночная сборка на чистой копии), но документ уже
+         опубликован — берём его текст из базы. Иначе смена вёрстки на портале
+         выбивала бы обзор из приложения. Ключ — хвост адреса: в каталоге slug
+         идёт с префиксом «law/», в реестре — без него. */
+      const pub = published[stableIds.slugTail(r.slug)];
+      const back = restoreFromPublished(r.slug, pub);
+      if (back) {
+        console.log("пропуск · восстановлен из опубликованной базы · " + res.skip);
+        restored.push(r);
+        done.push(back);
+        continue;
+      }
       console.log("пропуск · " + res.skip);
       skipped.push(r);
+      /* Опубликованный обзор, который не удалось ни скачать, ни восстановить, —
+         это потеря источника: валим прогон, чтобы не публиковать базу с дырой. */
+      if (pub) failed.push(r);
       continue;
     }
     if (res.error) {
@@ -665,6 +779,55 @@ async function main() {
     }
   }
 
+  /* --- опубликованные обзоры, выпавшие из каталога ---------------------
+     Каталог Президиума иногда перестаёт показывать документ, хотя его
+     страница жива (так 14.11.2026 исчезли четыре обзора 2020 года). Раньше
+     такой обзор просто не попадал в набор, и ночная сборка падала на стороже
+     потери источников. Догружаем по прямой ссылке из реестра — тем же
+     приёмом, что и Пленум в tools/fetch-plenums.js. */
+  const refetched = [];
+  if (!PROBE) {
+    const seenTails = Object.create(null);
+    rows.forEach((r) => { seenTails[stableIds.slugTail(r.slug)] = 1; });
+    const gone = Object.keys(published)
+      .filter((t) => !seenTails[t] && !RETIRED[published[t].id]);
+    gone.sort();
+    for (let i = 0; i < gone.length; i++) {
+      const t = gone[i], c = published[t];
+      const row = {
+        slug: "law/" + t,
+        url: c.source_url,
+        title: c.dataset || c.short || t
+      };
+      process.stdout.write("нет в каталоге · " + t.slice(0, 48) + " … ");
+      let res;
+      try {
+        res = await buildOne(row);
+      } catch (e) {
+        res = { error: String(e && e.message || e) };
+      }
+      if (!res.skip && !res.error) {
+        /* Идентификатор не пересчитываем: это тот же документ, что уже в базе,
+           и его id держат ссылки, закладки и лента изменений. */
+        res.app_id = c.id;
+        console.log("догружен по прямой ссылке · " + res.n_articles + " п.");
+        refetched.push(row);
+        done.push(res);
+        continue;
+      }
+      const back = restoreFromPublished(row.slug, c);
+      if (back) {
+        console.log("восстановлен из опубликованной базы · " +
+          (res.skip || res.error));
+        restored.push(row);
+        done.push(back);
+        continue;
+      }
+      console.log("ПОТЕРЯ: " + (res.skip || res.error));
+      failed.push(row);
+    }
+  }
+
   if (PROBE) return;
 
   if (!done.length) { console.error("Нечего сохранять."); process.exitCode = 1; return; }
@@ -675,7 +838,10 @@ async function main() {
      Документы, взятые из прошлого набора, уже разведены прошлым прогоном:
      их id не пересчитываем, иначе «obzor-1-2026-2» стал бы «-2-2». */
   const keptSlug = Object.create(null);
+  const restoredSlug = Object.create(null);
   kept.forEach((r) => { keptSlug[r.slug] = 1; });
+  restored.forEach((r) => { keptSlug[r.slug] = 1; restoredSlug[r.slug] = 1; });
+  refetched.forEach((r) => { keptSlug[r.slug] = 1; restoredSlug[r.slug] = 1; });
   const used = Object.create(null);
   const bySlug = done.slice().sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
   bySlug.forEach((d) => {
@@ -692,7 +858,8 @@ async function main() {
     if (!keptSlug[d.slug]) return;
     let id = d.app_id, k = 2;
     while (used[id]) id = d.app_id + "-" + k++;
-    if (id !== d.app_id) console.log("  переименован (прошлый текст): " + d.app_id + " → " + id);
+    if (id !== d.app_id) console.log("  переименован (" +
+      (restoredSlug[d.slug] ? "текст из базы" : "прошлый текст") + "): " + d.app_id + " → " + id);
     used[id] = 1;
     d.app_id = id;
   });
@@ -730,7 +897,9 @@ async function main() {
   console.log("  пунктов: " + done.reduce((s, d) => s + d.n_articles, 0));
   console.log("  знаков текста: " + chars.toLocaleString("ru-RU"));
   console.log("  пропущено (текст по подстраницам): " + skipped.length +
-    (kept.length ? " · из них с прошлым текстом: " + kept.length : ""));
+    (kept.length ? " · из них с прошлым текстом: " + kept.length : "") +
+    (restored.length ? " · восстановлено из базы: " + restored.length : ""));
+  if (refetched.length) console.log("  догружено по прямой ссылке (нет в каталоге): " + refetched.length);
   if (failed.length) console.log("  не скачалось: " + failed.length + " (" + failed.map((r) => r.slug).join(", ") + ")");
   console.log("  каталог раздела: " + P.BASE + CATALOGUE);
 

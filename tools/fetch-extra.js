@@ -26,6 +26,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const vm = require("vm");
 
 const ROOT = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT, "vendor", "ruslaw");
@@ -823,6 +824,115 @@ async function collectMeta() {
   return out;
 }
 
+/* -------------------------------------------------- откат к опубликованной базе
+
+   Портал actual.pravo.gov.ru отвечает рывками: в ночах на 24–26.11.2026 шаг
+   падал то через 3 минуты (исключение на первом же запросе, Конституция), то
+   после получаса (сторож ручных списков не досчитался документа, который
+   портал не отдал). В git сырые выгрузки не хранятся, поэтому прошлого текста
+   на чистой копии нет — но он есть в опубликованной базе сайта, в
+   data/full/<id>.js. Это тот же проверенный текст, уже прошедший аудит.
+   Откат включается только когда портал не отдал акт; успешная загрузка
+   всегда имеет приоритет. */
+
+let publishedIndex = null;
+function publishedCodes() {
+  if (publishedIndex) return publishedIndex;
+  publishedIndex = Object.create(null);
+  try {
+    const ctx = { window: {} };
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(path.join(ROOT, "data", "registry.js"), "utf8"), ctx);
+    (ctx.window.RF_CODES || []).forEach(function (c) {
+      if (c && c.id) publishedIndex[c.id] = c;
+    });
+  } catch (e) {
+    /* Реестр испорчен — откат просто не сработает, сторож честно упадёт. */
+  }
+  return publishedIndex;
+}
+
+/* Часть EXTRA_LAWS дублирует законы из открытого набора данных: build-data
+   их всё равно пропускает как двойников, поэтому отдельного data/full/<id>.js
+   у них нет. Для этих законов запасной текст лежит в сырой выгрузке
+   vendor/ruslaw/laws/*.json, которую шаг fetch-sources делает до нас. */
+function restoreFromDataset(f, meta) {
+  try {
+    const files = fs.readdirSync(SRC_LAWS).filter(x => /\.json$/.test(x));
+    for (const file of files) {
+      const raw = JSON.parse(fs.readFileSync(path.join(SRC_LAWS, file), "utf8"));
+      if (String(raw.number || "") !== String(f.number || "")) continue;
+      if (!nameSimilar(f.name, raw.name || "")) continue;
+      const arts = (raw.articles || []).filter(a => a && a.text).map(function (a) {
+        return { number: a.number, title: a.title, chapter: a.chapter, text: a.text };
+      });
+      if (!arts.length) continue;
+      return {
+        slug: raw.slug || file.replace(/\.json$/, ""),
+        name: raw.name || f.name,
+        number: raw.number || f.number,
+        adopted: f.date,
+        docstate: raw.docstate || "",
+        redaction_date: raw.redaction_date || "",
+        source_url: raw.source_url || "",
+        license: raw.license || "текст нормативного правового акта; авторским правом не охраняется (п. 6 ст. 1259 ГК РФ)",
+        fetched_at: new Date().toISOString(),
+        n_articles: arts.length,
+        articles: arts,
+        restored_from_dataset: true
+      };
+    }
+  } catch (e) {
+    /* Нет выгрузки — отката не будет, сторож честно упадёт. */
+  }
+  return null;
+}
+
+/* id ФКЗ считается так же, как в tools/build-data.js: по номеру и году
+   принятия. В списке FKZ_LIST отдельного id нет. */
+function fkzId(f) {
+  const num = String(f.number || "").replace(/[^0-9]/g, "") || "0";
+  const year = (String(f.date || "").match(/(\d{4})$/) || [, "0000"])[1];
+  return "fkz" + num + "-" + year;
+}
+
+function restoreFromPublished(id, meta) {
+  if (!id) return null;
+  const file = path.join(ROOT, "data", "full", id + ".js");
+  if (!fs.existsSync(file)) return null;
+  let rows;
+  try {
+    const ctx = { window: {} };
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(file, "utf8"), ctx);
+    rows = (ctx.window.RF_FULL || {})[id] || [];
+  } catch (e) {
+    return null;
+  }
+  /* Формат строки data/full: [номер, название, глава, редакция, текст]. */
+  const arts = rows.map(function (r) {
+    return { number: r[0], title: r[1], chapter: r[2], text: r[4] };
+  }).filter(function (a) { return a && a.text; });
+  if (!arts.length) return null;
+  const c = publishedCodes()[id] || {};
+  const out = {
+    slug: c.dataset || meta.short || id,
+    name: c.dataset || meta.name || "",
+    number: c.number || meta.number || "",
+    adopted: c.adopted || meta.adopted || "",
+    docstate: c.docstate || "Действует",
+    redaction_date: c.redaction || meta.redaction_date || "",
+    source_url: c.source_url || "",
+    license: "текст нормативного правового акта; авторским правом не охраняется (п. 6 ст. 1259 ГК РФ)",
+    fetched_at: new Date().toISOString(),
+    n_articles: arts.length,
+    articles: arts,
+    restored_from_base: true
+  };
+  Object.keys(meta || {}).forEach(function (k) { out[k] = meta[k]; });
+  return out;
+}
+
 /* ---------------------------------------------------------------- запуск */
 
 /* При подключении как модуля (для тестов) скрипт не выполняется */
@@ -889,10 +999,25 @@ function reportMissing(label, list, loaded) {
     console.log("Конституция: уже загружена (vendor/ruslaw/konst.json)");
   } else {
     console.log("Конституция Российской Федерации…");
-    const d = await fetchDoc(await findByExactName(KONST_NAME), KONST_NAME,
-      { short: "Конституция РФ", kind: "Конституция Российской Федерации", branch: "Конституционное право" });
-    if (d.error) { console.log("  ОШИБКА: " + d.error); }
-    else { fs.writeFileSync(konstFile, JSON.stringify(d, null, 1), "utf8"); console.log("  статей: " + d.n_articles + ", редакция " + d.redaction_date); }
+    const kExtra = { short: "Конституция РФ", kind: "Конституция Российской Федерации", branch: "Конституционное право" };
+    let d;
+    try {
+      d = await fetchDoc(await findByExactName(KONST_NAME), KONST_NAME, kExtra);
+    } catch (e) {
+      d = { error: e.message };
+    }
+    if (d.error) {
+      /* Портал может не ответить три раза подряд — это не повод валить всю
+         ночную сборку: Constitution есть в опубликованной базе. */
+      const why = d.error;
+      const old = restoreFromPublished("kons", kExtra);
+      if (old) { d = old; console.log("  восстановлено из базы: " + why); }
+      else console.log("  ОШИБКА: " + why);
+    }
+    if (!d.error) {
+      fs.writeFileSync(konstFile, JSON.stringify(d, null, 1), "utf8");
+      console.log("  статей: " + d.n_articles + ", редакция " + d.redaction_date);
+    }
   }
 
   // 2. Федеральные конституционные законы
@@ -903,14 +1028,21 @@ function reportMissing(label, list, loaded) {
     console.log("\nФедеральные конституционные законы: " + FKZ_LIST.length);
     const list = [];
     for (const f of FKZ_LIST) {
+      const fExtra = { short: f.short, kind: "Федеральный конституционный закон", branch: "Конституционное право" };
       try {
         const found = await findByNumberDate(f.number, f.date);
-        const d = await fetchDoc(found, f.name, { short: f.short, kind: "Федеральный конституционный закон", branch: "Конституционное право" });
+        let d = await fetchDoc(found, f.name, fExtra);
+        if (d.error) {
+          const old = restoreFromPublished(fkzId(f), fExtra);
+          if (old) { d = old; console.log("  !    восстановлено из базы: " + f.short); }
+        }
         if (d.error) { console.log("  —    " + f.number + " " + f.date + "  (" + d.error + ")"); continue; }
         list.push(d);
         console.log("  OK   " + (d.number + " от " + d.adopted).padEnd(22) + " статей " + String(d.n_articles).padStart(3) + "  ред. " + d.redaction_date + "  " + d.name);
       } catch (e) {
-        console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
+        const old = restoreFromPublished(fkzId(f), fExtra);
+        if (old) { list.push(old); console.log("  !    восстановлено из базы после " + e.message + ": " + f.short); }
+        else console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
       }
     }
     fs.writeFileSync(fkzFile, JSON.stringify(list, null, 1), "utf8");
@@ -931,17 +1063,29 @@ function reportMissing(label, list, loaded) {
   console.log("\nДополнительные федеральные законы: в списке " + EXTRA_LAWS.length +
     ", загружено " + extraList.length + ", догружаем " + extraTodo.length);
   for (const f of extraTodo) {
+    const lawExtra = { id: f.id, short: f.short, branch: f.branch, kind: "Федеральный закон" };
     try {
       const kindRe = /^Основы законодательства/i.test(f.name) ? OSN_RE : FZ_RE;
       const found = await findByNumberDate(f.number, f.date, kindRe);
-      const d = await fetchDoc(found, f.name, { id: f.id, short: f.short, branch: f.branch, kind: "Федеральный закон" });
+      let d = await fetchDoc(found, f.name, lawExtra);
+      if (d.error && !NO_TEXT_YET[f.id]) {
+        const old = restoreFromPublished(f.id, lawExtra) || restoreFromDataset(f, lawExtra);
+        if (old) { d = old; console.log("  !    восстановлено из базы: " + f.short); }
+      }
       if (d.error) { console.log("  —    " + f.number + " " + f.date + "  (" + d.error + ")"); continue; }
       d.app_id = f.id;
       const i = extraList.findIndex(x => x && x.app_id === f.id);
       if (i === -1) extraList.push(d); else extraList[i] = d;
       console.log("  OK   " + (d.number + " от " + d.adopted).padEnd(22) + " статей " + String(d.n_articles).padStart(3) + "  ред. " + d.redaction_date + "  " + f.short);
     } catch (e) {
-      console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
+      const old = restoreFromPublished(f.id, lawExtra) || restoreFromDataset(f, lawExtra);
+      if (old) {
+        old.app_id = f.id;
+        const i = extraList.findIndex(x => x && x.app_id === f.id);
+        if (i === -1) extraList.push(old); else extraList[i] = old;
+        console.log("  !    восстановлено из базы после " + e.message + ": " + f.short);
+      }
+      else console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
     }
   }
   if (extraTodo.length) {
@@ -974,16 +1118,28 @@ function reportMissing(label, list, loaded) {
   console.log("\nПостановления Правительства: в списке " + DECREES.length +
     ", загружено " + decList.length + ", догружаем " + decTodo.length);
   for (const f of decTodo) {
+    const decExtra = { id: f.id, short: f.short, branch: f.branch, kind: "Постановление Правительства Российской Федерации" };
     try {
       const found = await findByNumberDate(f.number, f.date, PG_RE);
-      const d = await fetchDoc(found, f.name, { id: f.id, short: f.short, branch: f.branch, kind: "Постановление Правительства Российской Федерации" }, paragraphsToItems);
+      let d = await fetchDoc(found, f.name, decExtra, paragraphsToItems);
+      if (d.error && !NO_TEXT_YET[f.id]) {
+        const old = restoreFromPublished(f.id, decExtra);
+        if (old) { d = old; console.log("  !    восстановлено из базы: " + f.short); }
+      }
       if (d.error) { console.log("  —    " + f.number + " " + f.date + "  (" + d.error + ")"); continue; }
       d.app_id = f.id;
       const i = decList.findIndex(x => x && x.app_id === f.id);
       if (i === -1) decList.push(d); else decList[i] = d;
       console.log("  OK   " + (d.number + " от " + d.adopted).padEnd(22) + " пунктов " + String(d.n_articles).padStart(4) + "  ред. " + d.redaction_date + "  " + f.short);
     } catch (e) {
-      console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
+      const old = restoreFromPublished(f.id, decExtra);
+      if (old) {
+        old.app_id = f.id;
+        const i = decList.findIndex(x => x && x.app_id === f.id);
+        if (i === -1) decList.push(old); else decList[i] = old;
+        console.log("  !    восстановлено из базы после " + e.message + ": " + f.short);
+      }
+      else console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
     }
   }
   if (decTodo.length || decDropped) {
@@ -1004,15 +1160,22 @@ function reportMissing(label, list, loaded) {
     console.log("\nУказы Президента: " + UKAZY.length);
     const list = [];
     for (const f of UKAZY) {
+      const ukazExtra = { id: f.id, short: f.short, branch: f.branch, kind: "Указ Президента Российской Федерации" };
       try {
         const found = await findByNumberDate(f.number, f.date, UKAZ_RE);
-        const d = await fetchDoc(found, f.name, { id: f.id, short: f.short, branch: f.branch, kind: "Указ Президента Российской Федерации" }, paragraphsToItems);
+        let d = await fetchDoc(found, f.name, ukazExtra, paragraphsToItems);
+        if (d.error) {
+          const old = restoreFromPublished(f.id, ukazExtra);
+          if (old) { d = old; console.log("  !    восстановлено из базы: " + f.short); }
+        }
         if (d.error) { console.log("  —    " + f.number + " " + f.date + "  (" + d.error + ")"); continue; }
         d.app_id = f.id;
         list.push(d);
         console.log("  OK   " + (d.number + " от " + d.adopted).padEnd(22) + " пунктов " + String(d.n_articles).padStart(4) + "  ред. " + d.redaction_date + "  " + f.short);
       } catch (e) {
-        console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
+        const old = restoreFromPublished(f.id, ukazExtra);
+        if (old) { old.app_id = f.id; list.push(old); console.log("  !    восстановлено из базы после " + e.message + ": " + f.short); }
+        else console.log("  ERR  " + f.number + " " + f.date + " -> " + e.message);
       }
     }
     fs.writeFileSync(ukazFile, JSON.stringify(list, null, 1), "utf8");
@@ -1026,16 +1189,27 @@ function reportMissing(label, list, loaded) {
   console.log("\nЗаплатки с официального портала: " + PATCH.length);
   for (const f of PATCH) {
     const out = path.join(PATCH_DIR, f.id + ".json");
+    const patchExtra = { id: f.id, short: f.short, branch: f.branch, kind: "Федеральный закон" };
     if (fs.existsSync(out) && !FORCE) { console.log("  есть  " + f.id); continue; }
     try {
       const found = await findByNumberDate(f.number, f.date, FZ_RE);
-      const d = await fetchDoc(found, f.name, { id: f.id, short: f.short, branch: f.branch, kind: "Федеральный закон" });
+      let d = await fetchDoc(found, f.name, patchExtra);
+      if (d.error) {
+        const old = restoreFromPublished(f.id, patchExtra);
+        if (old) { d = old; console.log("  !    восстановлено из базы: " + f.short); }
+      }
       if (d.error) { console.log("  —    " + f.id + "  (" + d.error + ")"); continue; }
       d.app_id = f.id;
       fs.writeFileSync(out, JSON.stringify(d, null, 1), "utf8");
       console.log("  OK   " + (d.number + " от " + d.adopted).padEnd(22) + " статей " + String(d.n_articles).padStart(3) + "  " + f.short);
     } catch (e) {
-      console.log("  ERR  " + f.id + " -> " + e.message);
+      const old = restoreFromPublished(f.id, patchExtra);
+      if (old) {
+        old.app_id = f.id;
+        fs.writeFileSync(out, JSON.stringify(old, null, 1), "utf8");
+        console.log("  !    восстановлено из базы после " + e.message + ": " + f.short);
+      }
+      else console.log("  ERR  " + f.id + " -> " + e.message);
     }
   }
   reportMissing("заплат к набору данных", PATCH,
